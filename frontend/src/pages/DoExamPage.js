@@ -1,17 +1,14 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import api from "../api"; // Pastikan path ini benar
+import api from "../api";
 import Cookies from "js-cookie";
 
-// Impor ikon dari react-icons
-// Pastikan Anda sudah menginstalnya: npm install react-icons
 import { FiFlag, FiClock, FiChevronLeft, FiChevronRight, FiCheckCircle, FiAlertTriangle } from 'react-icons/fi';
 
 function DoExamPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  // State management dari kode Anda
   const [examTitle, setExamTitle] = useState("Memuat Ujian...");
   const [soalList, setSoalList] = useState([]);
   const [showResult, setShowResult] = useState(false);
@@ -23,7 +20,6 @@ function DoExamPage() {
   const [waktuSisa, setWaktuSisa] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch data saat modal start ditutup
   useEffect(() => {
     if (!showStartModal) {
       fetchSoal();
@@ -31,19 +27,14 @@ function DoExamPage() {
     }
   }, [showStartModal]);
 
-  // Timer countdown
   useEffect(() => {
-    // Jangan mulai timer jika:
-    // - showStartModal masih true
-    // - soalList belum dimuat
-    // - waktuSisa belum diset (0 atau null)
     if (showStartModal || soalList.length === 0 || waktuSisa <= 0) return;
   
     const timer = setInterval(() => {
       setWaktuSisa((s) => {
         if (s <= 1) {
-          clearInterval(timer); // Hentikan timer
-          handleSelesaiUjian();  // Akhiri ujian
+          clearInterval(timer);
+          handleSelesaiUjian();
           return 0;
         }
         return s - 1;
@@ -60,12 +51,11 @@ function DoExamPage() {
       setSoalList(res.data);
 
       const config = await api.get(`/courses/${id}`);
-      setExamTitle(config.data.title || "Ujian Kompetensi"); // Ambil judul dari API
+      setExamTitle(config.data.title || "Ujian Kompetensi");
       const waktu = config.data.waktu || 30;
       setWaktuSisa(waktu * 60);
     } catch (err) {
       console.error("Gagal ambil soal:", err);
-      // Handle error, mungkin navigasi kembali atau tampilkan pesan error
     } finally {
         setIsLoading(false);
     }
@@ -110,7 +100,7 @@ function DoExamPage() {
       await api.post(`/courses/${id}/submit`, {
         user_id,
         jawaban: dataJawaban,
-        attemp: 1 // Hardcoded 1 dulu, nanti bisa dikembangkan ambil dari backend
+        attemp: 1
       });
   
       return true;
@@ -161,7 +151,6 @@ function DoExamPage() {
 
   const currentSoal = soalList[currentIndex];
   
-  // Parsing Opsi dengan aman
   const opsiArray = currentSoal ? (
     typeof currentSoal.opsi === "string" 
     ? JSON.parse(currentSoal.opsi) 
@@ -176,8 +165,6 @@ function DoExamPage() {
     return `${jam}:${menit}:${dtk}`;
   };
 
-  // === Render ===
-
   if (showStartModal) {
     return (
       <div className="fixed inset-0 bg-gray-900 bg-opacity-60 flex justify-center items-center z-50">
@@ -187,7 +174,7 @@ function DoExamPage() {
           <p className="mb-6 text-gray-600">Pastikan koneksi internet Anda stabil. Setelah dimulai, waktu akan berjalan. Apakah Anda siap?</p>
           <div className="flex justify-center gap-4">
             <button
-              onClick={() => navigate(-1)} // Kembali ke halaman sebelumnya
+              onClick={() => navigate(-1)}
               className="px-6 py-2 rounded-lg font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
             >
               Kembali

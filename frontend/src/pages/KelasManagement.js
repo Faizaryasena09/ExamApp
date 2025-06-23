@@ -17,7 +17,6 @@ const KelasManagement = () => {
       setDaftarKelas(res.data);
     } catch (err) {
       console.error("Gagal fetch kelas:", err);
-      // Di aplikasi nyata, tampilkan notifikasi error
     } finally {
       setLoading(false);
     }
@@ -27,7 +26,6 @@ const KelasManagement = () => {
     fetchKelas();
   }, []);
   
-  // Fokus ke input saat mode edit aktif
   useEffect(() => {
     if (editId !== null && editInputRef.current) {
       editInputRef.current.focus();
@@ -42,7 +40,6 @@ const KelasManagement = () => {
     setIsSubmitting(true);
     try {
       const res = await api.post("/data/kelas", { nama_kelas: namaKelas });
-      // Tambahkan data baru ke state untuk update UI instan
       setDaftarKelas([...daftarKelas, res.data]);
       setNamaKelas("");
     } catch (err) {
@@ -56,9 +53,7 @@ const KelasManagement = () => {
   const handleHapus = async (id) => {
     if (!window.confirm("Anda yakin ingin menghapus kelas ini? Tindakan ini tidak dapat diurungkan.")) return;
 
-    // Simpan state lama jika request gagal
     const daftarKelasLama = [...daftarKelas];
-    // Hapus dari UI terlebih dahulu untuk UX yang lebih cepat
     setDaftarKelas(daftarKelas.filter((k) => k.id !== id));
 
     try {
@@ -66,7 +61,6 @@ const KelasManagement = () => {
     } catch (err) {
       console.error("Gagal hapus kelas:", err);
       alert("Gagal menghapus kelas.");
-      // Kembalikan state jika gagal
       setDaftarKelas(daftarKelasLama);
     }
   };
@@ -85,7 +79,6 @@ const KelasManagement = () => {
     if (!editNama.trim()) return;
     try {
       await api.put(`/data/kelas/${id}`, { nama_kelas: editNama });
-      // Update UI secara lokal
       setDaftarKelas(daftarKelas.map(k => k.id === id ? { ...k, nama_kelas: editNama } : k));
       handleBatalEdit();
     } catch (err) {
@@ -102,7 +95,6 @@ const KelasManagement = () => {
           <p className="text-slate-500 mt-1">Tambah, ubah, atau hapus daftar kelas yang tersedia.</p>
         </header>
 
-        {/* Card untuk form tambah kelas */}
         <div className="bg-white p-6 rounded-xl shadow-md mb-8">
           <form onSubmit={handleTambah} className="flex flex-col sm:flex-row gap-4 items-center">
             <div className="relative w-full">
@@ -126,7 +118,6 @@ const KelasManagement = () => {
           </form>
         </div>
 
-        {/* Tabel Daftar Kelas */}
         <div className="bg-white rounded-xl shadow-md overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">

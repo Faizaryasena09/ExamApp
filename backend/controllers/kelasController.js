@@ -7,7 +7,7 @@ exports.tambahKelas = async (req, res) => {
   }
 
   try {
-    const db = await getDb; // <--- PENTING: tunggu pool siap
+    const db = await getDb;
     const sql = "INSERT INTO kelas (nama_kelas) VALUES (?)";
     await db.query(sql, [nama_kelas]);
     res.status(201).json({ message: "Kelas berhasil ditambahkan" });
@@ -28,7 +28,6 @@ exports.getSemuaKelas = async (req, res) => {
   }
 };
 
-// Hapus kelas
 exports.hapusKelas = async (req, res) => {
     const { id } = req.params;
     try {
@@ -41,7 +40,6 @@ exports.hapusKelas = async (req, res) => {
     }
   };
   
-  // Rename kelas
   exports.ubahKelas = async (req, res) => {
     const { id } = req.params;
     const { nama_kelas } = req.body;

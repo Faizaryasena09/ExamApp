@@ -15,7 +15,7 @@ function UserFormModal({ user, kelasList, onClose, onSubmit }) {
       setForm({
         name: user.name || "",
         username: user.username || "",
-        password: "", // Password dikosongkan saat edit
+        password: "",
         role: user.role || "siswa",
         kelas: user.kelas || "",
       });

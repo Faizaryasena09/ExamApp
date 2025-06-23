@@ -10,7 +10,6 @@ function shuffleArray(array) {
       .map(({ item }) => item);
   }
 
-// ✅ Tambah course
 exports.createCourse = async (req, res) => {
     const {
       nama, pengajarId, kelas, tanggalMulai, tanggalSelesai,
@@ -50,7 +49,6 @@ exports.createCourse = async (req, res) => {
     }
   };  
 
-// ✅ Ambil semua courses (dengan filter)
 exports.getCourses = async (req, res) => {
     const { role, name } = req.cookies;
     if (!name || !role) return res.status(401).send("Unauthorized");
@@ -61,13 +59,11 @@ exports.getCourses = async (req, res) => {
       let query = "SELECT * FROM courses";
       const params = [];
   
-      // 🔍 Kalau guru, filter berdasarkan nama pengajar
       if (role === "guru") {
         query += " WHERE pengajar = ?";
         params.push(name);
       }
   
-      // 🔍 Kalau siswa, ambil kelas dari tabel users
       let siswaKelas = null;
       if (role === "siswa") {
         const [userRows] = await pool.query("SELECT kelas FROM users WHERE name = ?", [name]);
@@ -80,7 +76,6 @@ exports.getCourses = async (req, res) => {
   
       const [rows] = await pool.query(query, params);
   
-      // 🔄 Parse kelas course + filter sesuai siswa (kalau siswa)
       const result = rows
         .map((row) => {
           let kelasParsed = [];
@@ -107,7 +102,7 @@ exports.getCourses = async (req, res) => {
             return courseKelasLower.includes(siswaKelas);
           }
   
-          return true; // admin dan guru udah difilter dari query awal
+          return true;
         });
   
       res.json(result);
@@ -117,8 +112,6 @@ exports.getCourses = async (req, res) => {
     }
   };
   
-
-// ✅ Ambil detail 1 course
 exports.getCourseById = async (req, res) => {
     const courseId = req.params.id;
   
@@ -137,7 +130,6 @@ exports.getCourseById = async (req, res) => {
     }
   };  
 
-// ✅ Update konfigurasi course
 exports.updateCourse = async (req, res) => {
     const courseId = req.params.id;
     const {
@@ -196,7 +188,7 @@ exports.deleteCourse = async (req, res) => {
 };
 
 exports.simpanSoal = async (req, res) => {
-    const db = await dbPromise; // ✅ ini WAJIB!
+    const db = await dbPromise;
   
     const course_id = req.params.id;
     const { soal: soalList, acakSoal, acakJawaban } = req.body;
@@ -250,7 +242,7 @@ exports.simpanSoal = async (req, res) => {
       const result = await mammoth.extractRawText({ path: filePath });
       const text = result.value;
       const soalList = parseSoalFromText(text);
-      fs.unlinkSync(filePath); // Hapus file sementara
+      fs.unlinkSync(filePath);
       res.json({ soal: soalList });
     } catch (err) {
       console.error("❌ Gagal parsing Word:", err);
@@ -269,7 +261,6 @@ if (!userId || isNaN(userId)) {
     try {
       const pool = await dbPromise;
   
-      // Ambil konfigurasi course
       const [courseRows] = await pool.query(
         "SELECT maxPercobaan, useToken FROM courses WHERE id = ?",
         [courseId]
@@ -281,7 +272,6 @@ if (!userId || isNaN(userId)) {
   
       const course = courseRows[0];
   
-      // Cek jumlah percobaan tertinggi user
       const [jawabanRows] = await pool.query(
         "SELECT MAX(attemp) AS total FROM jawaban_siswa WHERE course_id = ? AND user_id = ?",
         [courseId, userId]
@@ -299,7 +289,6 @@ if (!userId || isNaN(userId)) {
     }
   };
   
-  // ✅ [2] Validasi token siswa
   exports.validateCourseToken = async (req, res) => {
     const courseId = req.params.id;
     const { token, user } = req.body;
@@ -347,7 +336,6 @@ if (!userId || isNaN(userId)) {
     try {
       const pool = await poolPromise;
   
-      // 🔢 Ambil attempt terakhir dari DB
       const [result] = await pool.query(
         `SELECT MAX(attemp) as last_attempt FROM jawaban_siswa WHERE user_id = ? AND course_id = ?`,
         [parsedUserId, course_id]
@@ -356,7 +344,6 @@ if (!userId || isNaN(userId)) {
       const lastAttempt = result?.[0]?.last_attempt || 0;
       const nextAttempt = lastAttempt + 1;
   
-      // 💾 Simpan jawaban (overwrite jawaban sebelumnya, tapi attempt tetap naik)
       for (const j of jawaban) {
         const soalId = parseInt(j.soal_id);
         const ans = String(j.jawaban || "").toUpperCase().trim();
@@ -447,7 +434,6 @@ if (!userId || isNaN(userId)) {
     }
   };
   
-  
   function parseSoalFromText(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     const soalList = [];
@@ -478,7 +464,6 @@ if (!userId || isNaN(userId)) {
       }
     });
   
-    // Simpan soal terakhir
     if (currentQuestion && currentAnswer && currentOptions.length >= 2) {
       soalList.push({
         soal: currentQuestion,

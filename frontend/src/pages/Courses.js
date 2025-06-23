@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Cookies from "js-cookie";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
-import { FiPlus, FiSearch, FiBookOpen, FiSettings, FiTrash2, FiChevronRight, FiAlertCircle, FiLoader } from "react-icons/fi"; // Import ikon
+import { FiPlus, FiSearch, FiBookOpen, FiSettings, FiTrash2, FiChevronRight, FiAlertCircle, FiLoader } from "react-icons/fi";
 
 function CoursesPage() {
   const [courses, setCourses] = useState([]);
@@ -13,7 +13,7 @@ function CoursesPage() {
   const [tokenInput, setTokenInput] = useState("");
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [selectedCourseId, setSelectedCourseId] = useState(null);
-  const [loading, setLoading] = useState(true); // State untuk loading
+  const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
   const role = Cookies.get("role");
@@ -21,7 +21,6 @@ function CoursesPage() {
   const userId = Cookies.get("user_id");
 
   useEffect(() => {
-    // Fungsi gabungan untuk fetch data awal
     const fetchInitialData = async () => {
       setLoading(true);
       try {
@@ -30,7 +29,7 @@ function CoursesPage() {
           const userRes = await api.get(`/users?name=${encodeURIComponent(name)}`);
           if (userRes.data && userRes.data.kelas) {
             setSiswaKelas(userRes.data.kelas);
-            await fetchCourses(userRes.data.kelas); // Langsung fetch dengan kelas siswa
+            await fetchCourses(userRes.data.kelas);
           }
         } else {
           await fetchCourses();
@@ -43,11 +42,10 @@ function CoursesPage() {
     };
 
     fetchInitialData();
-  }, [role, name]); // Dependensi yang relevan
+  }, [role, name]);
 
   const fetchCourses = async (kelasSiswa = null) => {
     try {
-      // Filter berdasarkan kelas siswa jika ada
       const url = kelasSiswa ? `/courses?kelas=${kelasSiswa}` : "/courses";
       const res = await api.get(url);
       setCourses(res.data);
@@ -65,7 +63,6 @@ function CoursesPage() {
     }
   };
   
-  // Logika filter tidak berubah, sudah efisien
   const filteredCourses = courses.filter((course) => {
     const matchKelas =
       selectedKelas === "all" ||
@@ -91,7 +88,7 @@ function CoursesPage() {
     try {
       await api.delete(`/courses/${id}`);
       alert("✅ Course berhasil dihapus");
-      setCourses(courses.filter(c => c.id !== id)); // Hapus dari state untuk UI yang reaktif
+      setCourses(courses.filter(c => c.id !== id));
     } catch (err) {
       console.error("Gagal hapus course:", err);
       alert("❌ Gagal menghapus course");
@@ -121,7 +118,7 @@ function CoursesPage() {
   };
 
   const handleSubmitToken = async (e) => {
-    e.preventDefault(); // Mencegah reload halaman jika di dalam form
+    e.preventDefault();
     if (!tokenInput) return;
 
     try {
@@ -142,7 +139,6 @@ function CoursesPage() {
     }
   };
 
-  // Render Indikator Loading
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-slate-50">
@@ -155,7 +151,6 @@ function CoursesPage() {
   return (
     <div className="bg-slate-50 min-h-screen p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* --- Header --- */}
         <header className="flex justify-between items-center mb-8 flex-wrap gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-800">Courses</h1>
@@ -172,7 +167,6 @@ function CoursesPage() {
           )}
         </header>
 
-        {/* --- Filter & Search --- */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           <div className="relative flex-grow">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -198,7 +192,6 @@ function CoursesPage() {
           </select>
         </div>
 
-        {/* --- Course Grid --- */}
         {filteredCourses.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-lg shadow-sm">
             <FiAlertCircle className="mx-auto text-5xl text-slate-400 mb-4" />
@@ -212,7 +205,6 @@ function CoursesPage() {
                 key={course.id}
                 className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-2xl hover:-translate-y-2"
               >
-                {/* Placeholder Gambar */}
                 <div className="h-40 bg-indigo-200 flex items-center justify-center">
                   <FiBookOpen className="text-5xl text-indigo-400" />
                 </div>
@@ -259,7 +251,6 @@ function CoursesPage() {
         )}
       </div>
 
-      {/* --- Modal Token --- */}
       {showTokenModal && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 transition-opacity duration-300"
         onClick={() => setShowTokenModal(false)}>

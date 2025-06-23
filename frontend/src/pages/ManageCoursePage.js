@@ -138,27 +138,23 @@ function ManageCoursePage() {
     if (!file || !file.name.endsWith(".docx")) {
       return alert("Hanya file .docx yang didukung!");
     }
-
-    const formData = new FormData();
-    formData.append("file", file);
-
+  
+    const form = new FormData();
+    form.append("file", file);
+  
     try {
-      const res = await api.post(`/courses/${id}/questions/import`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+      const res = await api.post(`/courses/${id}/upload-soal`, form, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
-      setSoalList(
-        res.data.map((item) => ({
-          ...item,
-          opsi: Array.isArray(item.opsi)
-            ? item.opsi
-            : JSON.parse(item.opsi || "[]"),
-        }))
-      );      
-      alert(`✅ Berhasil membaca ${res.data.soal.length} soal dari file Word`);
+      setSoalList(res.data.soal);
+      alert(`✅ Berhasil membaca ${res.data.soal.length} soal`);
     } catch (err) {
-      console.error("❌ Gagal upload file Word:", err);
+      console.error("❌ Gagal upload:", err);
+      alert("Gagal membaca file soal dari server");
     }
-  };
+  };  
 
   const handleSimpanSoal = async () => {
     try {
@@ -180,13 +176,11 @@ function ManageCoursePage() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
 
-        {/* NAMA */}
         <div>
           <label className="block font-medium">Nama Ujian / Mapel</label>
           <input type="text" name="nama" value={form.nama} onChange={handleChange} required className="w-full border px-3 py-2 rounded" />
         </div>
 
-        {/* KELAS */}
         <div>
           <label className="block font-medium">Kelas (boleh lebih dari 1)</label>
           <div className="w-full border rounded p-3 mt-1 h-40 overflow-y-auto">
@@ -216,7 +210,6 @@ function ManageCoursePage() {
           </div>
         </div>
 
-        {/* TANGGAL & WAKTU MULAI */}
         <div>
           <label className="block font-medium mb-1">Tanggal & Waktu Mulai</label>
           <div className="flex gap-2">
@@ -225,7 +218,6 @@ function ManageCoursePage() {
           </div>
         </div>
 
-        {/* TANGGAL & WAKTU SELESAI */}
         <div>
           <label className="inline-flex items-center gap-2">
             <input type="checkbox" name="enableTanggalSelesai" checked={form.enableTanggalSelesai} onChange={handleChange} />
@@ -237,7 +229,6 @@ function ManageCoursePage() {
           </div>
         </div>
 
-        {/* DROPDOWN WAKTU */}
         <div>
           <label className="block font-medium mb-1">Waktu Ujian</label>
           <select name="waktuMode" value={form.waktuMode} onChange={handleChange} className="w-full border px-3 py-2 rounded">
@@ -253,13 +244,11 @@ function ManageCoursePage() {
           )}
         </div>
 
-        {/* DESKRIPSI */}
         <div>
           <label className="block font-medium">Deskripsi</label>
           <textarea name="deskripsi" value={form.deskripsi} onChange={handleChange} className="w-full border px-3 py-2 rounded" />
         </div>
 
-        {/* Max Percobaan */}
         <label className="block mb-2">Max Percobaan:</label>
         <input
         type="number"
@@ -270,7 +259,6 @@ function ManageCoursePage() {
         }
         />
 
-        {/* Tampilkan hasil ke siswa */}
         <label className="block mt-4">
         <input
             type="checkbox"
@@ -282,7 +270,6 @@ function ManageCoursePage() {
         <span className="ml-2">Tampilkan hasil ke siswa</span>
         </label>
 
-        {/* Token Quiz */}
         <label className="block mt-4">
         <input
             type="checkbox"
@@ -294,7 +281,6 @@ function ManageCoursePage() {
         <span className="ml-2">Gunakan Token untuk mulai ujian</span>
         </label>
 
-        {/* Form Token (hanya muncul jika checkbox token dicentang) */}
         {form.useToken && (
         <div className="mt-2">
             <label className="block mb-2">Token Quiz (maks 6 karakter):</label>
@@ -371,37 +357,35 @@ function ManageCoursePage() {
 
                 <label className="block font-medium mb-1">Pilihan Jawaban:</label>
                 {Array.isArray(item.opsi) &&
-  item.opsi.map((opsi, opsiIdx) => (
-    <div key={opsiIdx} className="flex items-center gap-3 mb-2">
-      <input
-        type="text"
-        className="flex-1 p-2 border rounded-md bg-white text-black"
-        placeholder={`Pilihan ${String.fromCharCode(65 + opsiIdx)}`}
-        value={opsi}
-        onChange={(e) => {
-          const updated = [...soalList];
-          updated[index].opsi[opsiIdx] = e.target.value;
-          setSoalList(updated);
-        }}
-      />
-      <label className="text-sm text-gray-700">
-      <input
-  type="radio"
-  name={`jawaban-${index}`}
-  value={String.fromCharCode(65 + opsiIdx)}
-  checked={item.jawaban === String.fromCharCode(65 + opsiIdx)}
-  onChange={(e) => {
-    const updated = [...soalList];
-    updated[index].jawaban = e.target.value;
-    setSoalList(updated);
-  }}
-/>
-{" "}
-        Jawaban Benar
-      </label>
-    </div>
-  ))}
-
+                  item.opsi.map((opsi, opsiIdx) => (
+                    <div key={opsiIdx} className="flex items-center gap-3 mb-2">
+                      <input
+                        type="text"
+                        className="flex-1 p-2 border rounded-md bg-white text-black"
+                        placeholder={`Pilihan ${String.fromCharCode(65 + opsiIdx)}`}
+                        value={opsi}
+                        onChange={(e) => {
+                          const updated = [...soalList];
+                          updated[index].opsi[opsiIdx] = e.target.value;
+                          setSoalList(updated);
+                        }}
+                      />
+                      <label className="text-sm text-gray-700">
+                      <input
+                        type="radio"
+                        name={`jawaban-${index}`}
+                        value={String.fromCharCode(65 + opsiIdx)}
+                        checked={item.jawaban === String.fromCharCode(65 + opsiIdx)}
+                        onChange={(e) => {
+                          const updated = [...soalList];
+                          updated[index].jawaban = e.target.value;
+                          setSoalList(updated);
+                        }}
+                      />{" "}
+                        Jawaban Benar
+                      </label>
+                    </div>
+                  ))}
                 {(item.opsi.length < 2 || !item.jawaban) && (
                   <div className="text-sm text-red-600 mt-1">
                     ⚠️ Soal belum lengkap. Harus ada minimal 2 pilihan dan 1 jawaban benar.

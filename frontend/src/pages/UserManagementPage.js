@@ -9,11 +9,9 @@ function UserManagementPage() {
   const [showModal, setShowModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Mengambil data user dan kelas dari API
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Menjalankan kedua request secara paralel untuk efisiensi
       const [usersRes, kelasRes] = await Promise.all([
         api.get("/users"),
         api.get("/data/kelas"),
@@ -48,7 +46,7 @@ function UserManagementPage() {
 
     try {
       await api.delete(`/users/${id}`);
-      fetchData(); // Refresh data setelah berhasil hapus
+      fetchData();
     } catch (err) {
       console.error("Gagal menghapus pengguna:", err);
       alert("Gagal menghapus pengguna!");
@@ -57,10 +55,9 @@ function UserManagementPage() {
 
   const handleFormSubmit = () => {
     setShowModal(false);
-    fetchData(); // Refresh data setelah submit form
+    fetchData();
   };
 
-  // Gunakan useMemo untuk optimisasi, agar pengelompokan tidak berjalan di setiap render
   const groupedUsers = useMemo(() => {
     const groups = {};
     users.forEach((user) => {
@@ -71,11 +68,10 @@ function UserManagementPage() {
       groups[key].push(user);
     });
     return groups;
-  }, [users]); // Dependensi: hanya dijalankan ulang jika 'users' berubah
+  }, [users]);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      {/* --- BAGIAN HEADER --- */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <h1 className="text-3xl font-bold text-gray-800">Manajemen Pengguna</h1>
         <button
@@ -86,7 +82,6 @@ function UserManagementPage() {
         </button>
       </div>
 
-      {/* --- BAGIAN KONTEN (DAFTAR PENGGUNA) --- */}
       {isLoading ? (
         <p className="text-center text-gray-500">Memuat data...</p>
       ) : (
@@ -100,7 +95,6 @@ function UserManagementPage() {
                   Kelas: {kelasNama}
                 </h2>
 
-                {/* Tampilan Kartu untuk Mobile (Hidden di medium screen ke atas) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
                   {currentUsersInClass.map((user) => (
                     <div key={user.id} className="bg-white p-4 rounded-lg shadow border border-gray-200 flex flex-col justify-between">
@@ -129,7 +123,6 @@ function UserManagementPage() {
                   ))}
                 </div>
 
-                {/* Tampilan Tabel untuk Desktop (Hidden di layar kecil) */}
                 <div className="hidden md:block overflow-x-auto bg-white rounded-lg shadow border border-gray-200">
                   <table className="min-w-full text-sm divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -171,7 +164,6 @@ function UserManagementPage() {
         </div>
       )}
 
-      {/* --- BAGIAN MODAL --- */}
       {showModal && (
         <UserFormModal
           user={selectedUser}

@@ -9,7 +9,6 @@ exports.simpanJawaban = async (req, res) => {
   }
 
   try {
-    // Simpan atau update jawaban
     await db.query(`
       INSERT INTO jawaban_siswa (user_id, course_id, soal_id, jawaban)
       VALUES (?, ?, ?, ?)

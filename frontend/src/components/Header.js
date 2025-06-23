@@ -70,7 +70,6 @@ function Header({ onToggleSidebar }) {
           />
         </div>
 
-        {/* Panel Dropdown (tetap putih untuk kontras yang baik) */}
         <div
           className={`absolute right-0 mt-3 w-48 bg-white rounded-md shadow-lg py-1 z-20
                      transition-all duration-150 ease-in-out

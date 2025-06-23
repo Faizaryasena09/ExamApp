@@ -7,16 +7,14 @@ exports.getAllUsers = async (req, res) => {
 
   try {
     if (name) {
-      // Jika query ?name=... dikirim, ambil user sesuai nama
       const [rows] = await connection.query("SELECT * FROM users WHERE name = ?", [name]);
 
       if (rows.length === 0) {
         return res.status(404).json({ error: "User tidak ditemukan" });
       }
 
-      return res.json(rows[0]); // kembalikan satu user saja
+      return res.json(rows[0]);
     } else {
-      // Jika tidak ada query, kembalikan semua user
       const [rows] = await connection.query("SELECT * FROM users");
       res.json(rows);
     }

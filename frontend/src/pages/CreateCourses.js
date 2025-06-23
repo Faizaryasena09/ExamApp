@@ -24,7 +24,6 @@ function CreateCourses() {
   const nameCookie = Cookies.get("name")?.toString();
 
   useEffect(() => {
-    // Ambil semua user
     api
       .get("/users")
       .then((res) => {
@@ -41,7 +40,6 @@ function CreateCourses() {
         navigate("/courses");
       });
 
-    // Ambil semua kelas
     api.get("/data/kelas").then((res) => setKelasList(res.data));
   }, [nameCookie, navigate]);
 
@@ -117,10 +115,9 @@ function CreateCourses() {
           />
         </div>
 
-        {/* PILIH KELAS */}
         <div>
             <label className="block font-medium">Kelas (boleh lebih dari 1)</label>
-                <div className="w-full border rounded p-3 mt-1 h-40 overflow-y-auto"> {/* Wrapper untuk scrolling jika daftar panjang */}
+                <div className="w-full border rounded p-3 mt-1 h-40 overflow-y-auto">
                     {kelasList.map((k) => (
                     <div key={k.id} className="flex items-center mb-2">
                         <input
@@ -152,7 +149,6 @@ function CreateCourses() {
                 </div>
             </div>
 
-        {/* TANGGAL & WAKTU MULAI */}
         <div>
           <label className="block font-medium mb-1">Tanggal & Waktu Mulai</label>
           <div className="flex gap-2">
@@ -175,7 +171,6 @@ function CreateCourses() {
           </div>
         </div>
 
-        {/* TANGGAL & WAKTU SELESAI */}
         <div>
           <label className="inline-flex items-center gap-2">
             <input
@@ -208,7 +203,6 @@ function CreateCourses() {
           </div>
         </div>
 
-        {/* DROPDOWN WAKTU */}
         <div>
           <label className="block font-medium mb-1">Waktu Ujian</label>
           <select
@@ -237,7 +231,6 @@ function CreateCourses() {
           )}
         </div>
 
-        {/* DESKRIPSI */}
         <div>
           <label className="block font-medium">Deskripsi</label>
           <textarea

@@ -15,7 +15,6 @@ function LoginPage() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // Fungsi auto-logout karena inaktivitas (logika tidak diubah)
   const setupInactivityLogout = () => {
     let timeout;
     const resetTimer = () => {
@@ -26,7 +25,7 @@ function LoginPage() {
         Cookies.remove("role");
         Cookies.remove("user_id");
         window.location.href = "/";
-      }, 30 * 60 * 1000); // 30 menit
+      }, 30 * 60 * 1000);
     };
     const events = ["mousemove", "mousedown", "keypress", "touchstart"];
     events.forEach((event) => window.addEventListener(event, resetTimer));
@@ -64,7 +63,6 @@ function LoginPage() {
     } catch (err) {
       setMessage(`❌ ${err.response?.data?.message || "Username atau password salah"}`);
     } finally {
-      // Set loading kembali ke false setelah 1 detik untuk user melihat pesan sukses
       setTimeout(() => setIsLoading(false), 1000);
     }
   };
@@ -72,14 +70,12 @@ function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-slate-100 p-4">
       <div className="w-full max-w-md">
-        {/* Logo Placeholder */}
         <div className="flex justify-center mb-4">
           <div className="bg-indigo-600 p-3 rounded-full">
             <FiLogIn className="w-8 h-8 text-white" />
           </div>
         </div>
         
-        {/* Form Card */}
         <div className="bg-white shadow-xl rounded-2xl p-6 sm:p-8">
           <div className="text-center mb-6">
             <h1 className="text-3xl font-bold text-slate-800">Selamat Datang</h1>
@@ -87,7 +83,6 @@ function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Input Username */}
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-slate-700 mb-1">
                 Username
@@ -108,7 +103,6 @@ function LoginPage() {
               </div>
             </div>
 
-            {/* Input Password */}
             <div>
               <label htmlFor="password"  className="block text-sm font-medium text-slate-700 mb-1">
                 Password
@@ -141,7 +135,6 @@ function LoginPage() {
               </div>
             </div>
             
-            {/* Pesan Error/Sukses */}
             {message && (
               <p className={`text-center text-sm font-medium ${
                   message.includes('✅') ? 'text-green-600' : 'text-red-600'
@@ -150,7 +143,6 @@ function LoginPage() {
               </p>
             )}
 
-            {/* Tombol Submit */}
             <div>
               <button
                 type="submit"
