@@ -64,7 +64,6 @@ function HomePage() {
             {recentExam ? (
               <div className="mt-3 bg-gray-50 p-4 rounded-md">
                 <p className="font-semibold text-gray-800">{recentExam.title}</p>
-                <p className="text-gray-600">Skor Anda: <span className="font-bold text-2xl text-green-600">{recentExam.score}</span></p>
               </div>
             ) : (
               <p className="text-gray-500 mt-3">Belum ada aktivitas ujian.</p>

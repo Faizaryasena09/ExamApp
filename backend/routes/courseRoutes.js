@@ -20,5 +20,7 @@ router.get("/:id/questions", courseController.getQuestions);
 router.post("/:id/questions/save", courseController.saveOrUpdateQuestions);
 router.get("/analytics/:courseId", courseController.getAnalyticsByCourse);
 router.get('/:courseId/userid/:name', courseController.getUserIdByName);
+router.post("/tokenAuth", courseController.saveTokenAuth);
+router.get("/:id/tokenAuth", courseController.checkTokenAuth);
 
 module.exports = router;

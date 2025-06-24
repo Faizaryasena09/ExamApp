@@ -9,6 +9,8 @@ function DoExamPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  const userId = Cookies.get("user_id");
+
   const [examTitle, setExamTitle] = useState("Memuat Ujian...");
   const [soalList, setSoalList] = useState([]);
   const [showResult, setShowResult] = useState(false);
@@ -19,6 +21,41 @@ function DoExamPage() {
   const [showSelesaiModal, setShowSelesaiModal] = useState(false);
   const [waktuSisa, setWaktuSisa] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const { id: courseId } = useParams();
+  const [authChecked, setAuthChecked] = useState(false);
+  const [sudahInputToken, setSudahInputToken] = useState(true);
+
+  useEffect(() => {
+    const checkTokenRequirement = async () => {
+      try {
+        // 1. Cek dulu apakah course ini pakai token atau tidak
+        const courseRes = await api.get(`/courses/${courseId}`);
+        const useToken = courseRes.data.useToken;
+  
+        if (!useToken) {
+          // Kalau nggak pakai token, langsung izinkan
+          setSudahInputToken(true);
+          setAuthChecked(true);
+          return;
+        }
+  
+        // 2. Kalau pakai token, cek apakah user sudah memasukkan token
+        const tokenRes = await api.get(`/courses/${courseId}/tokenAuth?user=${userId}`);
+        if (tokenRes.data.isAuthorized) {
+          setSudahInputToken(true);
+        } else {
+          setSudahInputToken(false);
+        }
+      } catch (err) {
+        console.error("❌ Gagal cek useToken atau tokenAuth:", err.message);
+        setSudahInputToken(false); // fallback: anggap belum terautentikasi
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+  
+    checkTokenRequirement();
+  }, [courseId, userId]);  
 
   useEffect(() => {
     if (!showStartModal) {
@@ -192,6 +229,33 @@ function DoExamPage() {
   };
 
   if (showStartModal) {
+    if (authChecked && !sudahInputToken) {
+      return (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-60 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm text-center">
+            <h2 className="text-xl font-bold mb-2 text-red-600">Token Belum Divalidasi</h2>
+            <p className="text-gray-600 mb-4">Anda belum memasukkan token ujian. Silakan kembali dan masukkan token terlebih dahulu.</p>
+            <button
+              onClick={() => navigate(-1)}
+              className="bg-red-500 text-white px-5 py-2 rounded-lg hover:bg-red-600 font-semibold"
+            >
+              Kembali
+            </button>
+          </div>
+        </div>
+      );
+    }
+  
+    // Kalau belum selesai ngecek token, tampilkan loading dulu
+    if (!authChecked) {
+      return (
+        <div className="flex justify-center items-center h-screen">
+          <p className="text-gray-600 text-lg">Memverifikasi token ujian...</p>
+        </div>
+      );
+    }
+  
+    // Modal normal kalau sudah valid
     return (
       <div className="fixed inset-0 bg-gray-900 bg-opacity-60 flex justify-center items-center z-50">
         <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md text-center transform transition-all">
@@ -215,7 +279,7 @@ function DoExamPage() {
         </div>
       </div>
     );
-  }
+  }  
 
   if (isLoading || !currentSoal) {
     return (

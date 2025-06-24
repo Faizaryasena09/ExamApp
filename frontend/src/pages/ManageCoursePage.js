@@ -285,7 +285,7 @@ function ManageCoursePage() {
 
                 {form.useToken && (
                 <div className="pl-6 border-l-4 border-blue-200">
-                    <label htmlFor="token-quiz" className="block text-sm font-medium text-gray-600 mb-1">Token Quiz (maks 6 karakter)</label>
+                    <label htmlFor="token-quiz" className="block text-sm font-medium text-gray-600 mb-1">Token Quiz (maks 6 karakter, token kadaluarsa setelah 15 menit)</label>
                     <input id="token-quiz" type="text" maxLength={6} value={form.tokenValue} onChange={(e) => setForm({ ...form, tokenValue: e.target.value.toUpperCase() })} className="w-full md:w-1/2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 uppercase" placeholder="Contoh: ABC123" />
                 </div>
                 )}

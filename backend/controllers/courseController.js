@@ -340,31 +340,30 @@ if (!userId || isNaN(userId)) {
       const pool = await dbPromise;
   
       const [rows] = await pool.query(
-        "SELECT tokenValue, tokenCreatedAt FROM courses WHERE id = ?",
+        "SELECT tokenValue FROM courses WHERE id = ?",
         [courseId]
       );
   
       if (rows.length === 0) return res.status(404).json({ message: "Course tidak ditemukan" });
   
-      const { tokenValue, tokenCreatedAt } = rows[0];
+      const { tokenValue } = rows[0];
   
-      if (!tokenValue || !tokenCreatedAt) {
+      if (!tokenValue) {
         return res.json({ valid: false, reason: "Token tidak tersedia" });
       }
   
-      const expired = Date.now() - new Date(tokenCreatedAt).getTime() > 15 * 60 * 1000;
       const tokenValid = tokenValue.toUpperCase() === token.toUpperCase();
   
-      if (tokenValid && !expired) {
+      if (tokenValid) {
         res.json({ valid: true });
       } else {
-        res.json({ valid: false, reason: expired ? "Token expired" : "Token salah" });
+        res.json({ valid: false, reason: "Token salah" });
       }
     } catch (err) {
       console.error("❌ Gagal validasi token:", err.message);
       res.status(500).json({ message: "Server error" });
     }
-  };
+  };  
 
   exports.submitUjian = async (req, res) => {
     const { user_id, jawaban } = req.body;
@@ -543,6 +542,53 @@ if (!userId || isNaN(userId)) {
       res.status(500).json({ message: "Gagal ambil analytics" });
     }
   };
+
+  // POST /courses/tokenAuth
+  exports.saveTokenAuth = async (req, res) => {
+    const { course_id, user_id } = req.body;
+  
+    if (!course_id || !user_id) {
+      return res.status(400).json({ error: "course_id dan user_id wajib diisi" });
+    }
+  
+    try {
+      const pool = await dbPromise;
+  
+      await pool.query(
+        `INSERT IGNORE INTO tokenAuth (course_id, user_id) VALUES (?, ?)`,
+        [course_id, user_id]
+      );
+  
+      res.json({ success: true, message: "Token auth disimpan." });
+    } catch (err) {
+      console.error("❌ Gagal simpan tokenAuth:", err.message);
+      res.status(500).json({ error: "Gagal menyimpan token auth" });
+    }
+  };  
+
+// GET /courses/:id/tokenAuth?user=123
+exports.checkTokenAuth = async (req, res) => { 
+  const courseId = req.params.id;
+  const userId = req.query.user;
+
+  try {
+    const pool = await dbPromise;
+
+    const [rows] = await pool.query(
+      "SELECT * FROM tokenAuth WHERE course_id = ? AND user_id = ?",
+      [courseId, userId]
+    );
+
+    if (rows.length > 0) {
+      res.json({ isAuthorized: true });
+    } else {
+      res.json({ isAuthorized: false });
+    }
+  } catch (err) {
+    console.error("❌ Gagal cek tokenAuth:", err.message);
+    res.status(500).json({ message: "Server error saat cek token auth" });
+  }
+};
   
   function parseSoalFromText(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);

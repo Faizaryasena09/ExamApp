@@ -14,6 +14,7 @@ function CoursesPage() {
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [selectedCourseId, setSelectedCourseId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [statusMap, setStatusMap] = useState({});
 
   const navigate = useNavigate();
   const role = Cookies.get("role");
@@ -30,9 +31,13 @@ function CoursesPage() {
           if (userRes.data && userRes.data.kelas) {
             setSiswaKelas(userRes.data.kelas);
             await fetchCourses(userRes.data.kelas);
+            const courseRes = await api.get(`/courses?kelas=${userRes.data.kelas}`);
+            await fetchStatusMap(courseRes.data);
           }
         } else {
           await fetchCourses();
+          const res = await api.get("/courses");
+          await fetchStatusMap(res.data);
         }
       } catch (err) {
         console.error("❌ Gagal memuat data awal:", err);
@@ -62,7 +67,20 @@ function CoursesPage() {
       console.error("Gagal ambil data kelas:", err);
     }
   };
-  
+
+  const fetchStatusMap = async (courseList) => {
+    const map = {};
+    for (const course of courseList) {
+      try {
+        const res = await api.get(`/courses/${course.id}/status?user=${userId}`);
+        map[course.id] = res.data;
+      } catch (err) {
+        console.error(`Gagal ambil status course ${course.id}:`, err);
+      }
+    }
+    setStatusMap(map);
+  };
+
   const filteredCourses = courses.filter((course) => {
     const matchKelas =
       selectedKelas === "all" ||
@@ -120,14 +138,20 @@ function CoursesPage() {
   const handleSubmitToken = async (e) => {
     e.preventDefault();
     if (!tokenInput) return;
-
+  
     try {
       const res = await api.post(`/courses/${selectedCourseId}/validate-token`, {
         token: tokenInput,
         user: userId,
       });
-
+  
       if (res.data.valid) {
+        // Simpan status ke tokenAuth
+        await api.post("/courses/tokenAuth", {
+          course_id: selectedCourseId,
+          user_id: userId,
+        });
+  
         setShowTokenModal(false);
         navigate(`/courses/${selectedCourseId}/do`);
       } else {
@@ -137,7 +161,7 @@ function CoursesPage() {
       console.error("❌ Gagal validasi token:", err);
       alert("Gagal memvalidasi token.");
     }
-  };
+  };  
 
   if (loading) {
     return (
@@ -221,29 +245,38 @@ function CoursesPage() {
                 </div>
 
                 <div className="p-4 bg-slate-50 border-t border-slate-200 mt-auto">
-                    {role === "siswa" ? (
-                        <button
-                          onClick={() => handleDoClick(course.id)}
-                          className="w-full flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors"
-                        >
-                          Mulai Kerjakan <FiChevronRight />
-                        </button>
+                  {role === "siswa" ? (
+                    statusMap[course.id]?.sudahMaksimal ? (
+                      <button
+                        disabled
+                        className="w-full flex items-center justify-center gap-2 bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold cursor-not-allowed"
+                      >
+                        Anda telah mengerjakan
+                      </button>
                     ) : (
-                        <div className="flex justify-between items-center gap-2">
-                          <button
-                            onClick={() => handleManageClick(course.id)}
-                            className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
-                          >
-                            <FiSettings /> Manage
-                          </button>
-                          <button
-                            onClick={() => handleDeleteCourse(course.id)}
-                            className="flex items-center gap-1 text-sm font-medium text-red-500 hover:text-red-700 transition-colors"
-                          >
-                            <FiTrash2 /> Hapus
-                          </button>
-                        </div>
-                    )}
+                      <button
+                        onClick={() => handleDoClick(course.id)}
+                        className="w-full flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+                      >
+                        Mulai Kerjakan <FiChevronRight />
+                      </button>
+                    )
+                  ) : (
+                    <div className="flex justify-between items-center gap-2">
+                      <button
+                        onClick={() => handleManageClick(course.id)}
+                        className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+                      >
+                        <FiSettings /> Manage
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCourse(course.id)}
+                        className="flex items-center gap-1 text-sm font-medium text-red-500 hover:text-red-700 transition-colors"
+                      >
+                        <FiTrash2 /> Hapus
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -253,9 +286,9 @@ function CoursesPage() {
 
       {showTokenModal && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 transition-opacity duration-300"
-        onClick={() => setShowTokenModal(false)}>
+          onClick={() => setShowTokenModal(false)}>
           <div className="bg-white p-7 rounded-xl shadow-2xl w-full max-w-sm mx-4 transform transition-all duration-300"
-          onClick={(e) => e.stopPropagation()}>
+            onClick={(e) => e.stopPropagation()}>
             <h3 className="text-xl font-bold text-slate-800 mb-2">Masukkan Token</h3>
             <p className="text-slate-500 mb-6">Course ini memerlukan token untuk memulai.</p>
             <form onSubmit={handleSubmitToken}>

@@ -97,6 +97,15 @@ async function initDatabase() {
       )
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tokenAuth (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        course_id INT NOT NULL,
+        user_id INT NOT NULL,
+        UNIQUE KEY unique_auth (course_id, user_id)
+      )
+    `);
+
     const [rows] = await pool.query("SELECT * FROM users WHERE username = 'admin'");
     if (rows.length === 0) {
       await pool.query(`
