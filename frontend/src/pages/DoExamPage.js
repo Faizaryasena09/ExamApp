@@ -44,12 +44,38 @@ function DoExamPage() {
     return () => clearInterval(timer);
   }, [showStartModal, soalList.length, waktuSisa]);  
 
+  const shuffleArray = (array) => {
+    return array
+      .map((a) => ({ sort: Math.random(), value: a }))
+      .sort((a, b) => a.sort - b.sort)
+      .map((a) => a.value);
+  };
+  
   const fetchSoal = async () => {
     setIsLoading(true);
     try {
       const res = await api.get(`/courses/${id}/questions`);
-      setSoalList(res.data);
-
+      const rawSoal = res.data;
+  
+      const soalDiacak = shuffleArray(rawSoal).map((soal) => {
+        const opsiOriginal = typeof soal.opsi === "string" ? JSON.parse(soal.opsi) : soal.opsi;
+  
+        const opsiDiacak = shuffleArray(opsiOriginal);
+  
+        const opsiDenganAbjad = opsiDiacak.map((opsiText, index) => {
+          const huruf = String.fromCharCode(65 + index); 
+          return `${huruf}. ${opsiText.substring(3)}`;
+        });
+  
+        return {
+          ...soal,
+          opsi: opsiDenganAbjad,
+          opsiMapping: opsiDiacak,
+        };
+      });
+  
+      setSoalList(soalDiacak);
+  
       const config = await api.get(`/courses/${id}`);
       setExamTitle(config.data.title || "Ujian Kompetensi");
       const waktu = config.data.waktu || 30;
@@ -57,9 +83,9 @@ function DoExamPage() {
     } catch (err) {
       console.error("Gagal ambil soal:", err);
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
-  };
+  };  
 
   const fetchJawabanSiswa = async () => {
     try {
@@ -220,19 +246,32 @@ function DoExamPage() {
             <div className="prose max-w-none mb-6 text-gray-800" dangerouslySetInnerHTML={{ __html: currentSoal.soal }} />
 
             <div className="space-y-3">
-              {opsiArray.map((opsi, idx) => {
-                const huruf = opsi.slice(0, 2);
-                const isSelected = jawabanSiswa[currentSoal.id] === huruf;
-                return (
-                  <label key={idx} className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${ isSelected ? "bg-blue-50 border-blue-500 shadow-sm" : "bg-white border-gray-300 hover:border-blue-400"}`}>
-                    <input type="radio" name={`soal-${currentSoal.id}`} value={huruf} checked={isSelected} onChange={() => handleJawab(currentSoal.id, huruf)} className="hidden"/>
-                    <span className={`flex items-center justify-center w-6 h-6 mr-4 border rounded-full text-sm font-bold ${isSelected ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-400 text-gray-600'}`}>
-                        {huruf.charAt(0)}
-                    </span>
-                    <span className="text-gray-700">{opsi.substring(3)}</span>
-                  </label>
-                );
-              })}
+            {opsiArray.map((opsi, idx) => {
+              const huruf = opsi.slice(0, 1); // A, B, C, ...
+              const opsiAsli = currentSoal.opsiMapping[idx].slice(0, 1);
+              const isSelected = jawabanSiswa[currentSoal.id] === opsiAsli;
+
+              return (
+                <label key={idx} className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+                  isSelected ? "bg-blue-50 border-blue-500 shadow-sm" : "bg-white border-gray-300 hover:border-blue-400"
+                }`}>
+                  <input
+                    type="radio"
+                    name={`soal-${currentSoal.id}`}
+                    value={opsiAsli}
+                    checked={isSelected}
+                    onChange={() => handleJawab(currentSoal.id, opsiAsli)}
+                    className="hidden"
+                  />
+                  <span className={`flex items-center justify-center w-6 h-6 mr-4 border rounded-full text-sm font-bold ${
+                    isSelected ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-400 text-gray-600'
+                  }`}>
+                    {huruf}
+                  </span>
+                  <span className="text-gray-700">{opsi.slice(3)}</span>
+                </label>
+              );
+            })}
             </div>
           </div>
 

@@ -2,6 +2,7 @@ const poolPromise = require('../models/database');
 const dbPromise = require('../models/database');
 const mammoth = require("mammoth");
 const fs = require("fs");
+const db = require('../models/database');
 
 function shuffleArray(array) {
     return array
@@ -188,52 +189,77 @@ exports.deleteCourse = async (req, res) => {
 };
 
 exports.simpanSoal = async (req, res) => {
-    const db = await dbPromise;
-  
-    const course_id = req.params.id;
-    const { soal: soalList, acakSoal, acakJawaban } = req.body;
-  
-    if (!soalList || !Array.isArray(soalList)) {
-      return res.status(400).json({ error: "Format soal tidak valid" });
-    }
-  
-    try {
-      for (const item of soalList) {
-        const opsi = acakJawaban ? shuffleArray(item.opsi) : item.opsi;
-  
+  const db = await dbPromise;
+  const course_id = req.params.id;
+  const { soal: soalList, acakSoal, acakJawaban } = req.body;
+
+  if (!soalList || !Array.isArray(soalList)) {
+    return res.status(400).json({ error: "Format soal tidak valid" });
+  }
+
+  try {
+    for (const item of soalList) {
+      const opsi = acakJawaban ? shuffleArray(item.opsi) : item.opsi;
+      const soalId = parseInt(item.id);
+
+      console.log("🧾 Soal ID FE:", item.id, "| Soal:", item.soal);
+
+      if (!isNaN(soalId)) {
+        const [existing] = await db.query(
+          "SELECT id FROM questions WHERE id = ? AND course_id = ?",
+          [soalId, course_id]
+        );
+
+        if (existing.length > 0) {
+          console.log("🔁 UPDATE soal:", soalId);
+          await db.query(
+            "UPDATE questions SET soal = ?, opsi = ?, jawaban = ? WHERE id = ? AND course_id = ?",
+            [item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase(), soalId, course_id]
+          );
+        } else {
+          console.log("➕ INSERT soal dengan ID:", soalId);
+          await db.query(
+            "INSERT INTO questions (id, course_id, soal, opsi, jawaban) VALUES (?, ?, ?, ?, ?)",
+            [soalId, course_id, item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase()]
+          );
+        }
+      } else {
+        console.log("✨ INSERT soal baru (auto id)");
         await db.query(
           "INSERT INTO questions (course_id, soal, opsi, jawaban) VALUES (?, ?, ?, ?)",
           [course_id, item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase()]
         );
       }
-  
-      res.json({ success: true, total: soalList.length });
-    } catch (err) {
-      console.error("❌ Gagal simpan soal:", err);
-      res.status(500).json({ error: "Gagal menyimpan soal" });
     }
-  };  
-  
-  exports.ambilSoal = async (req, res) => {
-    const db = await dbPromise;
-  
-    const course_id = req.params.id;
-  
-    try {
-      const [rows] = await db.query(
-        "SELECT id, soal, opsi FROM questions WHERE course_id = ?",
-        [course_id]
-      );
-  
-      const acak = req.query.acak === "true";
-      const hasil = acak ? shuffleArray(rows) : rows;
-  
-      res.json(hasil);
-    } catch (err) {
-      console.error("❌ Gagal ambil soal:", err);
-      res.status(500).json({ error: "Gagal mengambil soal" });
-    }
-  };  
+
+    res.json({ success: true, total: soalList.length });
+  } catch (err) {
+    console.error("❌ Gagal simpan soal:", err);
+    res.status(500).json({ error: "Gagal menyimpan soal" });
+  }
+};
+
+exports.ambilSoal = async (req, res) => {
+  const db = await dbPromise;
+  const course_id = req.params.id;
+
+  try {
+    const [rows] = await db.query(
+      "SELECT id, soal, opsi, jawaban FROM questions WHERE course_id = ?",
+      [course_id]
+    );
+
+    const hasil = rows.map(item => ({
+      ...item,
+      opsi: typeof item.opsi === "string" ? JSON.parse(item.opsi) : item.opsi
+    }));
+
+    res.json(hasil);
+  } catch (err) {
+    console.error("❌ Gagal ambil soal:", err);
+    res.status(500).json({ error: "Gagal mengambil soal" });
+  }
+};
 
   exports.uploadSoalDocx = async (req, res) => {
     const filePath = req.file.path;
@@ -256,7 +282,6 @@ exports.simpanSoal = async (req, res) => {
 if (!userId || isNaN(userId)) {
   return res.status(400).json({ message: "User ID tidak valid" });
 }
-
   
     try {
       const pool = await dbPromise;
@@ -289,6 +314,24 @@ if (!userId || isNaN(userId)) {
     }
   };
   
+  exports.getUserIdByName = async (req, res) => {
+    const name = req.params.name;
+  
+    try {
+      const conn = await db;
+      const [rows] = await conn.query(`SELECT id FROM users WHERE name = ?`, [name]);
+  
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'User tidak ditemukan' });
+      }
+  
+      res.json({ user_id: rows[0].id });
+    } catch (err) {
+      console.error("❌ Error getUserIdByName:", err);
+      res.status(500).json({ error: 'Gagal mengambil user_id.' });
+    }
+  };
+
   exports.validateCourseToken = async (req, res) => {
     const courseId = req.params.id;
     const { token, user } = req.body;
@@ -375,18 +418,33 @@ if (!userId || isNaN(userId)) {
     try {
       const db = await dbPromise;
   
-      await db.query("DELETE FROM questions WHERE course_id = ?", [course_id]);
-  
       for (const item of soal) {
-        await db.query(
-          "INSERT INTO questions (course_id, soal, opsi, jawaban) VALUES (?, ?, ?, ?)",
-          [
-            course_id,
-            item.soal,
-            JSON.stringify(item.opsi),
-            item.jawaban
-          ]
-        );
+        const opsi = acakJawaban ? shuffleArray(item.opsi) : item.opsi;
+        const soalId = parseInt(item.id);
+  
+        if (!isNaN(soalId)) {
+          const [existing] = await db.query(
+            "SELECT id FROM questions WHERE id = ? AND course_id = ?",
+            [soalId, course_id]
+          );
+  
+          if (existing.length > 0) {
+            await db.query(
+              "UPDATE questions SET soal = ?, opsi = ?, jawaban = ? WHERE id = ? AND course_id = ?",
+              [item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase(), soalId, course_id]
+            );
+          } else {
+            await db.query(
+              "INSERT INTO questions (id, course_id, soal, opsi, jawaban) VALUES (?, ?, ?, ?, ?)",
+              [soalId, course_id, item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase()]
+            );
+          }
+        } else {
+          await db.query(
+            "INSERT INTO questions (course_id, soal, opsi, jawaban) VALUES (?, ?, ?, ?)",
+            [course_id, item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase()]
+          );
+        }
       }
   
       res.json({ success: true });
@@ -431,6 +489,58 @@ if (!userId || isNaN(userId)) {
     } catch (err) {
       console.error("❌ Gagal ambil soal:", err);
       res.status(500).json({ error: "Gagal ambil soal" });
+    }
+  };
+
+  exports.getAnalyticsByCourse = async (req, res) => {
+    try {
+      const connection = await db;
+      const courseId = req.params.courseId;
+  
+      const [jawabanRows] = await connection.query(`
+        SELECT 
+          u.name AS user_name,
+          js.soal_id,
+          LEFT(TRIM(UPPER(js.jawaban)), 1) AS jawaban_siswa,
+          js.attemp,
+          TRIM(UPPER(q.jawaban)) AS kunci
+        FROM jawaban_siswa js
+        JOIN questions q ON js.soal_id = q.id
+        JOIN users u ON js.user_id = u.id
+        WHERE js.course_id = ?
+      `, [courseId]);
+  
+      const hasil = {};
+  
+      for (const row of jawabanRows) {
+        const { user_name, jawaban_siswa, kunci, attemp } = row;
+  
+        if (!hasil[user_name]) {
+          hasil[user_name] = {
+            name: user_name,
+            total_dikerjakan: 0,
+            benar: 0,
+            salah: 0,
+            attemp: attemp,
+          };
+        }
+  
+        hasil[user_name].total_dikerjakan += 1;
+        if (jawaban_siswa === kunci) {
+          hasil[user_name].benar += 1;
+        } else {
+          hasil[user_name].salah += 1;
+        }
+  
+        if (attemp > hasil[user_name].attemp) {
+          hasil[user_name].attemp = attemp;
+        }
+      }
+  
+      res.json(Object.values(hasil));
+    } catch (err) {
+      console.error("❌ Gagal ambil analytics:", err);
+      res.status(500).json({ message: "Gagal ambil analytics" });
     }
   };
   

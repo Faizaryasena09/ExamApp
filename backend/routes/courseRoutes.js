@@ -18,5 +18,7 @@ router.post("/:id/validate-token", courseController.validateCourseToken);
 router.post("/:id/submit", courseController.submitUjian);
 router.get("/:id/questions", courseController.getQuestions);
 router.post("/:id/questions/save", courseController.saveOrUpdateQuestions);
+router.get("/analytics/:courseId", courseController.getAnalyticsByCourse);
+router.get('/:courseId/userid/:name', courseController.getUserIdByName);
 
 module.exports = router;

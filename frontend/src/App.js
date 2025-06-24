@@ -4,10 +4,12 @@ import LoginPage from "./pages/Login";
 import HomePage from "./pages/Home";
 import CoursesPage from "./pages/Courses";
 import DoExamPage from "./pages/DoExamPage";
+import ExamResultPage from './pages/ExamResultPage';
 import CreateCoursesPage from "./pages/CreateCourses";
 import UserManage from "./pages/UserManagementPage";
 import KelasManagement from "./pages/KelasManagement";
 import ManageCourse from "./pages/ManageCoursePage";
+import AnalyticsCourse from "./pages/CourseAnalytics";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 
@@ -70,7 +72,9 @@ function AppLayout() {
             <Route path="/" element={<PublicRoute element={<LoginPage />} />} />
             <Route path="/home" element={<PrivateRoute element={<HomePage />} />} />
             <Route path="/usrmng" element={<PrivateRoute element={<UserManage />} />} />
+            <Route path="/courses/:courseId/:userId/hasil" element={<ExamResultPage />} />
             <Route path="/courses/:id/do" element={<DoExamPage />} />
+            <Route path="/courses/:id/analytics" element={<AnalyticsCourse />} />
             <Route path="/courses" element={<PrivateRoute element={<CoursesPage />} />} />
             <Route path="/createcourses" element={<PrivateRoute element={<CreateCoursesPage />} />} />
             <Route path="/courses/:id/manage" element={<ManageCourse />} />
