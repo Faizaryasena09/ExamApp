@@ -65,3 +65,41 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
+exports.importUsers = async (req, res) => {
+  const db = await require("../models/database");
+  const users = req.body.users;
+
+  if (!Array.isArray(users)) {
+    return res.status(400).json({ error: "Format users tidak valid" });
+  }
+
+  try {
+    for (const user of users) {
+      const { name, username, role, kelas, password } = user;
+
+      if (!name || !username || !password) continue;
+
+      const [existing] = await db.query(
+        `SELECT id FROM users WHERE username = ?`,
+        [username]
+      );
+      if (existing.length > 0) continue;
+
+      await db.query(`
+        INSERT INTO users (name, username, password, role, kelas)
+        VALUES (?, ?, SHA2(?, 256), ?, ?)
+      `, [
+        name,
+        username,
+        password || "1234",
+        role || "siswa",
+        kelas || "",
+      ]);
+    }
+
+    res.json({ message: "Import selesai." });
+  } catch (err) {
+    console.error("❌ Gagal impor:", err);
+    res.status(500).json({ error: "Gagal impor pengguna" });
+  }
+};
