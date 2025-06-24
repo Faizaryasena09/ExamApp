@@ -25,6 +25,9 @@ function DoExamPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [sudahInputToken, setSudahInputToken] = useState(true);
   const [attemptNow, setAttemptNow] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [blocked, setBlocked] = useState(false);
+  const [maxInfo, setMaxInfo] = useState(null);
 
   useEffect(() => {
     const checkTokenRequirement = async () => {
@@ -54,6 +57,37 @@ function DoExamPage() {
   
     checkTokenRequirement();
   }, [courseId, userId]);  
+
+  useEffect(() => {
+    const userName = Cookies.get('user_id');
+  
+    if (!userName) {
+      navigate('/login');
+      return;
+    }
+  
+    const checkAttempt = async () => {
+      try {
+        const res = await api.get(`/courses/${courseId}/status?user=${userName}`);
+        const { sudahMaksimal, maxPercobaan, currentAttempt, useToken } = res.data;
+  
+        setMaxInfo({ max: maxPercobaan, current: currentAttempt });
+  
+        if (sudahMaksimal) {
+          setBlocked(true);
+        } else {
+          setBlocked(false);
+        }
+      } catch (err) {
+        console.error('❌ Gagal cek attempt:', err);
+        navigate('/courses');
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    checkAttempt();
+  }, [courseId, navigate]);  
 
   useEffect(() => {
     if (!showStartModal) {
@@ -248,6 +282,23 @@ function DoExamPage() {
     const dtk = (detik % 60).toString().padStart(2, '0');
     return `${jam}:${menit}:${dtk}`;
   };
+
+  if (blocked) {
+    return (
+      <div className="min-h-screen flex flex-col justify-center items-center">
+        <h1 className="text-3xl font-bold text-red-600 mb-4">Kesempatan Habis</h1>
+        <p className="text-gray-600">
+          Anda sudah mencapai maksimal percobaan ({maxInfo?.max}x). Silakan hubungi guru.
+        </p>
+        <button
+          onClick={() => navigate("/courses")}
+          className="mt-6 px-4 py-2 bg-blue-600 text-white rounded"
+        >
+          Kembali
+        </button>
+      </div>
+    );
+  }
 
   if (showStartModal) {
     if (authChecked && !sudahInputToken) {

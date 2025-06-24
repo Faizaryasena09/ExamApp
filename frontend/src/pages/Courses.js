@@ -146,7 +146,6 @@ function CoursesPage() {
       });
   
       if (res.data.valid) {
-        // Simpan status ke tokenAuth
         await api.post("/courses/tokenAuth", {
           course_id: selectedCourseId,
           user_id: userId,

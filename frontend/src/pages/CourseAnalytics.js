@@ -5,10 +5,10 @@ import api from '../api';
 
 import {
   FiUsers,
-  FiCheckCircle,
   FiTarget,
   FiAlertCircle,
-  FiTrendingUp
+  FiTrendingUp,
+  FiChevronDown
 } from 'react-icons/fi';
 
 const StatCard = ({ icon, title, value, color }) => (
@@ -56,6 +56,85 @@ const ErrorMessage = ({ message }) => (
   </div>
 );
 
+const StudentRow = ({ student, courseId }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const summary = useMemo(() => {
+    if (!student.attempts || student.attempts.length === 0) {
+      return { bestScore: 0, totalAttempts: 0, progress: 0 };
+    }
+    const bestAttempt = student.attempts.reduce((prev, current) => (prev.benar > current.benar) ? prev : current);
+    return {
+      bestScore: bestAttempt.benar,
+      totalAttempts: student.attempts.length,
+      progress: (bestAttempt.benar / bestAttempt.total_dikerjakan) * 100
+    };
+  }, [student.attempts]);
+
+  return (
+    <div className="border-b border-gray-200">
+      <div
+        className="flex flex-col md:flex-row items-start md:items-center p-4 hover:bg-gray-50 cursor-pointer transition-colors duration-200"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div className="w-full md:w-1/3 font-medium text-gray-800 mb-2 md:mb-0">
+          {student.name}
+          <span className="ml-2 text-xs font-normal text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">
+            {summary.totalAttempts} percobaan
+          </span>
+        </div>
+
+        <div className="w-full md:w-1/6 text-left md:text-center text-gray-600 mb-2 md:mb-0">
+            <span className="md:hidden font-semibold mr-2">Skor Terbaik: </span>
+            <span className="font-bold text-lg text-gray-800">{summary.bestScore}</span>
+        </div>
+
+        <div className="w-full md:flex-1 flex items-center gap-4">
+            <div className="flex-grow">
+                <ProgressBar value={summary.progress} />
+            </div>
+            <FiChevronDown
+            size={20}
+            className={`text-gray-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+            />
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className="bg-gray-50 px-4 md:px-8 py-4">
+          <div className="border-l-2 border-blue-200 pl-4">
+            <h4 className="text-sm font-semibold text-gray-600 mb-3">Riwayat Percobaan:</h4>
+            {student.attempts
+              .sort((a, b) => a.attemp - b.attemp)
+              .map(attempt => (
+                <div key={attempt.attemp} className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-2 border-b border-gray-200 last:border-b-0">
+                  <div>
+                    <span className="font-semibold">Percobaan Ke-{attempt.attemp}</span>
+                    <div className="text-xs text-gray-500 flex gap-4 mt-1">
+                        <span>Benar: <span className="text-green-600 font-medium">{attempt.benar}</span></span>
+                        <span>Salah: <span className="text-red-600 font-medium">{attempt.salah}</span></span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/courses/${courseId}/${attempt.user_id}/${attempt.attemp}/hasil`);
+                    }}
+                    className="mt-2 sm:mt-0 px-3 py-1 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-all"
+                  >
+                    Lihat Hasil
+                  </button>
+                </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 const AnalyticsPage = () => {
   const { id: courseId } = useParams();
   const navigate = useNavigate();
@@ -84,14 +163,41 @@ const AnalyticsPage = () => {
     return () => clearInterval(interval);
   }, [courseId]);
 
+  const groupedAndSortedData = useMemo(() => {
+    if (!analytics || analytics.length === 0) return [];
+
+    const studentsById = analytics.reduce((acc, attempt) => {
+      acc[attempt.user_id] = acc[attempt.user_id] || {
+        ...attempt,
+        attempts: []
+      };
+      acc[attempt.user_id].attempts.push(attempt);
+      return acc;
+    }, {});
+
+    const studentsByClass = Object.values(studentsById).reduce((acc, student) => {
+      acc[student.kelas] = acc[student.kelas] || [];
+      acc[student.kelas].push(student);
+      return acc;
+    }, {});
+
+    return Object.keys(studentsByClass)
+      .sort()
+      .map(className => ({
+        className,
+        students: studentsByClass[className].sort((a, b) => a.name.localeCompare(b.name))
+      }));
+  }, [analytics]);
+
   const summaryStats = useMemo(() => {
     if (analytics.length === 0) {
       return { totalUsers: 0, avgScore: 0, highestScore: 0, totalAttempts: 0 };
     }
-    const totalUsers = analytics.length;
-    const totalAttempts = analytics.reduce((sum, u) => sum + u.attemp, 0);
-    const avgScore = analytics.reduce((sum, u) => sum + u.benar, 0) / totalUsers;
-    const highestScore = Math.max(...analytics.map(u => u.benar));
+    const totalUsers = Object.keys(analytics.reduce((acc, item) => ({...acc, [item.user_id]: true }), {})).length;
+    const totalAttempts = analytics.length;
+    const totalScore = analytics.reduce((sum, u) => sum + u.benar, 0);
+    const avgScore = totalAttempts > 0 ? totalScore / totalAttempts : 0;
+    const highestScore = Math.max(0, ...analytics.map(u => u.benar));
     return {
       totalUsers,
       avgScore: avgScore.toFixed(1),
@@ -100,20 +206,6 @@ const AnalyticsPage = () => {
     };
   }, [analytics]);
 
-  const handleLihatHasil = async (name) => {
-    try {
-      const res = await api.get(`/courses/${courseId}/userid/${name}`);
-      const userId = res.data.user_id;
-      if (userId) {
-        navigate(`/courses/${courseId}/${userId}/hasil`);
-      } else {
-        alert("User ID tidak ditemukan.");
-      }
-    } catch (err) {
-      console.error("❌ Gagal ambil user_id:", err);
-      alert("Gagal mengambil user ID.");
-    }
-  };
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -129,55 +221,39 @@ const AnalyticsPage = () => {
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 <StatCard icon={<FiUsers size={22} />} title="Total Peserta" value={summaryStats.totalUsers} color="blue" />
-                <StatCard icon={<FiTarget size={22} />} title="Skor Rata-rata" value={summaryStats.avgScore} color="yellow" />
+                <StatCard icon={<FiTarget size={22} />} title="Rata-rata Skor per Percobaan" value={summaryStats.avgScore} color="yellow" />
                 <StatCard icon={<FiTrendingUp size={22} />} title="Skor Tertinggi" value={summaryStats.highestScore} color="green" />
               </div>
 
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <h3 className="text-xl font-semibold text-gray-700 p-6">Detail Performa Peserta</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-100 text-gray-600 uppercase">
-                      <tr>
-                        <th className="py-3 px-6 text-left">Nama Peserta</th>
-                        <th className="py-3 px-6 text-center">Percobaan</th>
-                        <th className="py-3 px-6 text-center hidden md:table-cell">Benar</th>
-                        <th className="py-3 px-6 text-center hidden md:table-cell">Salah</th>
-                        <th className="py-3 px-6 text-center">Skor</th>
-                        <th className="py-3 px-6 text-left min-w-[200px]">Progress Skor</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-gray-700">
-                        {analytics.length > 0 ? analytics.map((attempt, index) => (
-                            <tr key={`${attempt.user_id}-${attempt.attemp}`} className="border-b border-gray-200 hover:bg-gray-50">
-                            <td className="py-4 px-6 font-medium">{attempt.name}</td>
-                            <td className="py-4 px-6 text-center">Ke-{attempt.attemp}</td>
-                            <td className="py-4 px-6 text-center text-green-600 hidden md:table-cell">{attempt.benar}</td>
-                            <td className="py-4 px-6 text-center text-red-600 hidden md:table-cell">{attempt.salah}</td>
-                            <td className="py-4 px-6 text-center font-bold text-lg">{attempt.benar}</td>
-                            <td className="py-4 px-6 flex flex-col lg:flex-row gap-2 items-start lg:items-center">
-                                <div className="flex-1 w-full">
-                                <ProgressBar value={(attempt.benar / attempt.total_dikerjakan) * 100} />
-                                </div>
-                                <button
-                                onClick={() => navigate(`/courses/${courseId}/${attempt.user_id}/${attempt.attemp}/hasil`)}
-                                className="mt-2 lg:mt-0 px-3 py-1 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-all"
-                                >
-                                Lihat Hasil
-                                </button>
-                            </td>
-                            </tr>
-                        )) : (
-                            <tr>
-                            <td colSpan="6" className="text-center py-12 text-gray-500">
-                                Belum ada data analytics untuk ditampilkan.
-                            </td>
-                            </tr>
-                        )}
-                        </tbody>
+                <h3 className="text-xl font-semibold text-gray-700 p-6 border-b border-gray-200">
+                  Detail Performa Peserta
+                </h3>
+                
+                {groupedAndSortedData.length > 0 ? (
+                    <div>
+                    <div className="hidden md:flex bg-gray-100 text-gray-600 uppercase text-xs font-semibold px-4 py-2">
+                        <div className="md:w-1/3">Nama Peserta</div>
+                        <div className="md:w-1/6 text-center">Skor Terbaik</div>
+                        <div className="flex-1">Progress</div>
+                    </div>
 
-                  </table>
-                </div>
+                    {groupedAndSortedData.map(classGroup => (
+                        <div key={classGroup.className}>
+                        <h4 className="bg-gray-200 text-gray-800 font-bold p-3 text-sm">
+                            Kelas: {classGroup.className}
+                        </h4>
+                        {classGroup.students.map(student => (
+                            <StudentRow key={student.user_id} student={student} courseId={courseId} />
+                        ))}
+                        </div>
+                    ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-12 text-gray-500">
+                    Belum ada data analytics untuk ditampilkan.
+                    </div>
+                )}
               </div>
             </>
           )}

@@ -499,6 +499,7 @@ if (!userId || isNaN(userId)) {
       const [jawabanRows] = await connection.query(`
         SELECT 
           u.name AS user_name,
+          u.kelas AS kelas,
           u.id AS user_id,
           js.soal_id,
           LEFT(TRIM(UPPER(js.jawaban)), 1) AS jawaban_siswa,
@@ -519,12 +520,13 @@ if (!userId || isNaN(userId)) {
           hasil[key] = {
             name: row.user_name,
             user_id: row.user_id,
+            kelas: row.kelas,
             attemp: row.attemp,
             total_dikerjakan: 0,
             benar: 0,
             salah: 0,
           };
-        }
+        }        
   
         hasil[key].total_dikerjakan += 1;
         if (row.jawaban_siswa === row.kunci) {
