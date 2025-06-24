@@ -72,7 +72,7 @@ function AppLayout() {
             <Route path="/" element={<PublicRoute element={<LoginPage />} />} />
             <Route path="/home" element={<PrivateRoute element={<HomePage />} />} />
             <Route path="/usrmng" element={<PrivateRoute element={<UserManage />} />} />
-            <Route path="/courses/:courseId/:userId/hasil" element={<ExamResultPage />} />
+            <Route path="/courses/:courseId/:userId/:attemp/hasil" element={<ExamResultPage />} />
             <Route path="/courses/:id/do" element={<DoExamPage />} />
             <Route path="/courses/:id/analytics" element={<AnalyticsCourse />} />
             <Route path="/courses" element={<PrivateRoute element={<CoursesPage />} />} />

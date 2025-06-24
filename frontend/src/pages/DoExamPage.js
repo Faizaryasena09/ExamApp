@@ -24,22 +24,20 @@ function DoExamPage() {
   const { id: courseId } = useParams();
   const [authChecked, setAuthChecked] = useState(false);
   const [sudahInputToken, setSudahInputToken] = useState(true);
+  const [attemptNow, setAttemptNow] = useState(1);
 
   useEffect(() => {
     const checkTokenRequirement = async () => {
       try {
-        // 1. Cek dulu apakah course ini pakai token atau tidak
         const courseRes = await api.get(`/courses/${courseId}`);
         const useToken = courseRes.data.useToken;
   
         if (!useToken) {
-          // Kalau nggak pakai token, langsung izinkan
           setSudahInputToken(true);
           setAuthChecked(true);
           return;
         }
   
-        // 2. Kalau pakai token, cek apakah user sudah memasukkan token
         const tokenRes = await api.get(`/courses/${courseId}/tokenAuth?user=${userId}`);
         if (tokenRes.data.isAuthorized) {
           setSudahInputToken(true);
@@ -48,7 +46,7 @@ function DoExamPage() {
         }
       } catch (err) {
         console.error("❌ Gagal cek useToken atau tokenAuth:", err.message);
-        setSudahInputToken(false); // fallback: anggap belum terautentikasi
+        setSudahInputToken(false);
       } finally {
         setAuthChecked(true);
       }
@@ -63,6 +61,21 @@ function DoExamPage() {
       fetchJawabanSiswa();
     }
   }, [showStartModal]);
+
+  useEffect(() => {
+    const fetchAttempt = async () => {
+      try {
+        const res = await api.get(`/jawaban/last-attempt`, {
+          params: { user_id: userId, course_id: courseId },
+        });
+        setAttemptNow((res.data.lastAttempt || 0) + 1);
+      } catch (err) {
+        console.error("❌ Gagal ambil attempt:", err.message);
+      }
+    };
+  
+    fetchAttempt();
+  }, [userId, courseId]);  
 
   useEffect(() => {
     if (showStartModal || soalList.length === 0 || waktuSisa <= 0) return;
@@ -126,8 +139,11 @@ function DoExamPage() {
 
   const fetchJawabanSiswa = async () => {
     try {
-      const res = await api.get(`/jawaban/${id}`, {
-        params: { user_id: Cookies.get("user_id") },
+      const res = await api.get(`/answertrail/${id}`, {
+        params: {
+          user_id: userId,
+          attemp: attemptNow,
+        },
       });
       const hasil = {};
       res.data.forEach(item => {
@@ -137,20 +153,21 @@ function DoExamPage() {
     } catch (err) {
       console.error("Gagal ambil jawaban sebelumnya:", err);
     }
-  };
+  };  
 
   const simpanJawabanKeServer = async (soalId, jawaban) => {
     try {
-      await api.post("/jawaban", {
-        user_id: Cookies.get("user_id"),
+      await api.post("/answertrail", {
+        user_id: userId,
         course_id: id,
         soal_id: soalId,
         jawaban,
+        attemp: attemptNow,
       });
     } catch (err) {
       console.error("❌ Gagal simpan jawaban:", err);
     }
-  };
+  };  
 
   const submitJawabanUjian = async () => {
     try {
@@ -159,13 +176,17 @@ function DoExamPage() {
         soal_id: parseInt(soal_id),
         jawaban
       }));
+
+      await api.delete(`/answertrail/${id}`, {
+        params: { user_id: userId },
+      });      
   
       await api.post(`/courses/${id}/submit`, {
         user_id,
         jawaban: dataJawaban,
-        attemp: 1
+        attemp: attemptNow,
       });
-  
+      
       return true;
     } catch (err) {
       console.error("❌ Gagal submit ujian:", err);
@@ -246,7 +267,6 @@ function DoExamPage() {
       );
     }
   
-    // Kalau belum selesai ngecek token, tampilkan loading dulu
     if (!authChecked) {
       return (
         <div className="flex justify-center items-center h-screen">
@@ -255,7 +275,6 @@ function DoExamPage() {
       );
     }
   
-    // Modal normal kalau sudah valid
     return (
       <div className="fixed inset-0 bg-gray-900 bg-opacity-60 flex justify-center items-center z-50">
         <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md text-center transform transition-all">
@@ -311,7 +330,7 @@ function DoExamPage() {
 
             <div className="space-y-3">
             {opsiArray.map((opsi, idx) => {
-              const huruf = opsi.slice(0, 1); // A, B, C, ...
+              const huruf = opsi.slice(0, 1);
               const opsiAsli = currentSoal.opsiMapping[idx].slice(0, 1);
               const isSelected = jawabanSiswa[currentSoal.id] === opsiAsli;
 

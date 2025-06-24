@@ -499,6 +499,7 @@ if (!userId || isNaN(userId)) {
       const [jawabanRows] = await connection.query(`
         SELECT 
           u.name AS user_name,
+          u.id AS user_id,
           js.soal_id,
           LEFT(TRIM(UPPER(js.jawaban)), 1) AS jawaban_siswa,
           js.attemp,
@@ -512,27 +513,24 @@ if (!userId || isNaN(userId)) {
       const hasil = {};
   
       for (const row of jawabanRows) {
-        const { user_name, jawaban_siswa, kunci, attemp } = row;
+        const key = `${row.user_id}-${row.attemp}`;
   
-        if (!hasil[user_name]) {
-          hasil[user_name] = {
-            name: user_name,
+        if (!hasil[key]) {
+          hasil[key] = {
+            name: row.user_name,
+            user_id: row.user_id,
+            attemp: row.attemp,
             total_dikerjakan: 0,
             benar: 0,
             salah: 0,
-            attemp: attemp,
           };
         }
   
-        hasil[user_name].total_dikerjakan += 1;
-        if (jawaban_siswa === kunci) {
-          hasil[user_name].benar += 1;
+        hasil[key].total_dikerjakan += 1;
+        if (row.jawaban_siswa === row.kunci) {
+          hasil[key].benar += 1;
         } else {
-          hasil[user_name].salah += 1;
-        }
-  
-        if (attemp > hasil[user_name].attemp) {
-          hasil[user_name].attemp = attemp;
+          hasil[key].salah += 1;
         }
       }
   
@@ -541,9 +539,8 @@ if (!userId || isNaN(userId)) {
       console.error("❌ Gagal ambil analytics:", err);
       res.status(500).json({ message: "Gagal ambil analytics" });
     }
-  };
+  };  
 
-  // POST /courses/tokenAuth
   exports.saveTokenAuth = async (req, res) => {
     const { course_id, user_id } = req.body;
   
@@ -566,7 +563,6 @@ if (!userId || isNaN(userId)) {
     }
   };  
 
-// GET /courses/:id/tokenAuth?user=123
 exports.checkTokenAuth = async (req, res) => { 
   const courseId = req.params.id;
   const userId = req.query.user;

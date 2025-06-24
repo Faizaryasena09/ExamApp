@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 const ScoreCard = ({ score, totalQuestions }) => (
   <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 text-center">
@@ -72,21 +74,20 @@ const Option = ({ index, text, isCorrect, isSelected }) => {
 };
 
 const LoadingSpinner = () => (
-    <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
-    </div>
+  <div className="flex justify-center items-center h-64">
+    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+  </div>
 );
 
 const ErrorMessage = ({ message }) => (
-    <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md" role="alert">
-        <p className="font-bold">Terjadi Kesalahan</p>
-        <p>{message}</p>
-    </div>
+  <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md" role="alert">
+    <p className="font-bold">Terjadi Kesalahan</p>
+    <p>{message}</p>
+  </div>
 );
 
-
 const ExamResultPage = () => {
-  const { courseId, userId } = useParams();
+  const { courseId, userId, attemp } = useParams();
   const [examData, setExamData] = useState({ questions: [], studentName: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -95,14 +96,15 @@ const ExamResultPage = () => {
     const fetchResult = async () => {
       setLoading(true);
       try {
-        const res = await api.get(`/courses/${courseId}/user/${userId}/hasil`);
+        const res = await api.get(`/courses/${courseId}/user/${userId}/hasil?attemp=${attemp}`);
         if (res.data && res.data.length > 0) {
-            setExamData({
-                questions: res.data,
-                studentName: res.data[0].siswa_name || 'Siswa',
-            });
+          setExamData({
+            questions: res.data,
+            studentName: res.data[0].siswa_name || 'Siswa',
+          });
+        } else {
+          setError('Data kosong atau tidak ditemukan.');
         }
-        setError(null);
       } catch (err) {
         console.error('❌ Gagal ambil hasil ujian:', err);
         setError('Tidak dapat memuat hasil ujian. Silakan coba lagi nanti.');
@@ -112,19 +114,60 @@ const ExamResultPage = () => {
     };
 
     fetchResult();
-  }, [courseId, userId]);
+  }, [courseId, userId, attemp]);
+
+  const handleDownloadExcel = () => {
+    if (!examData.questions || examData.questions.length === 0) return;
+  
+    const worksheetData = [
+      ['Nama', 'Attempt ke', 'No', 'Jawaban Siswa', 'Jawaban Benar', 'Skor']
+    ];
+  
+    let benar = 0;
+  
+    examData.questions.forEach((q, i) => {
+      const isCorrect = q.jawaban_siswa === q.jawaban_benar;
+      if (isCorrect) benar += 1;
+  
+      worksheetData.push([
+        examData.studentName,
+        attemp,
+        i + 1,
+        q.jawaban_siswa || '-',
+        q.jawaban_benar || '-',
+        isCorrect ? 1 : 0
+      ]);
+    });
+  
+    worksheetData.push(['', '', '', '', 'Total Skor', benar]);
+  
+    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Hasil Ujian');
+  
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: 'xlsx',
+      type: 'array'
+    });
+  
+    const blob = new Blob([excelBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+  
+    saveAs(blob, `HasilUjian_${examData.studentName}_Attempt${attemp}.xlsx`);
+  };  
 
   const score = useMemo(() => {
-      return examData.questions.reduce((acc, q) => {
-          return q.jawaban_siswa === q.jawaban_benar ? acc + 1 : acc;
-      }, 0);
+    return examData.questions.reduce((acc, q) => {
+      return q.jawaban_siswa === q.jawaban_benar ? acc + 1 : acc;
+    }, 0);
   }, [examData.questions]);
 
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
         <header className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800">Hasil Ujian</h1>
+          <h1 className="text-4xl font-bold text-gray-800">Hasil Ujian Attempt ke-{attemp}</h1>
           <p className="text-lg text-gray-500 mt-1">
             Detail jawaban untuk <span className="font-semibold text-blue-600">{examData.studentName}</span>
           </p>
@@ -141,11 +184,17 @@ const ExamResultPage = () => {
                 <QuestionCard key={q.soal_id} question={q} index={index} />
               ))}
             </main>
-            
+
             <aside className="lg:col-span-1">
-                <div className="sticky top-8">
-                    <ScoreCard score={score} totalQuestions={examData.questions.length} />
-                </div>
+              <div className="sticky top-8">
+                <ScoreCard score={score} totalQuestions={examData.questions.length} />
+              </div>
+              <button
+            onClick={handleDownloadExcel}
+            className="mt-4 w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow transition"
+            >
+            Download Excel
+            </button>
             </aside>
           </div>
         )}

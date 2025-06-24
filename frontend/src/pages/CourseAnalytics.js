@@ -148,33 +148,34 @@ const AnalyticsPage = () => {
                       </tr>
                     </thead>
                     <tbody className="text-gray-700">
-                      {analytics.length > 0 ? analytics.map((user) => (
-                        <tr key={user.name} className="border-b border-gray-200 hover:bg-gray-50">
-                          <td className="py-4 px-6 font-medium">{user.name}</td>
-                          <td className="py-4 px-6 text-center">{user.attemp}</td>
-                          <td className="py-4 px-6 text-center text-green-600 hidden md:table-cell">{user.benar}</td>
-                          <td className="py-4 px-6 text-center text-red-600 hidden md:table-cell">{user.salah}</td>
-                          <td className="py-4 px-6 text-center font-bold text-lg">{user.benar}</td>
-                          <td className="py-4 px-6 flex flex-col lg:flex-row gap-2 items-start lg:items-center">
-                            <div className="flex-1 w-full">
-                              <ProgressBar value={(user.benar / user.total_dikerjakan) * 100} />
-                            </div>
-                            <button
-                              onClick={() => handleLihatHasil(user.name)}
-                              className="mt-2 lg:mt-0 px-3 py-1 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-all"
-                            >
-                              Lihat Hasil
-                            </button>
-                          </td>
-                        </tr>
-                      )) : (
-                        <tr>
-                          <td colSpan="6" className="text-center py-12 text-gray-500">
-                            Belum ada data analytics untuk ditampilkan.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
+                        {analytics.length > 0 ? analytics.map((attempt, index) => (
+                            <tr key={`${attempt.user_id}-${attempt.attemp}`} className="border-b border-gray-200 hover:bg-gray-50">
+                            <td className="py-4 px-6 font-medium">{attempt.name}</td>
+                            <td className="py-4 px-6 text-center">Ke-{attempt.attemp}</td>
+                            <td className="py-4 px-6 text-center text-green-600 hidden md:table-cell">{attempt.benar}</td>
+                            <td className="py-4 px-6 text-center text-red-600 hidden md:table-cell">{attempt.salah}</td>
+                            <td className="py-4 px-6 text-center font-bold text-lg">{attempt.benar}</td>
+                            <td className="py-4 px-6 flex flex-col lg:flex-row gap-2 items-start lg:items-center">
+                                <div className="flex-1 w-full">
+                                <ProgressBar value={(attempt.benar / attempt.total_dikerjakan) * 100} />
+                                </div>
+                                <button
+                                onClick={() => navigate(`/courses/${courseId}/${attempt.user_id}/${attempt.attemp}/hasil`)}
+                                className="mt-2 lg:mt-0 px-3 py-1 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-all"
+                                >
+                                Lihat Hasil
+                                </button>
+                            </td>
+                            </tr>
+                        )) : (
+                            <tr>
+                            <td colSpan="6" className="text-center py-12 text-gray-500">
+                                Belum ada data analytics untuk ditampilkan.
+                            </td>
+                            </tr>
+                        )}
+                        </tbody>
+
                   </table>
                 </div>
               </div>

@@ -9,34 +9,69 @@ exports.simpanJawaban = async (req, res) => {
   }
 
   try {
-    await db.query(`
-      INSERT INTO jawaban_siswa (user_id, course_id, soal_id, jawaban)
-      VALUES (?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE jawaban = ?
-    `, [user_id, course_id, soal_id, jawaban, jawaban]);
+    const [result] = await db.query(
+      "SELECT MAX(attemp) AS lastAttempt FROM jawaban_siswa WHERE user_id = ? AND course_id = ?",
+      [user_id, course_id]
+    );
+    const lastAttempt = result[0].lastAttempt || 0;
+    const currentAttempt = lastAttempt + 1;
 
-    res.json({ success: true });
+    await db.query(
+      "INSERT INTO jawaban_siswa (user_id, course_id, soal_id, jawaban, attemp) VALUES (?, ?, ?, ?, ?)",
+      [user_id, course_id, soal_id, jawaban, currentAttempt]
+    );
+
+    res.json({ success: true, attempt: currentAttempt });
   } catch (err) {
-    console.error("❌ Gagal simpan jawaban:", err);
+    console.error("❌ Gagal simpan jawaban:", err.message);
     res.status(500).json({ error: "Gagal menyimpan jawaban" });
   }
 };
 
 exports.getJawabanUser = async (req, res) => {
-    const course_id = req.params.course_id;
-    const user_id = req.query.user_id;
-  
-    try {
-      const db = await init;
-  
-      const [rows] = await db.query(
-        "SELECT soal_id AS question_id, jawaban AS answer FROM jawaban_siswa WHERE course_id = ? AND user_id = ?",
-        [course_id, user_id]
-      );
-  
-      res.json(rows);
-    } catch (err) {
-      console.error("❌ Gagal ambil jawaban user:", err.message);
-      res.status(500).json({ error: "Gagal mengambil jawaban user" });
+  const db = await init;
+  const course_id = req.params.course_id;
+  const user_id = req.query.user_id;
+
+  try {
+    const [result] = await db.query(
+      "SELECT MAX(attemp) AS lastAttempt FROM jawaban_siswa WHERE course_id = ? AND user_id = ?",
+      [course_id, user_id]
+    );
+    const lastAttempt = result[0].lastAttempt;
+
+    if (!lastAttempt) {
+      return res.json([]);
     }
-  };
+
+    const [rows] = await db.query(
+      `SELECT soal_id AS question_id, jawaban AS answer 
+       FROM jawaban_siswa 
+       WHERE course_id = ? AND user_id = ? AND attemp = ?`,
+      [course_id, user_id, lastAttempt]
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error("❌ Gagal ambil jawaban user:", err.message);
+    res.status(500).json({ error: "Gagal mengambil jawaban user" });
+  }
+};
+
+exports.getLastAttempt = async (req, res) => {
+  const db = await init;
+  const { course_id, user_id } = req.query;
+
+  try {
+    const [rows] = await db.query(
+      "SELECT MAX(attemp) AS lastAttempt FROM jawaban_siswa WHERE course_id = ? AND user_id = ?",
+      [course_id, user_id]
+    );
+
+    const lastAttempt = rows[0].lastAttempt || 0;
+    res.json({ lastAttempt });
+  } catch (err) {
+    console.error("❌ Gagal ambil attempt terakhir:", err.message);
+    res.status(500).json({ error: "Gagal ambil attempt terakhir" });
+  }
+};

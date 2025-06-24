@@ -77,14 +77,16 @@ async function initDatabase() {
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS jawaban_siswa (
-      user_id INT,
-      course_id INT,
-      soal_id INT,
-      jawaban VARCHAR(5),
-      attemp INT,
-      PRIMARY KEY (user_id, course_id, soal_id)
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT,
+        course_id INT,
+        soal_id INT,
+        jawaban VARCHAR(5),
+        attemp INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_jawaban (user_id, course_id, soal_id, attemp)
       )
-    `);
+    `);    
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS questions (
@@ -103,6 +105,18 @@ async function initDatabase() {
         course_id INT NOT NULL,
         user_id INT NOT NULL,
         UNIQUE KEY unique_auth (course_id, user_id)
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS jawaban_trail (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT,
+        course_id INT,
+        soal_id INT,
+        jawaban VARCHAR(5),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY (user_id, course_id, soal_id)
       )
     `);
 

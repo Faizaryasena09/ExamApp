@@ -4,5 +4,6 @@ const answerController = require("../controllers/answerController");
 
 router.post("/", answerController.simpanJawaban);
 router.get("/:course_id", answerController.getJawabanUser);
+router.get("/last-attempt", answerController.getLastAttempt);
 
 module.exports = router;
