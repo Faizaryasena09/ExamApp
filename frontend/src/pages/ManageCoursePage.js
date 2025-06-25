@@ -40,10 +40,10 @@ function ManageCoursePage() {
     try {
       const res = await api.get(`/courses/${id}`);
       const c = res.data;
-
+  
       setForm({
         nama: c.nama || "",
-        kelas: c.kelas instanceof Array ? c.kelas : [c.kelas],
+        kelas: Array.isArray(c.kelas) ? c.kelas : [c.kelas],
         tanggalMulai: c.tanggal_mulai?.split("T")[0] || "",
         waktuMulai: c.tanggal_mulai?.split("T")[1]?.slice(0, 5) || "",
         enableTanggalSelesai: !!c.tanggal_selesai,
@@ -56,15 +56,18 @@ function ManageCoursePage() {
           : "custom",
         waktuCustom: ![30, 45, 60, 120].includes(c.waktu) ? c.waktu : "",
         deskripsi: c.deskripsi || "",
-        maxPercobaan: c.maxPercobaan || 1,
-        tampilkanHasil: c.tampilkanHasil || false,
-        useToken: c.useToken || false,
+        maxPercobaan: parseInt(c.maxPercobaan) || 1,
+        tampilkanHasil: Boolean(c.tampilkanHasil),
+        useToken: Boolean(c.useToken),
         tokenValue: c.tokenValue || "",
+        // ✅ Include dengan boolean eksplisit
+        acakSoal: Boolean(c.acakSoal),
+        acakJawaban: Boolean(c.acakJawaban),
       });
     } catch (err) {
-      console.error("Gagal ambil course:", err);
+      console.error("❌ Gagal ambil course:", err);
     }
-  };
+  };   
 
   const fetchKelas = async () => {
     try {
@@ -98,6 +101,9 @@ function ManageCoursePage() {
       tampilkanHasil: form.tampilkanHasil,
       useToken: form.useToken,
       tokenValue: form.useToken ? form.tokenValue.trim().slice(0, 6) : null,
+      acakSoal: form.acakSoal,
+      acakJawaban: form.acakJawaban,
+
     };
   
     try {
@@ -121,7 +127,7 @@ function ManageCoursePage() {
       const res = await api.get(`/courses/${id}/questions`);
   
       const soalFormatted = res.data.map((item) => ({
-        id: item.id, // penting!
+        id: item.id,
         soal: item.soal,
         opsi: Array.isArray(item.opsi)
           ? item.opsi
@@ -272,6 +278,26 @@ function ManageCoursePage() {
                         <input id="max-percobaan" type="number" min="1" value={form.maxPercobaan} onChange={(e) => setForm({ ...form, maxPercobaan: parseInt(e.target.value) })} className="w-full md:w-1/2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"/>
                     </div>
                     <div className="space-y-3 pt-2">
+                    <label className="flex items-center">
+  <input
+    type="checkbox"
+    checked={form.acakSoal}
+    onChange={(e) => setForm((prev) => ({ ...prev, acakSoal: e.target.checked }))}
+    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+  />
+  <span className="ml-3 text-sm text-gray-700">Acak Urutan Soal</span>
+</label>
+
+<label className="flex items-center">
+  <input
+    type="checkbox"
+    checked={form.acakJawaban}
+    onChange={(e) => setForm((prev) => ({ ...prev, acakJawaban: e.target.checked }))}
+    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+  />
+  <span className="ml-3 text-sm text-gray-700">Acak Urutan Jawaban</span>
+</label>
+
                         <label className="flex items-center">
                             <input type="checkbox" checked={form.tampilkanHasil} onChange={(e) => setForm({ ...form, tampilkanHasil: e.target.checked })} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                             <span className="ml-3 text-sm text-gray-700">Tampilkan hasil ke siswa setelah ujian</span>
@@ -307,16 +333,6 @@ function ManageCoursePage() {
               <div>
                   <label htmlFor="upload-soal" className="block text-sm font-medium text-gray-600 mb-2">📤 Upload Soal (.docx)</label>
                   <input id="upload-soal" type="file" accept=".docx" onChange={handleUploadSoal} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-              </div>
-              <div className="flex flex-col space-y-2 self-center">
-                  <label className="flex items-center text-sm text-gray-700">
-                      <input type="checkbox" checked={acakSoal} onChange={() => setAcakSoal(!acakSoal)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
-                      <span className="ml-2">Acak Urutan Soal</span>
-                  </label>
-                  <label className="flex items-center text-sm text-gray-700">
-                      <input type="checkbox" checked={acakJawaban} onChange={() => setAcakJawaban(!acakJawaban)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
-                      <span className="ml-2">Acak Urutan Jawaban</span>
-                  </label>
               </div>
           </div>
           

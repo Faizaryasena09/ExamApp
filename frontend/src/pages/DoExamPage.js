@@ -28,6 +28,9 @@ function DoExamPage() {
   const [loading, setLoading] = useState(true);
   const [blocked, setBlocked] = useState(false);
   const [maxInfo, setMaxInfo] = useState(null);
+  const [acakSoal, setAcakSoal] = useState(false);
+  const [acakJawaban, setAcakJawaban] = useState(false);
+
 
   useEffect(() => {
     const checkTokenRequirement = async () => {
@@ -138,38 +141,45 @@ function DoExamPage() {
   const fetchSoal = async () => {
     setIsLoading(true);
     try {
-      const res = await api.get(`/courses/${id}/questions`);
-      const rawSoal = res.data;
+      const config = await api.get(`/courses/${id}`);
+      setExamTitle(config.data.title || "Ujian Kompetensi");
+      const waktu = config.data.waktu || 30;
+      setWaktuSisa(waktu * 60);
   
-      const soalDiacak = shuffleArray(rawSoal).map((soal) => {
+      // 🔥 Tambahkan ini
+      const acakSoalFromServer = config.data.acakSoal;
+      const acakJawabanFromServer = config.data.acakJawaban;
+  
+      setAcakSoal(acakSoalFromServer);
+      setAcakJawaban(acakJawabanFromServer);
+  
+      const soalRes = await api.get(`/courses/${id}/questions`);
+      const rawSoal = soalRes.data;
+  
+      const soalFinal = (acakSoalFromServer ? shuffleArray(rawSoal) : rawSoal).map((soal) => {
         const opsiOriginal = typeof soal.opsi === "string" ? JSON.parse(soal.opsi) : soal.opsi;
   
-        const opsiDiacak = shuffleArray(opsiOriginal);
+        const opsiFinal = acakJawabanFromServer ? shuffleArray(opsiOriginal) : opsiOriginal;
   
-        const opsiDenganAbjad = opsiDiacak.map((opsiText, index) => {
-          const huruf = String.fromCharCode(65 + index); 
+        const opsiDenganAbjad = opsiFinal.map((opsiText, index) => {
+          const huruf = String.fromCharCode(65 + index);
           return `${huruf}. ${opsiText.substring(3)}`;
         });
   
         return {
           ...soal,
           opsi: opsiDenganAbjad,
-          opsiMapping: opsiDiacak,
+          opsiMapping: opsiFinal,
         };
       });
   
-      setSoalList(soalDiacak);
-  
-      const config = await api.get(`/courses/${id}`);
-      setExamTitle(config.data.title || "Ujian Kompetensi");
-      const waktu = config.data.waktu || 30;
-      setWaktuSisa(waktu * 60);
+      setSoalList(soalFinal);
     } catch (err) {
-      console.error("Gagal ambil soal:", err);
+      console.error("❌ Gagal ambil soal:", err);
     } finally {
       setIsLoading(false);
     }
-  };  
+  };   
 
   const fetchJawabanSiswa = async () => {
     try {

@@ -15,6 +15,7 @@ function CoursesPage() {
   const [selectedCourseId, setSelectedCourseId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [statusMap, setStatusMap] = useState({});
+  const [openFolders, setOpenFolders] = useState({});
 
   const navigate = useNavigate();
   const role = Cookies.get("role");
@@ -48,6 +49,13 @@ function CoursesPage() {
 
     fetchInitialData();
   }, [role, name]);
+
+  const toggleFolder = (folderName) => {
+    setOpenFolders((prev) => ({
+      ...prev,
+      [folderName]: !prev[folderName],
+    }));
+  };
 
   const fetchCourses = async (kelasSiswa = null) => {
     try {
@@ -162,6 +170,25 @@ function CoursesPage() {
     }
   };  
 
+  const grouped = filteredCourses.reduce((acc, c) => {
+    const folder = c.subfolder || "Tanpa Folder";
+    if (!acc[folder]) acc[folder] = [];
+    acc[folder].push(c);
+    return acc;
+  }, {});
+
+  const toggleVisibility = async (id, currentHidden) => {
+    try {
+      await api.put(`/courses/${id}/toggle-visibility`, {
+        hidden: !currentHidden,
+      });
+      fetchCourses(); // refresh
+    } catch (err) {
+      console.error("🚫 Gagal toggle visibility:", err);
+      alert("Gagal mengubah visibilitas course");
+    }
+  };  
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-slate-50">
@@ -182,14 +209,14 @@ function CoursesPage() {
           {role !== "siswa" && (
             <button
               onClick={() => navigate("/createcourses")}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold shadow-lg hover:bg-indigo-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold shadow-lg hover:bg-indigo-700 transition-transform transform hover:scale-105"
             >
               <FiPlus />
               Buat Course Baru
             </button>
           )}
         </header>
-
+  
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           <div className="relative flex-grow">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -198,13 +225,13 @@ function CoursesPage() {
               placeholder="Cari berdasarkan nama course..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="border border-slate-300 pl-10 pr-4 py-2 rounded-lg w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+              className="border border-slate-300 pl-10 pr-4 py-2 rounded-lg w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
           <select
             value={selectedKelas}
             onChange={(e) => setSelectedKelas(e.target.value)}
-            className="border border-slate-300 px-4 py-2 rounded-lg w-full sm:w-52 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+            className="border border-slate-300 px-4 py-2 rounded-lg w-full sm:w-52 bg-white"
           >
             <option value="all">Semua Kelas</option>
             {kelasList.map((k) => (
@@ -214,113 +241,101 @@ function CoursesPage() {
             ))}
           </select>
         </div>
-
-        {filteredCourses.length === 0 ? (
+  
+        {Object.keys(grouped).length === 0 ? (
           <div className="text-center py-20 bg-white rounded-lg shadow-sm">
             <FiAlertCircle className="mx-auto text-5xl text-slate-400 mb-4" />
             <h3 className="text-xl font-semibold text-slate-700">Tidak Ada Course Ditemukan</h3>
             <p className="text-slate-500 mt-2">Coba ubah kata kunci pencarian atau filter kelas Anda.</p>
           </div>
         ) : (
-          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredCourses.map((course) => (
-              <div
-                key={course.id}
-                className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-2xl hover:-translate-y-2"
-              >
-                <div className="h-40 bg-indigo-200 flex items-center justify-center">
-                  <FiBookOpen className="text-5xl text-indigo-400" />
-                </div>
-
-                <div className="p-5 flex flex-col flex-grow">
-                  <p className="text-sm font-semibold text-indigo-600">
-                    Kelas: {Array.isArray(course.kelas) ? course.kelas.join(", ") : course.kelas}
-                  </p>
-                  <h3 className="text-xl font-bold text-slate-800 mt-1 truncate">{course.nama}</h3>
-                  <p className="text-sm text-slate-500 mt-1">
-                    Oleh: {course.pengajar}
-                  </p>
-                  <p className="text-slate-600 mt-3 text-sm flex-grow line-clamp-2">{course.deskripsi}</p>
-                </div>
-
-                <div className="p-4 bg-slate-50 border-t border-slate-200 mt-auto">
-                  {role === "siswa" ? (
-                    statusMap[course.id]?.sudahMaksimal ? (
-                      <button
-                        disabled
-                        className="w-full flex items-center justify-center gap-2 bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold cursor-not-allowed"
-                      >
-                        Anda telah mengerjakan
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleDoClick(course.id)}
-                        className="w-full flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors"
-                      >
-                        Mulai Kerjakan <FiChevronRight />
-                      </button>
-                    )
-                  ) : (
-                    <div className="flex justify-between items-center gap-2">
-                      <button
-                        onClick={() => handleManageClick(course.id)}
-                        className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
-                      >
-                        <FiSettings /> Manage
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCourse(course.id)}
-                        className="flex items-center gap-1 text-sm font-medium text-red-500 hover:text-red-700 transition-colors"
-                      >
-                        <FiTrash2 /> Hapus
-                      </button>
-                    </div>
-                  )}
-                </div>
+          <div className="space-y-6">
+            {Object.entries(grouped).map(([folderName, coursesInFolder]) => (
+              <div key={folderName} className="bg-white rounded-lg shadow-md">
+                <button
+                  onClick={() => toggleFolder(folderName)}
+                  className="w-full flex justify-between items-center px-6 py-4 text-left text-xl font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition"
+                >
+                  {folderName}
+                  <span className="text-sm text-indigo-500">{openFolders[folderName] ? "▲" : "▼"}</span>
+                </button>
+  
+                {openFolders[folderName] && (
+                  <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 p-6 pt-0">
+                    {coursesInFolder
+                      .filter((course) => {
+                        const isHidden = course.hidden;
+                        if (role === "siswa" && isHidden) return false;
+                        const matchKelas =
+                          selectedKelas === "all" ||
+                          (Array.isArray(course.kelas)
+                            ? course.kelas.includes(selectedKelas)
+                            : course.kelas === selectedKelas);
+                        const matchSearch = course.nama.toLowerCase().includes(search.toLowerCase());
+                        return matchKelas && matchSearch;
+                      })
+                      .map((course) => (
+                        <div
+                          key={course.id}
+                          className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-2xl hover:-translate-y-2"
+                        >
+                          <div className="h-40 bg-indigo-200 flex items-center justify-center">
+                            <FiBookOpen className="text-5xl text-indigo-400" />
+                          </div>
+                          <div className="p-5 flex flex-col flex-grow">
+                            <p className="text-sm font-semibold text-indigo-600">
+                              Kelas: {Array.isArray(course.kelas) ? course.kelas.join(", ") : course.kelas}
+                            </p>
+                            <h3 className="text-xl font-bold text-slate-800 mt-1 truncate">{course.nama}</h3>
+                            <p className="text-sm text-slate-500 mt-1">Oleh: {course.pengajar}</p>
+                            <p className="text-slate-600 mt-3 text-sm flex-grow line-clamp-2">{course.deskripsi}</p>
+                          </div>
+                          <div className="p-4 bg-slate-50 border-t border-slate-200 mt-auto">
+                            {role === "siswa" ? (
+                              statusMap[course.id]?.sudahMaksimal ? (
+                                <button
+                                  disabled
+                                  className="w-full flex items-center justify-center gap-2 bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold cursor-not-allowed"
+                                >
+                                  Anda telah mengerjakan
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleDoClick(course.id)}
+                                  className="w-full flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700"
+                                >
+                                  Mulai Kerjakan <FiChevronRight />
+                                </button>
+                              )
+                            ) : (
+                              <div className="flex justify-between items-center gap-2">
+                                <button
+                                  onClick={() => handleManageClick(course.id)}
+                                  className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                                >
+                                  <FiSettings /> Manage
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteCourse(course.id)}
+                                  className="flex items-center gap-1 text-sm font-medium text-red-500 hover:text-red-700"
+                                >
+                                  <FiTrash2 /> Hapus
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
-
-      {showTokenModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 transition-opacity duration-300"
-          onClick={() => setShowTokenModal(false)}>
-          <div className="bg-white p-7 rounded-xl shadow-2xl w-full max-w-sm mx-4 transform transition-all duration-300"
-            onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">Masukkan Token</h3>
-            <p className="text-slate-500 mb-6">Course ini memerlukan token untuk memulai.</p>
-            <form onSubmit={handleSubmitToken}>
-              <input
-                type="text"
-                maxLength={6}
-                className="border border-slate-300 px-4 py-3 rounded-lg w-full mb-4 text-center text-2xl font-mono tracking-widest focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value.toUpperCase())}
-                placeholder="A B C 1 2 3"
-                autoFocus
-              />
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowTokenModal(false)}
-                  className="px-5 py-2 bg-slate-200 text-slate-800 rounded-lg font-semibold hover:bg-slate-300 transition-colors"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
-                >
-                  Submit
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
+  
 }
 
 export default CoursesPage;

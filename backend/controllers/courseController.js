@@ -11,10 +11,11 @@ function shuffleArray(array) {
       .map(({ item }) => item);
   }
 
-exports.createCourse = async (req, res) => {
+  exports.createCourse = async (req, res) => {
     const {
       nama, pengajarId, kelas, tanggalMulai, tanggalSelesai,
-      waktu, deskripsi, maxPercobaan, tampilkanHasil, useToken, tokenValue
+      waktu, deskripsi, maxPercobaan, tampilkanHasil,
+      useToken, tokenValue, acakSoal, acakJawaban
     } = req.body;
   
     const { name, role } = req.cookies;
@@ -25,8 +26,8 @@ exports.createCourse = async (req, res) => {
       await pool.query(
         `INSERT INTO courses 
         (nama, pengajar_id, pengajar, kelas, tanggal_mulai, tanggal_selesai, waktu, deskripsi,
-          maxPercobaan, tampilkanHasil, useToken, tokenValue, tokenCreatedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          maxPercobaan, tampilkanHasil, useToken, tokenValue, tokenCreatedAt, acakSoal, acakJawaban)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           nama,
           pengajarId,
@@ -40,7 +41,9 @@ exports.createCourse = async (req, res) => {
           tampilkanHasil || false,
           useToken || false,
           useToken ? tokenValue?.slice(0, 6) : null,
-          useToken ? new Date() : null
+          useToken ? new Date() : null,
+          !!acakSoal,
+          !!acakJawaban
         ]
       );
       res.status(201).json({ message: "Course berhasil dibuat!" });
@@ -48,8 +51,8 @@ exports.createCourse = async (req, res) => {
       console.error("Gagal membuat course:", err.message);
       res.status(500).json({ message: "Server error" });
     }
-  };  
-
+  };
+  
 exports.getCourses = async (req, res) => {
     const { role, name } = req.cookies;
     if (!name || !role) return res.status(401).send("Unauthorized");
@@ -131,11 +134,12 @@ exports.getCourseById = async (req, res) => {
     }
   };  
 
-exports.updateCourse = async (req, res) => {
+  exports.updateCourse = async (req, res) => {
     const courseId = req.params.id;
     const {
       nama, kelas, tanggal_mulai, tanggal_selesai, waktu, deskripsi,
-      maxPercobaan, tampilkanHasil, useToken, tokenValue
+      maxPercobaan, tampilkanHasil, useToken, tokenValue,
+      acakSoal, acakJawaban
     } = req.body;
   
     try {
@@ -152,7 +156,9 @@ exports.updateCourse = async (req, res) => {
           tampilkanHasil = ?, 
           useToken = ?, 
           tokenValue = ?, 
-          tokenCreatedAt = ?
+          tokenCreatedAt = ?,
+          acakSoal = ?, 
+          acakJawaban = ?
         WHERE id = ?`,
         [
           nama,
@@ -166,6 +172,8 @@ exports.updateCourse = async (req, res) => {
           useToken || false,
           useToken ? tokenValue?.slice(0, 6) : null,
           useToken ? new Date() : null,
+          !!acakSoal,
+          !!acakJawaban,
           courseId
         ]
       );
@@ -174,7 +182,7 @@ exports.updateCourse = async (req, res) => {
       console.error("Gagal update course:", err.message);
       res.status(500).json({ message: "Server error" });
     }
-  };  
+  };   
 
 exports.deleteCourse = async (req, res) => {
   const courseId = req.params.id;

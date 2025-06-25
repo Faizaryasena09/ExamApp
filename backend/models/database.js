@@ -55,18 +55,21 @@ async function initDatabase() {
         kelas TEXT NOT NULL,
         tanggal_mulai VARCHAR(100) NOT NULL,
         tanggal_selesai VARCHAR(100) DEFAULT NULL,
-        waktu VARCHAR(100),
+        waktu INT DEFAULT NULL, -- waktu ujian dalam menit
         deskripsi TEXT,
-        
+    
         maxPercobaan INT DEFAULT 1,
         tampilkanHasil BOOLEAN DEFAULT FALSE,
         useToken BOOLEAN DEFAULT FALSE,
         tokenValue VARCHAR(6),
         tokenCreatedAt DATETIME,
     
+        acakSoal BOOLEAN DEFAULT FALSE,
+        acakJawaban BOOLEAN DEFAULT FALSE,
+    
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `);    
+    `);
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS kelas (
