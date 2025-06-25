@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import Cookies from "js-cookie";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
-import { FiPlus, FiSearch, FiBookOpen, FiSettings, FiTrash2, FiChevronRight, FiAlertCircle, FiLoader } from "react-icons/fi";
+import {
+  FiPlus, FiSearch, FiBookOpen, FiSettings,
+  FiTrash2, FiChevronRight, FiAlertCircle, FiLoader
+} from "react-icons/fi";
 
 function CoursesPage() {
   const [courses, setCourses] = useState([]);
@@ -16,46 +19,43 @@ function CoursesPage() {
   const [loading, setLoading] = useState(true);
   const [statusMap, setStatusMap] = useState({});
   const [openFolders, setOpenFolders] = useState({});
+  const [subfolders, setSubfolders] = useState([]);
+  const [movingCourse, setMovingCourse] = useState(false);
 
   const navigate = useNavigate();
   const role = Cookies.get("role");
   const name = Cookies.get("name");
   const userId = Cookies.get("user_id");
 
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      setLoading(true);
-      try {
-        await fetchKelasList();
-        if (role === "siswa") {
-          const userRes = await api.get(`/users?name=${encodeURIComponent(name)}`);
-          if (userRes.data && userRes.data.kelas) {
-            setSiswaKelas(userRes.data.kelas);
-            await fetchCourses(userRes.data.kelas);
-            const courseRes = await api.get(`/courses?kelas=${userRes.data.kelas}`);
-            await fetchStatusMap(courseRes.data);
-          }
-        } else {
-          await fetchCourses();
-          const res = await api.get("/courses");
-          await fetchStatusMap(res.data);
-        }
-      } catch (err) {
-        console.error("❌ Gagal memuat data awal:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchInitialData = async () => {
+    setLoading(true);
+    try {
+      await fetchKelasList();
+      await fetchSubfolders();
 
+      if (role === "siswa") {
+        const userRes = await api.get(`/users?name=${encodeURIComponent(name)}`);
+        if (userRes.data && userRes.data.kelas) {
+          setSiswaKelas(userRes.data.kelas);
+          await fetchCourses(userRes.data.kelas);
+          const courseRes = await api.get(`/courses?kelas=${userRes.data.kelas}`);
+          await fetchStatusMap(courseRes.data);
+        }
+      } else {
+        await fetchCourses();
+        const res = await api.get("/courses");
+        await fetchStatusMap(res.data);
+      }
+    } catch (err) {
+      console.error("❌ Gagal memuat data awal:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchInitialData();
   }, [role, name]);
-
-  const toggleFolder = (folderName) => {
-    setOpenFolders((prev) => ({
-      ...prev,
-      [folderName]: !prev[folderName],
-    }));
-  };
 
   const fetchCourses = async (kelasSiswa = null) => {
     try {
@@ -73,6 +73,15 @@ function CoursesPage() {
       setKelasList(res.data);
     } catch (err) {
       console.error("Gagal ambil data kelas:", err);
+    }
+  };
+
+  const fetchSubfolders = async () => {
+    try {
+      const res = await api.get("/subfolders");
+      setSubfolders(res.data);
+    } catch (err) {
+      console.error("Gagal ambil subfolders:", err);
     }
   };
 
@@ -96,9 +105,7 @@ function CoursesPage() {
         ? course.kelas.includes(selectedKelas)
         : course.kelas === selectedKelas);
 
-    const matchSearch = course.nama
-      .toLowerCase()
-      .includes(search.toLowerCase());
+    const matchSearch = course.nama.toLowerCase().includes(search.toLowerCase());
 
     return matchKelas && matchSearch;
   });
@@ -146,19 +153,19 @@ function CoursesPage() {
   const handleSubmitToken = async (e) => {
     e.preventDefault();
     if (!tokenInput) return;
-  
+
     try {
       const res = await api.post(`/courses/${selectedCourseId}/validate-token`, {
         token: tokenInput,
         user: userId,
       });
-  
+
       if (res.data.valid) {
         await api.post("/courses/tokenAuth", {
           course_id: selectedCourseId,
           user_id: userId,
         });
-  
+
         setShowTokenModal(false);
         navigate(`/courses/${selectedCourseId}/do`);
       } else {
@@ -168,24 +175,97 @@ function CoursesPage() {
       console.error("❌ Gagal validasi token:", err);
       alert("Gagal memvalidasi token.");
     }
-  };  
+  };
 
-  const grouped = filteredCourses.reduce((acc, c) => {
-    const folder = c.subfolder || "Tanpa Folder";
-    if (!acc[folder]) acc[folder] = [];
-    acc[folder].push(c);
-    return acc;
-  }, {});
+  const grouped = {};
+
+  subfolders.forEach((folder) => {
+    grouped[folder.name] = [];
+  });
+
+  let tanpaFolderCourses = [];
+
+  filteredCourses.forEach((course) => {
+    const folder = course.subfolder;
+    if (folder) {
+      if (!grouped[folder]) grouped[folder] = [];
+      grouped[folder].push(course);
+    } else {
+      tanpaFolderCourses.push(course);
+    }
+  });
+
+  if (tanpaFolderCourses.length > 0) {
+    grouped["Tanpa Folder"] = tanpaFolderCourses;
+  }
 
   const toggleVisibility = async (id, currentHidden) => {
     try {
       await api.put(`/courses/${id}/toggle-visibility`, {
         hidden: !currentHidden,
       });
-      fetchCourses(); // refresh
+      fetchCourses();
     } catch (err) {
       console.error("🚫 Gagal toggle visibility:", err);
       alert("Gagal mengubah visibilitas course");
+    }
+  };
+
+  const toggleFolder = (folderName) => {
+    setOpenFolders((prev) => ({
+      ...prev,
+      [folderName]: !prev[folderName],
+    }));
+  };
+
+  const renameFolder = async (oldName, newName) => {
+    try {
+      await api.put(`/subfolders/${encodeURIComponent(oldName)}/rename`, { newName });
+      await fetchSubfolders();
+      await fetchCourses();
+    } catch (err) {
+      console.error("❌ Gagal rename folder:", err);
+      alert("Gagal rename folder.");
+    }
+  };  
+
+  const toggleSubfolderVisibility = async (folderName) => {
+    try {
+      const hidden = !grouped[folderName].every(c => c.hidden);
+      await api.put(`/subfolders/${encodeURIComponent(folderName)}/toggle-visibility`, { hidden });
+      await fetchCourses();
+    } catch (err) {
+      alert("Gagal mengubah visibilitas folder");
+      console.error(err);
+    }
+  };
+
+  const moveCourse = async (courseId, toSubfolderName) => {
+    setMovingCourse(true);
+    try {
+      await api.put("/subfolders/move-course", {
+        courseId,
+        toSubfolderId: toSubfolderName === "Tanpa Folder" ? null : toSubfolderName
+      });
+      await fetchInitialData();
+    } catch (err) {
+      console.error("Gagal memindahkan course:", err);
+      alert("❌ Gagal memindahkan course.");
+    } finally {
+      setMovingCourse(false);
+    }
+  }; 
+
+  const createSubfolder = async () => {
+    const name = prompt("Masukkan nama folder baru:");
+    if (name) {
+      try {
+        await api.post("/subfolders", { name });
+        await fetchInitialData();
+      } catch (err) {
+        alert("❌ Gagal membuat folder");
+        console.error(err);
+      }
     }
   };  
 
@@ -204,16 +284,25 @@ function CoursesPage() {
         <header className="flex justify-between items-center mb-8 flex-wrap gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-800">Courses</h1>
-            <p className="text-slate-500 mt-1">Selamat datang kembali, {name}. Pilih course untuk dimulai.</p>
+            <p className="text-slate-500 mt-1">
+              Selamat datang kembali, {name}. Pilih course untuk dimulai.
+            </p>
           </div>
           {role !== "siswa" && (
-            <button
-              onClick={() => navigate("/createcourses")}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold shadow-lg hover:bg-indigo-700 transition-transform transform hover:scale-105"
-            >
-              <FiPlus />
-              Buat Course Baru
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={createSubfolder}
+                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700"
+              >
+                <FiPlus /> Folder Baru
+              </button>
+              <button
+                onClick={() => navigate("/createcourses")}
+                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700"
+              >
+                <FiPlus /> Buat Course
+              </button>
+            </div>
           )}
         </header>
   
@@ -250,31 +339,69 @@ function CoursesPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {Object.entries(grouped).map(([folderName, coursesInFolder]) => (
-              <div key={folderName} className="bg-white rounded-lg shadow-md">
-                <button
-                  onClick={() => toggleFolder(folderName)}
-                  className="w-full flex justify-between items-center px-6 py-4 text-left text-xl font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition"
-                >
-                  {folderName}
-                  <span className="text-sm text-indigo-500">{openFolders[folderName] ? "▲" : "▼"}</span>
-                </button>
+            {Object.entries(grouped).map(([folderName, coursesInFolder]) => {
+              const isHiddenForSiswa = role === "siswa" && coursesInFolder.every((c) => c.hidden);
+              if (isHiddenForSiswa) return null;
   
-                {openFolders[folderName] && (
-                  <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 p-6 pt-0">
-                    {coursesInFolder
-                      .filter((course) => {
-                        const isHidden = course.hidden;
-                        if (role === "siswa" && isHidden) return false;
-                        const matchKelas =
-                          selectedKelas === "all" ||
-                          (Array.isArray(course.kelas)
-                            ? course.kelas.includes(selectedKelas)
-                            : course.kelas === selectedKelas);
-                        const matchSearch = course.nama.toLowerCase().includes(search.toLowerCase());
-                        return matchKelas && matchSearch;
-                      })
-                      .map((course) => (
+              const visibleCourses = coursesInFolder.filter((course) => {
+                if (role === "siswa" && course.hidden) return false;
+                const matchKelas =
+                  selectedKelas === "all" ||
+                  (Array.isArray(course.kelas)
+                    ? course.kelas.includes(selectedKelas)
+                    : course.kelas === selectedKelas);
+                const matchSearch = course.nama.toLowerCase().includes(search.toLowerCase());
+                return matchKelas && matchSearch;
+              });
+  
+              return (
+                <div key={folderName} className="bg-white rounded-lg shadow-md mb-4 border border-slate-200">
+                  {/* Folder Header */}
+                  <div
+                    className="flex justify-between items-center px-5 py-3 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
+                    onClick={() => toggleFolder(folderName)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl font-semibold text-slate-800">{folderName}</span>
+                      <span className="text-sm text-slate-500">({visibleCourses.length} course)</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {role !== "siswa" && (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const newName = prompt(`Ganti nama subfolder:`, folderName);
+                              if (newName && newName !== folderName) renameFolder(folderName, newName);
+                            }}
+                            className="text-sm text-indigo-600 hover:text-indigo-800"
+                          >
+                            Rename
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleSubfolderVisibility(folderName);
+                            }}
+                            className="text-sm text-slate-600 hover:text-slate-800"
+                          >
+                            {coursesInFolder.every((c) => c.hidden) ? "Tampilkan" : "Sembunyikan"}
+                          </button>
+                        </>
+                      )}
+                      <span className="text-indigo-600 text-lg">
+                        {openFolders[folderName] ? "🔽" : "▶️"}
+                      </span>
+                    </div>
+                  </div>
+  
+                  <div
+                    className={`transition-all duration-300 ease-in-out ${
+                      openFolders[folderName] ? "max-h-[3000px]" : "max-h-0 overflow-hidden"
+                    }`}
+                  >
+                    <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 p-6 pt-4">
+                      {visibleCourses.map((course) => (
                         <div
                           key={course.id}
                           className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-2xl hover:-translate-y-2"
@@ -288,7 +415,9 @@ function CoursesPage() {
                             </p>
                             <h3 className="text-xl font-bold text-slate-800 mt-1 truncate">{course.nama}</h3>
                             <p className="text-sm text-slate-500 mt-1">Oleh: {course.pengajar}</p>
-                            <p className="text-slate-600 mt-3 text-sm flex-grow line-clamp-2">{course.deskripsi}</p>
+                            <p className="text-slate-600 mt-3 text-sm flex-grow line-clamp-2">
+                              {course.deskripsi}
+                            </p>
                           </div>
                           <div className="p-4 bg-slate-50 border-t border-slate-200 mt-auto">
                             {role === "siswa" ? (
@@ -308,33 +437,69 @@ function CoursesPage() {
                                 </button>
                               )
                             ) : (
-                              <div className="flex justify-between items-center gap-2">
-                                <button
-                                  onClick={() => handleManageClick(course.id)}
-                                  className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-800"
-                                >
-                                  <FiSettings /> Manage
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteCourse(course.id)}
-                                  className="flex items-center gap-1 text-sm font-medium text-red-500 hover:text-red-700"
-                                >
-                                  <FiTrash2 /> Hapus
-                                </button>
-                              </div>
+                              <div className="flex flex-col gap-2 mt-2">
+                                <div className="flex justify-between items-center gap-2">
+                                  <button
+                                    onClick={() => handleManageClick(course.id)}
+                                    className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                                  >
+                                    <FiSettings /> Manage
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteCourse(course.id)}
+                                    className="flex items-center gap-1 text-sm font-medium text-red-500 hover:text-red-700"
+                                  >
+                                    <FiTrash2 /> Hapus
+                                  </button>
+                                </div>
+
+                                {role === "admin" && (
+                                  <label className="flex items-center gap-2 text-sm text-slate-600">
+                                    <input
+                                      type="checkbox"
+                                      checked={!course.hidden}
+                                      onChange={() => toggleVisibility(course.id, course.hidden)}
+                                      className="w-4 h-4"
+                                    />
+                                    Tampilkan untuk siswa
+                                  </label>
+                                )}
+
+                                {role !== "siswa" && (
+                                  <div className="mt-1">
+                                    <label className="text-xs text-slate-500 block mb-1">Pindah ke folder:</label>
+                                    <select
+                                value={
+                                  subfolders.find(f => f.id === course.subfolder_id)?.name || "Tanpa Folder"
+                                }
+                                onChange={async (e) => await moveCourse(course.id, e.target.value)}
+                                className="w-full border border-slate-300 px-2 py-1 rounded text-sm bg-white"
+                              >
+                                    <option value="Tanpa Folder">Tanpa Folder</option>
+                                    {subfolders.map((f) => (
+                                      <option key={f.name} value={f.name}>
+                                        {f.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+                            </div>
                             )}
                           </div>
                         </div>
                       ))}
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
     </div>
   );
+  
   
 }
 

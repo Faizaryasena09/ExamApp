@@ -22,5 +22,6 @@ router.get("/analytics/:courseId", courseController.getAnalyticsByCourse);
 router.get('/:courseId/userid/:name', courseController.getUserIdByName);
 router.post("/tokenAuth", courseController.saveTokenAuth);
 router.get("/:id/tokenAuth", courseController.checkTokenAuth);
+router.put("/:id/toggle-visibility", courseController.toggleVisibility);
 
 module.exports = router;

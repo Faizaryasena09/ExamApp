@@ -47,6 +47,15 @@ async function initDatabase() {
     `);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS subfolders (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL UNIQUE,
+        position INT NOT NULL DEFAULT 0,
+        hidden BOOLEAN DEFAULT FALSE
+      )
+    `);
+    
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS courses (
         id INT AUTO_INCREMENT PRIMARY KEY,
         nama VARCHAR(100) NOT NULL,
@@ -55,7 +64,7 @@ async function initDatabase() {
         kelas TEXT NOT NULL,
         tanggal_mulai VARCHAR(100) NOT NULL,
         tanggal_selesai VARCHAR(100) DEFAULT NULL,
-        waktu INT DEFAULT NULL, -- waktu ujian dalam menit
+        waktu INT DEFAULT NULL,
         deskripsi TEXT,
     
         maxPercobaan INT DEFAULT 1,
@@ -66,11 +75,14 @@ async function initDatabase() {
     
         acakSoal BOOLEAN DEFAULT FALSE,
         acakJawaban BOOLEAN DEFAULT FALSE,
+        subfolder_id INT DEFAULT NULL,
     
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (subfolder_id) REFERENCES subfolders(id)
+          ON DELETE SET NULL ON UPDATE CASCADE
       )
     `);
-
+    
     await pool.query(`
       CREATE TABLE IF NOT EXISTS kelas (
         id INT AUTO_INCREMENT PRIMARY KEY,

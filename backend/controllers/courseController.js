@@ -53,18 +53,24 @@ function shuffleArray(array) {
     }
   };
   
-exports.getCourses = async (req, res) => {
+  exports.getCourses = async (req, res) => {
     const { role, name } = req.cookies;
     if (!name || !role) return res.status(401).send("Unauthorized");
   
     try {
       const pool = await poolPromise;
   
-      let query = "SELECT * FROM courses";
+      let query = `
+        SELECT 
+          c.*, 
+          s.name AS subfolder 
+        FROM courses c
+        LEFT JOIN subfolders s ON c.subfolder_id = s.id
+      `;
       const params = [];
   
       if (role === "guru") {
-        query += " WHERE pengajar = ?";
+        query += " WHERE c.pengajar = ?";
         params.push(name);
       }
   
@@ -96,11 +102,12 @@ exports.getCourses = async (req, res) => {
           return {
             ...row,
             kelas: kelasParsed,
+            subfolder: row.subfolder || null,
           };
         })
         .filter((course) => {
           if (role === "siswa") {
-            const courseKelasLower = course.kelas.map(k =>
+            const courseKelasLower = course.kelas.map((k) =>
               String(k).toLowerCase().trim()
             );
             return courseKelasLower.includes(siswaKelas);
@@ -114,19 +121,32 @@ exports.getCourses = async (req, res) => {
       console.error("❌ Gagal ambil data course:", err.message);
       res.status(500).json({ message: "Server error" });
     }
-  };
+  };  
   
-exports.getCourseById = async (req, res) => {
+  exports.getCourseById = async (req, res) => {
     const courseId = req.params.id;
   
     try {
       const pool = await poolPromise;
-      const [rows] = await pool.query("SELECT * FROM courses WHERE id = ?", [courseId]);
+      const [rows] = await pool.query(`
+        SELECT 
+          c.*, 
+          s.name AS subfolder
+        FROM courses c
+        LEFT JOIN subfolders s ON c.subfolder_id = s.id
+        WHERE c.id = ?
+      `, [courseId]);
   
       if (rows.length === 0) return res.status(404).json({ message: "Course tidak ditemukan" });
   
       const course = rows[0];
-      course.kelas = JSON.parse(course.kelas);
+      try {
+        course.kelas = JSON.parse(course.kelas);
+      } catch {
+        course.kelas = [String(course.kelas)];
+      }
+  
+      course.subfolder = course.subfolder || null;
       res.json(course);
     } catch (err) {
       console.error("Gagal ambil course by ID:", err.message);
@@ -593,6 +613,19 @@ exports.checkTokenAuth = async (req, res) => {
   } catch (err) {
     console.error("❌ Gagal cek tokenAuth:", err.message);
     res.status(500).json({ message: "Server error saat cek token auth" });
+  }
+};
+
+exports.toggleVisibility = async (req, res) => {
+  const db = await dbPromise;
+  const courseId = req.params.id;
+  const { hidden } = req.body;
+  try {
+    await db.query("UPDATE courses SET hidden = ? WHERE id = ?", [hidden ? 1 : 0, courseId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Gagal update visibilitas course" });
   }
 };
   
