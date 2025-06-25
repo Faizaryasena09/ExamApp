@@ -76,6 +76,7 @@ async function initDatabase() {
         acakSoal BOOLEAN DEFAULT FALSE,
         acakJawaban BOOLEAN DEFAULT FALSE,
         subfolder_id INT DEFAULT NULL,
+        hidden BOOLEAN DEFAULT FALSE,
     
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (subfolder_id) REFERENCES subfolders(id)
