@@ -88,6 +88,8 @@ function shuffleArray(array) {
   
       const [rows] = await pool.query(query, params);
   
+      const now = new Date();
+  
       const result = rows
         .map((row) => {
           let kelasParsed = [];
@@ -112,7 +114,14 @@ function shuffleArray(array) {
             const courseKelasLower = course.kelas.map((k) =>
               String(k).toLowerCase().trim()
             );
-            return courseKelasLower.includes(siswaKelas);
+  
+            const mulai = new Date(course.tanggal_mulai);
+            const selesai = course.tanggal_selesai ? new Date(course.tanggal_selesai) : null;
+  
+            const isWaktuValid =
+              now >= mulai && (selesai === null || now <= selesai);
+  
+            return courseKelasLower.includes(siswaKelas) && isWaktuValid;
           }
   
           return true;
@@ -123,10 +132,11 @@ function shuffleArray(array) {
       console.error("❌ Gagal ambil data course:", err.message);
       res.status(500).json({ message: "Server error" });
     }
-  };  
+  };
   
   exports.getCourseById = async (req, res) => {
     const courseId = req.params.id;
+    const { role } = req.cookies;
   
     try {
       const pool = await poolPromise;
@@ -142,6 +152,21 @@ function shuffleArray(array) {
       if (rows.length === 0) return res.status(404).json({ message: "Course tidak ditemukan" });
   
       const course = rows[0];
+  
+      if (role === "siswa") {
+        const now = new Date();
+        const mulai = new Date(course.tanggal_mulai);
+        const selesai = course.tanggal_selesai ? new Date(course.tanggal_selesai) : null;
+  
+        if (now < mulai) {
+          return res.status(403).json({ message: "Ujian belum dimulai" });
+        }
+  
+        if (selesai && now > selesai) {
+          return res.status(403).json({ message: "Ujian sudah berakhir" });
+        }
+      }
+  
       try {
         course.kelas = JSON.parse(course.kelas);
       } catch {
@@ -498,9 +523,34 @@ if (!userId || isNaN(userId)) {
   
   exports.getQuestions = async (req, res) => {
     const course_id = req.params.id;
+    const userRole = req.cookies?.role;
   
     try {
       const db = await dbPromise;
+  
+      const [courseRows] = await db.query(
+        `SELECT tanggal_mulai, tanggal_selesai FROM courses WHERE id = ?`,
+        [course_id]
+      );
+  
+      if (courseRows.length === 0) {
+        return res.status(404).json({ error: "Course tidak ditemukan." });
+      }
+  
+      const { tanggal_mulai, tanggal_selesai } = courseRows[0];
+      const now = new Date();
+      const mulai = new Date(tanggal_mulai);
+      const selesai = tanggal_selesai ? new Date(tanggal_selesai) : null;
+  
+      if (userRole === "siswa") {
+        if (now < mulai) {
+          return res.status(403).json({ error: "Ujian belum dimulai." });
+        }
+        if (selesai && now > selesai) {
+          return res.status(403).json({ error: "Ujian sudah berakhir." });
+        }
+      }
+  
       const [rows] = await db.query(
         "SELECT id, soal, opsi, jawaban FROM questions WHERE course_id = ?",
         [course_id]
@@ -508,7 +558,6 @@ if (!userId || isNaN(userId)) {
   
       const soalList = rows.map((row) => {
         let opsiParsed = [];
-  
         try {
           opsiParsed = JSON.parse(row.opsi);
         } catch (err) {
@@ -523,7 +572,7 @@ if (!userId || isNaN(userId)) {
           id: row.id,
           soal: row.soal,
           opsi: opsiParsed,
-          jawaban: jawaban,
+          jawaban,
         };
       });
   
@@ -532,7 +581,7 @@ if (!userId || isNaN(userId)) {
       console.error("❌ Gagal ambil soal:", err);
       res.status(500).json({ error: "Gagal ambil soal" });
     }
-  };
+  };  
 
   exports.getAnalyticsByCourse = async (req, res) => {
     try {

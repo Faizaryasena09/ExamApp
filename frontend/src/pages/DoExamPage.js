@@ -209,11 +209,11 @@ function DoExamPage() {
     setIsLoading(true);
     try {
       const saved = localStorage.getItem(`timer-${userId}-${id}`);
-if (saved && !isNaN(saved)) {
-  console.log("📦 Timer dari localStorage:", saved);
-  setWaktuSisa(parseInt(saved));
-  waktuRef.current = parseInt(saved);
-}
+        if (saved && !isNaN(saved)) {
+          console.log("📦 Timer dari localStorage:", saved);
+          setWaktuSisa(parseInt(saved));
+          waktuRef.current = parseInt(saved);
+        }
 
       const config = await api.get(`/courses/${id}`);
       setExamTitle(config.data.title || "Ujian Kompetensi");
