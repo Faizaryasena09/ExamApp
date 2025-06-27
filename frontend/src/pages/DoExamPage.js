@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 import Cookies from "js-cookie";
+import { ImSpinner2 } from 'react-icons/im';
 
 import { FiFlag, FiClock, FiChevronLeft, FiChevronRight, FiCheckCircle, FiAlertTriangle } from 'react-icons/fi';
 
@@ -32,8 +33,9 @@ function DoExamPage() {
   const [maxInfo, setMaxInfo] = useState(null);
   const [acakSoal, setAcakSoal] = useState(false);
   const [acakJawaban, setAcakJawaban] = useState(false);
-  const [minWaktuSubmit, setMinWaktuSubmit] = useState(0); // dalam menit
+  const [minWaktuSubmit, setMinWaktuSubmit] = useState(0);
   const [configWaktu, setConfigWaktu] = useState(30);
+  const [loadingSubmit, setLoadingSubmit] = useState(false);
 
   useEffect(() => {
     const checkTokenRequirement = async () => {
@@ -112,7 +114,6 @@ function DoExamPage() {
       try {
         const now = new Date();
   
-        // 1. Ambil konfigurasi course (tanggal mulai/selesai)
         const res = await api.get(`/courses/${id}`);
         const mulai = new Date(res.data.tanggal_mulai);
         const selesai = res.data.tanggal_selesai ? new Date(res.data.tanggal_selesai) : null;
@@ -129,7 +130,6 @@ function DoExamPage() {
           return;
         }
   
-        // 2. Ambil waktu tersisa dari answertrail_timer
         let waktuDetik = null;
         console.log("🔍 before fetchTimer:", { userId, courseId });
   
@@ -148,7 +148,6 @@ function DoExamPage() {
           console.warn("❗ Timer belum tersedia, pakai waktu default:", err.message);
         }
   
-        // 3. Jika tidak ada timer di DB, fallback ke waktu default dari course
         if (waktuDetik == null) {
           waktuDetik = (res.data.waktu || 30) * 60;
         }
@@ -236,7 +235,6 @@ if (saved && !isNaN(saved)) {
           waktuAktif = parseInt(waktuDB);
           console.log("🕒 Ambil waktu dari DB:", waktuAktif);
         } else {
-          // Buat record awal jika belum ada
           await api.post(`/answertrail/timer-save`, {
             user_id: userId,
             course_id: id,
@@ -250,7 +248,6 @@ if (saved && !isNaN(saved)) {
   
       setWaktuSisa(waktuAktif);
   
-      // Ambil dan acak soal
       const acakSoalFromServer = config.data.acakSoal;
       const acakJawabanFromServer = config.data.acakJawaban;
       setAcakSoal(acakSoalFromServer);
@@ -333,22 +330,30 @@ if (saved && !isNaN(saved)) {
         soal_id: parseInt(soal_id),
         jawaban
       }));
-
+  
       await api.delete(`/answertrail/${id}`, {
         params: { user_id: userId },
-      });      
+      });
   
-      await api.post(`/courses/${id}/submit`, {
+      const res = await api.post(`/courses/${id}/submit`, {
         user_id,
         jawaban: dataJawaban,
         attemp: attemptNow,
-        waktu_tersisa: waktuSisa  // tambahkan ini
-      });      
-      
-      return true;
+        waktu_tersisa: waktuSisa
+      });
+  
+      const attemptId = res.data?.attempt;
+  
+      if (attemptId != null) {
+        return attemptId;
+      } else {
+        console.warn("❗ Attempt tidak dikembalikan oleh server.");
+        return null;
+      }
+  
     } catch (err) {
       console.error("❌ Gagal submit ujian:", err);
-      return false;
+      return null;
     }
   };  
 
@@ -401,35 +406,43 @@ if (saved && !isNaN(saved)) {
   }, [id]);  
 
   const handleSelesaiUjian = async () => {
-    const sukses = await submitJawabanUjian();
+    setLoadingSubmit(true);
   
-    if (sukses) {
-      // 🧹 Hapus timer dari localStorage
+    const attemptId = await submitJawabanUjian();
+  
+    if (attemptId != null) {
       localStorage.removeItem(`timer-${userId}-${courseId}`);
   
-      // 🧹 Hapus timer dari server (DB)
       try {
         await api.delete("/answertrail/timer-delete", {
-          params: {
-            user_id: userId,
-            course_id: courseId
-          }
+          params: { user_id: userId, course_id: courseId }
         });
-        console.log("🗑️ Timer berhasil dihapus dari server.");
       } catch (err) {
-        console.warn("❌ Gagal hapus timer dari server:", err.message);
+        console.warn("❌ Gagal hapus timer:", err.message);
       }
   
-      alert("Ujian selesai dan jawaban telah disimpan.");
+      try {
+        const res = await api.get(`/jawaban/show-result`, {
+          params: { course_id: courseId }
+        });
   
-      if (showResult) {
-        navigate(`/courses/${id}/result`);
-      } else {
+        const tampilkanHasil = res.data?.tampilkan_hasil;
+  
+        navigate(tampilkanHasil
+          ? `/courses/${courseId}/${userId}/${attemptId}/hasil`
+          : `/`
+        );
+  
+      } catch (err) {
+        console.error("❌ Gagal cek hasil:", err.message);
         navigate(`/`);
       }
+  
     } else {
-      alert("Terjadi kesalahan saat menyimpan jawaban. Coba lagi.");
+      alert("Gagal simpan jawaban.");
     }
+  
+    setLoadingSubmit(false);
   };  
 
   const currentSoal = soalList[currentIndex];
@@ -584,44 +597,41 @@ if (saved && !isNaN(saved)) {
               {raguRagu[currentSoal.id] ? "Hapus Tanda" : "Tandai Ragu-Ragu"}
             </button>
             <div className="flex gap-4">
-  {/* Tombol Sebelumnya */}
-  <button
-    onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-    disabled={currentIndex === 0}
-    className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-  >
-    <FiChevronLeft />
-    Sebelumnya
-  </button>
+              <button
+                onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+                disabled={currentIndex === 0}
+                className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FiChevronLeft />
+                Sebelumnya
+              </button>
 
-  {currentIndex === soalList.length - 1 ? (
-  isSubmitAllowed() ? (
-    <button
-      onClick={() => setShowSelesaiModal(true)}
-      className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-sm"
-    >
-      Selesai Ujian
-    </button>
-  ) : (
-    <button
-      disabled
-      className="bg-gray-300 text-gray-500 cursor-not-allowed px-6 py-2 rounded-lg font-semibold"
-      title={`Jawaban hanya bisa dikirim jika sisa waktu ≤ ${minWaktuSubmit} menit.`}
-    >
-      Tidak Bisa Submit
-    </button>
-  )
-) : (
-  <button
-    onClick={() => setCurrentIndex((i) => Math.min(soalList.length - 1, i + 1))}
-    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
-  >
-    Selanjutnya <FiChevronRight />
-  </button>
-)}
-
-</div>
-
+              {currentIndex === soalList.length - 1 ? (
+              isSubmitAllowed() ? (
+                <button
+                  onClick={() => setShowSelesaiModal(true)}
+                  className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-sm"
+                >
+                  Selesai Ujian
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="bg-gray-300 text-gray-500 cursor-not-allowed px-6 py-2 rounded-lg font-semibold"
+                  title={`Jawaban hanya bisa dikirim jika sisa waktu ≤ ${minWaktuSubmit} menit.`}
+                >
+                  Tidak Bisa Submit
+                </button>
+              )
+            ) : (
+              <button
+                onClick={() => setCurrentIndex((i) => Math.min(soalList.length - 1, i + 1))}
+                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                Selanjutnya <FiChevronRight />
+              </button>
+            )}
+            </div>
           </div>
         </main>
 
@@ -659,16 +669,43 @@ if (saved && !isNaN(saved)) {
 
       {showSelesaiModal && (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-60 flex justify-center items-center z-50">
-           <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md text-center transform transition-all">
+          <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md text-center transform transition-all">
             <FiAlertTriangle className="text-yellow-500 mx-auto text-5xl mb-4" />
             <h2 className="text-2xl font-bold mb-2 text-gray-800">Akhiri Ujian?</h2>
-            <p className="mb-6 text-gray-600">Apakah Anda yakin ingin menyelesaikan dan mengirim semua jawaban Anda sekarang?</p>
+            <p className="mb-6 text-gray-600">
+              Apakah Anda yakin ingin menyelesaikan dan mengirim semua jawaban Anda sekarang?
+            </p>
+
             <div className="flex justify-center gap-4">
-              <button onClick={() => setShowSelesaiModal(false)} className="px-6 py-2 rounded-lg font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">
+              <button
+                onClick={() => setShowSelesaiModal(false)}
+                disabled={loadingSubmit}
+                className={`px-6 py-2 rounded-lg font-semibold ${
+                  loadingSubmit ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                } transition-colors`}
+              >
                 Batal
               </button>
-              <button onClick={handleSelesaiUjian} className="px-6 py-2 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 transition-colors">
-                Ya, Kirim Jawaban
+
+              <button
+                onClick={async () => {
+                  setLoadingSubmit(true);
+                  await handleSelesaiUjian();
+                  setLoadingSubmit(false);
+                }}
+                disabled={loadingSubmit}
+                className={`px-6 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 ${
+                  loadingSubmit ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
+                } text-white transition`}
+              >
+                {loadingSubmit ? (
+                  <>
+                    <ImSpinner2 className="animate-spin text-xl" />
+                    Menyimpan...
+                  </>
+                ) : (
+                  'Ya, Kirim Jawaban'
+                )}
               </button>
             </div>
           </div>

@@ -75,3 +75,30 @@ exports.getLastAttempt = async (req, res) => {
     res.status(500).json({ error: "Gagal ambil attempt terakhir" });
   }
 };
+
+exports.cekTampilkanHasil = async (req, res) => {
+  const db = await init;
+  const { course_id } = req.query;
+
+  if (!course_id) {
+    return res.status(400).json({ error: "course_id dibutuhkan" });
+  }
+
+  try {
+    const [rows] = await db.query(
+      "SELECT tampilkanHasil FROM courses WHERE id = ?",
+      [course_id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Course tidak ditemukan" });
+    }
+
+    const tampilkan = rows[0].tampilkanHasil === 1;
+    res.json({ tampilkan_hasil: tampilkan });
+  } catch (err) {
+    console.error("❌ Gagal cek tampilkanHasil:", err.message);
+    res.status(500).json({ error: "Gagal mengambil data" });
+  }
+};
+

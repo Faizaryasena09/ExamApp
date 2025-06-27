@@ -404,14 +404,14 @@ if (!userId || isNaN(userId)) {
   
     if (isNaN(parsedUserId) || !Array.isArray(jawaban)) {
       console.log("❌ Data tidak valid:", { user_id, jawaban });
-      return res.status(400).json({ message: "Data tidak valid." });
+      return res.status(400).json({ success: false, message: "Data tidak valid." });
     }
   
     try {
       const pool = await poolPromise;
   
       const [result] = await pool.query(
-        `SELECT MAX(attemp) as last_attempt FROM jawaban_siswa WHERE user_id = ? AND course_id = ?`,
+        `SELECT MAX(attemp) AS last_attempt FROM jawaban_siswa WHERE user_id = ? AND course_id = ?`,
         [parsedUserId, course_id]
       );
   
@@ -431,12 +431,13 @@ if (!userId || isNaN(userId)) {
         `, [parsedUserId, course_id, soalId, ans, nextAttempt]);
       }
   
-      res.json({ message: "✅ Jawaban berhasil disimpan.", attemp: nextAttempt });
+      return res.json({ success: true, attempt: nextAttempt });
+  
     } catch (err) {
       console.error("❌ Gagal simpan jawaban:", err.message);
-      res.status(500).json({ message: "Gagal simpan jawaban" });
+      return res.status(500).json({ success: false, message: "Gagal simpan jawaban." });
     }
-  };
+  };  
   
   exports.saveOrUpdateQuestions = async (req, res) => {
     const course_id = req.params.id;
