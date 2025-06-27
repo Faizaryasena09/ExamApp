@@ -62,7 +62,6 @@ function ManageCoursePage() {
         tampilkanHasil: Boolean(c.tampilkanHasil),
         useToken: Boolean(c.useToken),
         tokenValue: c.tokenValue || "",
-        // ✅ Include dengan boolean eksplisit
         acakSoal: Boolean(c.acakSoal),
         acakJawaban: Boolean(c.acakJawaban),
         minWaktuSubmit: Boolean(c.minWaktuSubmit && c.minWaktuSubmit > 0),
@@ -387,10 +386,16 @@ function ManageCoursePage() {
           {soalList.length > 0 && (
             <div className="space-y-6">
               {soalList.map((item, index) => (
-                <div key={index} className="p-5 border border-gray-200 rounded-lg bg-white shadow-sm transition-shadow hover:shadow-md">
+                <div key={index} className="p-5 border border-gray-200 rounded-lg bg-white shadow-sm transition-shadow hover:shadow-md mb-4">
                   <div className="flex justify-between items-center mb-4">
                     <span className="font-bold text-gray-700">Soal #{index + 1}</span>
-                    <button onClick={() => { const updated = soalList.filter((_, i) => i !== index); setSoalList(updated); }} className="text-gray-400 hover:text-red-600 transition-colors text-sm font-medium">
+                    <button
+                      onClick={() => {
+                        const updated = soalList.filter((_, i) => i !== index);
+                        setSoalList(updated);
+                      }}
+                      className="text-gray-400 hover:text-red-600 transition-colors text-sm font-medium"
+                    >
                       ❌ Hapus
                     </button>
                   </div>
@@ -410,7 +415,7 @@ function ManageCoursePage() {
                   <div className="mt-4">
                     <label className="block text-sm font-medium text-gray-600 mb-2">Pilihan Jawaban:</label>
                     <div className="space-y-3">
-                      {Array.isArray(item.opsi) && item.opsi.map((opsi, opsiIdx) => (
+                      {item.opsi.map((opsi, opsiIdx) => (
                         <div key={opsiIdx} className="flex items-center gap-3">
                           <span className="font-mono text-sm text-gray-500">{String.fromCharCode(65 + opsiIdx)}.</span>
                           <input
@@ -439,18 +444,47 @@ function ManageCoursePage() {
                             />
                             <span className="ml-2">Benar</span>
                           </label>
+                          <button
+                            className="text-xs text-red-500 hover:text-red-700"
+                            onClick={() => {
+                              const updated = [...soalList];
+                              updated[index].opsi.splice(opsiIdx, 1);
+
+                              if (updated[index].jawaban === String.fromCharCode(65 + opsiIdx)) {
+                                updated[index].jawaban = "";
+                              }
+
+                              setSoalList(updated);
+                            }}
+                            title="Hapus opsi"
+                          >
+                            ❌
+                          </button>
                         </div>
                       ))}
                     </div>
+
+                    <div className="mt-3">
+                      <button
+                        onClick={() => {
+                          const updated = [...soalList];
+                          updated[index].opsi.push("");
+                          setSoalList(updated);
+                        }}
+                        className="text-sm text-blue-600 hover:text-blue-800"
+                      >
+                        ➕ Tambah Pilihan
+                      </button>
+                    </div>
+
                     {(item.opsi.length < 2 || !item.jawaban) && (
                       <div className="text-xs text-red-600 mt-2 p-2 bg-red-50 rounded-md">
-                        ⚠️ Peringatan: Soal harus memiliki minimal 2 pilihan dan 1 jawaban benar yang ditandai.
+                        ⚠️ Soal harus memiliki minimal 2 pilihan dan 1 jawaban benar.
                       </div>
                     )}
                   </div>
                 </div>
               ))}
-
               <div className="text-right border-t pt-6 mt-8">
                 <button
                   onClick={handleSimpanSoal}
