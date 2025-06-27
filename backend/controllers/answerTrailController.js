@@ -58,3 +58,112 @@ exports.clear = async (req, res) => {
     res.status(500).json({ error: "Gagal hapus trail" });
   }
 };
+
+// Simpan waktu tersisa ke jawaban_trail (opsional digunakan untuk log trail)
+exports.saveWaktuSisa = async (req, res) => {
+  const db = await dbPromise;
+  const { user_id, course_id, attemp, waktu_tersisa } = req.body;
+
+  if (!user_id || !course_id || attemp === undefined || waktu_tersisa === undefined) {
+    return res.status(400).json({ message: "Data kurang lengkap." });
+  }
+
+  try {
+    await db.query(
+      `INSERT INTO jawaban_trail (user_id, course_id, attemp, waktu_tersisa)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE waktu_tersisa = VALUES(waktu_tersisa)`,
+      [user_id, course_id, attemp, waktu_tersisa]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Gagal simpan waktu (jawaban_trail):", err.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateTimer = async (req, res) => {
+  const db = await dbPromise;
+  const { user_id, course_id, waktu_tersisa } = req.body;
+
+  console.log("⏱️ Request updateTimer:", { user_id, course_id, waktu_tersisa });
+
+  if (!user_id || !course_id || waktu_tersisa === undefined) {
+    console.warn("❌ Data kurang lengkap:", req.body);
+    return res.status(400).json({ message: "Data kurang lengkap." });
+  }
+
+  try {
+    await db.query(`
+      INSERT INTO answertrail_timer (user_id, course_id, waktu_tersisa)
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE waktu_tersisa = VALUES(waktu_tersisa)
+    `, [user_id, course_id, waktu_tersisa]);
+
+    console.log("✅ Waktu tersisa berhasil disimpan.");
+    res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Gagal simpan waktu:", err.message);
+    res.status(500).json({ message: "Gagal simpan waktu" });
+  }
+};
+
+exports.getTimer = async (req, res) => {
+  const db = await dbPromise;
+  const { user_id, course_id } = req.query;
+
+  if (!user_id || !course_id) {
+    return res.status(400).json({ message: "Query tidak lengkap." });
+  }
+
+  try {
+    const [rows] = await db.query(`
+      SELECT waktu_tersisa, updated_at FROM answertrail_timer
+      WHERE user_id = ? AND course_id = ?
+    `, [user_id, course_id]);
+
+    if (rows.length === 0) {
+      return res.json({ waktu_tersisa: null });
+    }
+
+    const { waktu_tersisa, updated_at } = rows[0];
+    const now = new Date();
+    const lastUpdate = new Date(updated_at);
+    const selisihDetik = Math.floor((now - lastUpdate) / 1000);
+
+    let waktuSisa = waktu_tersisa - selisihDetik;
+    if (waktuSisa < 0) waktuSisa = 0;
+
+    res.json({ waktu_tersisa: waktuSisa });
+  } catch (err) {
+    console.error("❌ Gagal ambil timer:", err.message);
+    res.status(500).json({ message: "Gagal ambil timer" });
+  }
+};
+
+exports.deleteTimer = async (req, res) => {
+  console.log("🔥 MASUK  /delete");
+  const db = await dbPromise;
+  const { user_id, course_id } = req.query;
+
+  if (!user_id || !course_id) {
+    return res.status(400).json({ message: "Query tidak lengkap." });
+  }
+
+  try {
+    // Tambahkan delay 3 detik (3000 ms)
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    await db.query(`
+      DELETE FROM answertrail_timer
+      WHERE user_id = ? AND course_id = ?
+    `, [user_id, course_id]);
+
+    console.log("🗑️ Timer berhasil dihapus dari database (dengan delay).");
+    res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Gagal hapus timer:", err.message);
+    res.status(500).json({ message: "Gagal hapus timer" });
+  }
+};

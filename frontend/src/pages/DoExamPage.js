@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 import Cookies from "js-cookie";
@@ -8,6 +8,8 @@ import { FiFlag, FiClock, FiChevronLeft, FiChevronRight, FiCheckCircle, FiAlertT
 function DoExamPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+
+  const waktuRef = useRef(0);
 
   const userId = Cookies.get("user_id");
 
@@ -30,7 +32,8 @@ function DoExamPage() {
   const [maxInfo, setMaxInfo] = useState(null);
   const [acakSoal, setAcakSoal] = useState(false);
   const [acakJawaban, setAcakJawaban] = useState(false);
-
+  const [minWaktuSubmit, setMinWaktuSubmit] = useState(0); // dalam menit
+  const [configWaktu, setConfigWaktu] = useState(30);
 
   useEffect(() => {
     const checkTokenRequirement = async () => {
@@ -100,6 +103,68 @@ function DoExamPage() {
   }, [showStartModal]);
 
   useEffect(() => {
+    const cekWaktuUjian = async () => {
+      if (!userId || !courseId) {
+        console.warn("⛔ userId atau courseId belum tersedia. Abort cekWaktuUjian.");
+        return;
+      }
+  
+      try {
+        const now = new Date();
+  
+        // 1. Ambil konfigurasi course (tanggal mulai/selesai)
+        const res = await api.get(`/courses/${id}`);
+        const mulai = new Date(res.data.tanggal_mulai);
+        const selesai = res.data.tanggal_selesai ? new Date(res.data.tanggal_selesai) : null;
+  
+        if (now < mulai) {
+          alert("Ujian belum dimulai. Silakan kembali nanti.");
+          navigate("/courses");
+          return;
+        }
+  
+        if (selesai && now > selesai) {
+          alert("Ujian telah berakhir.");
+          navigate("/courses");
+          return;
+        }
+  
+        // 2. Ambil waktu tersisa dari answertrail_timer
+        let waktuDetik = null;
+        console.log("🔍 before fetchTimer:", { userId, courseId });
+  
+        try {
+          const waktuRes = await api.get(`/answertrail/timer-get`, {
+            params: {
+              user_id: userId,
+              course_id: courseId
+            }
+          });
+          console.log("🔍 after fetchTimer:", waktuRes.data)
+  
+          waktuDetik = waktuRes.data.waktu_tersisa;
+          console.log("🕒 Waktu tersisa dari DB:", waktuDetik);
+        } catch (err) {
+          console.warn("❗ Timer belum tersedia, pakai waktu default:", err.message);
+        }
+  
+        // 3. Jika tidak ada timer di DB, fallback ke waktu default dari course
+        if (waktuDetik == null) {
+          waktuDetik = (res.data.waktu || 30) * 60;
+        }
+  
+        setWaktuSisa(waktuDetik);
+      } catch (err) {
+        console.error("❌ Gagal cek waktu ujian:", err);
+      }
+    };
+  
+    if (!showStartModal) {
+      cekWaktuUjian();
+    }
+  }, [showStartModal, courseId, userId, id, navigate, attemptNow]);
+
+  useEffect(() => {
     const fetchAttempt = async () => {
       try {
         const res = await api.get(`/jawaban/last-attempt`, {
@@ -118,18 +183,17 @@ function DoExamPage() {
     if (showStartModal || soalList.length === 0 || waktuSisa <= 0) return;
   
     const timer = setInterval(() => {
-      setWaktuSisa((s) => {
-        if (s <= 1) {
-          clearInterval(timer);
-          handleSelesaiUjian();
-          return 0;
-        }
-        return s - 1;
-      });
+      waktuRef.current -= 1;
+      if (waktuRef.current <= 0) {
+        clearInterval(timer);
+        handleSelesaiUjian();
+      } else {
+        setWaktuSisa(waktuRef.current);
+      }
     }, 1000);
   
     return () => clearInterval(timer);
-  }, [showStartModal, soalList.length, waktuSisa]);  
+  }, [showStartModal, soalList.length]);  
 
   const shuffleArray = (array) => {
     return array
@@ -137,19 +201,58 @@ function DoExamPage() {
       .sort((a, b) => a.sort - b.sort)
       .map((a) => a.value);
   };
+
+  useEffect(() => {
+    waktuRef.current = waktuSisa;
+  }, [waktuSisa]);  
   
   const fetchSoal = async () => {
     setIsLoading(true);
     try {
+      const saved = localStorage.getItem(`timer-${userId}-${id}`);
+if (saved && !isNaN(saved)) {
+  console.log("📦 Timer dari localStorage:", saved);
+  setWaktuSisa(parseInt(saved));
+  waktuRef.current = parseInt(saved);
+}
+
       const config = await api.get(`/courses/${id}`);
       setExamTitle(config.data.title || "Ujian Kompetensi");
-      const waktu = config.data.waktu || 30;
-      setWaktuSisa(waktu * 60);
   
-      // 🔥 Tambahkan ini
+      const waktuDefault = (config.data.waktu || 30) * 60;
+      setMinWaktuSubmit(config.data.minWaktuSubmit || 0);
+      setConfigWaktu(config.data.waktu || 30);
+  
+      let waktuAktif = waktuDefault;
+  
+      try {
+        const timerRes = await api.get(`/answertrail/timer-get`, {
+          params: { user_id: userId, course_id: id }
+        });
+  
+        const waktuDB = timerRes.data?.waktu_tersisa;
+  
+        if (waktuDB !== null && !isNaN(parseInt(waktuDB))) {
+          waktuAktif = parseInt(waktuDB);
+          console.log("🕒 Ambil waktu dari DB:", waktuAktif);
+        } else {
+          // Buat record awal jika belum ada
+          await api.post(`/answertrail/timer-save`, {
+            user_id: userId,
+            course_id: id,
+            waktu_tersisa: waktuAktif,
+          });
+          console.log("🆕 Buat record timer pertama:", waktuAktif);
+        }
+      } catch (err) {
+        console.warn("❗ Timer belum tersedia, pakai waktu default:", err.message);
+      }
+  
+      setWaktuSisa(waktuAktif);
+  
+      // Ambil dan acak soal
       const acakSoalFromServer = config.data.acakSoal;
       const acakJawabanFromServer = config.data.acakJawaban;
-  
       setAcakSoal(acakSoalFromServer);
       setAcakJawaban(acakJawabanFromServer);
   
@@ -158,14 +261,11 @@ function DoExamPage() {
   
       const soalFinal = (acakSoalFromServer ? shuffleArray(rawSoal) : rawSoal).map((soal) => {
         const opsiOriginal = typeof soal.opsi === "string" ? JSON.parse(soal.opsi) : soal.opsi;
-  
         const opsiFinal = acakJawabanFromServer ? shuffleArray(opsiOriginal) : opsiOriginal;
-  
         const opsiDenganAbjad = opsiFinal.map((opsiText, index) => {
           const huruf = String.fromCharCode(65 + index);
           return `${huruf}. ${opsiText.substring(3)}`;
         });
-  
         return {
           ...soal,
           opsi: opsiDenganAbjad,
@@ -179,7 +279,13 @@ function DoExamPage() {
     } finally {
       setIsLoading(false);
     }
-  };   
+  };
+
+  useEffect(() => {
+    if (userId && courseId && waktuSisa > 0) {
+      localStorage.setItem(`timer-${userId}-${courseId}`, waktuSisa.toString());
+    }
+  }, [waktuSisa, userId, courseId]);  
 
   const fetchJawabanSiswa = async () => {
     try {
@@ -189,10 +295,17 @@ function DoExamPage() {
           attemp: attemptNow,
         },
       });
+  
       const hasil = {};
+      let sisaWaktuFromDB = null;
+  
       res.data.forEach(item => {
         hasil[item.question_id] = item.answer;
+        if (item.waktu_tersisa !== null) {
+          sisaWaktuFromDB = item.waktu_tersisa;
+        }
       });
+  
       setJawabanSiswa(hasil);
     } catch (err) {
       console.error("Gagal ambil jawaban sebelumnya:", err);
@@ -229,7 +342,8 @@ function DoExamPage() {
         user_id,
         jawaban: dataJawaban,
         attemp: attemptNow,
-      });
+        waktu_tersisa: waktuSisa  // tambahkan ini
+      });      
       
       return true;
     } catch (err) {
@@ -250,6 +364,29 @@ function DoExamPage() {
     }));
   };
 
+  const simpanTimerKeServer = async (detikSisa) => {
+    try {
+      await api.post("/answertrail/timer-save", {
+        user_id: userId,
+        course_id: courseId,
+        waktu_tersisa: detikSisa
+      });
+      console.log("🟢 Timer tersimpan:", detikSisa);
+    } catch (err) {
+      console.error("❌ Gagal simpan waktu:", err.message);
+    }
+  };  
+
+  useEffect(() => {
+    if (!userId || !courseId || soalList.length === 0 || showStartModal) return;
+  
+    const interval = setInterval(() => {
+      simpanTimerKeServer(waktuRef.current);
+    }, 5000);
+  
+    return () => clearInterval(interval);
+  }, [userId, courseId, soalList.length, showStartModal]);   
+
   useEffect(() => {
     const fetchCourseConfig = async () => {
       try {
@@ -265,8 +402,26 @@ function DoExamPage() {
 
   const handleSelesaiUjian = async () => {
     const sukses = await submitJawabanUjian();
+  
     if (sukses) {
+      // 🧹 Hapus timer dari localStorage
+      localStorage.removeItem(`timer-${userId}-${courseId}`);
+  
+      // 🧹 Hapus timer dari server (DB)
+      try {
+        await api.delete("/answertrail/timer-delete", {
+          params: {
+            user_id: userId,
+            course_id: courseId
+          }
+        });
+        console.log("🗑️ Timer berhasil dihapus dari server.");
+      } catch (err) {
+        console.warn("❌ Gagal hapus timer dari server:", err.message);
+      }
+  
       alert("Ujian selesai dan jawaban telah disimpan.");
+  
       if (showResult) {
         navigate(`/courses/${id}/result`);
       } else {
@@ -286,12 +441,16 @@ function DoExamPage() {
   ) : [];
 
   const formatWaktu = (detik) => {
-    if (detik < 0) detik = 0;
+    if (typeof detik !== 'number' || isNaN(detik) || detik < 0) detik = 0;
     const jam = Math.floor(detik / 3600).toString().padStart(2, '0');
     const menit = Math.floor((detik % 3600) / 60).toString().padStart(2, '0');
     const dtk = (detik % 60).toString().padStart(2, '0');
     return `${jam}:${menit}:${dtk}`;
-  };
+  };  
+
+  const isSubmitAllowed = () => {
+    return waktuSisa <= minWaktuSubmit * 60;
+  };  
 
   if (blocked) {
     return (
@@ -425,20 +584,44 @@ function DoExamPage() {
               {raguRagu[currentSoal.id] ? "Hapus Tanda" : "Tandai Ragu-Ragu"}
             </button>
             <div className="flex gap-4">
-              <button onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))} disabled={currentIndex === 0} className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
-                <FiChevronLeft />
-                Sebelumnya
-              </button>
-              {currentIndex === soalList.length - 1 ? (
-                <button onClick={() => setShowSelesaiModal(true)} className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-sm">
-                  Selesai Ujian
-                </button>
-              ) : (
-                <button onClick={() => setCurrentIndex((i) => Math.min(soalList.length - 1, i + 1))} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm">
-                  Selanjutnya <FiChevronRight />
-                </button>
-              )}
-            </div>
+  {/* Tombol Sebelumnya */}
+  <button
+    onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+    disabled={currentIndex === 0}
+    className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+  >
+    <FiChevronLeft />
+    Sebelumnya
+  </button>
+
+  {currentIndex === soalList.length - 1 ? (
+  isSubmitAllowed() ? (
+    <button
+      onClick={() => setShowSelesaiModal(true)}
+      className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-sm"
+    >
+      Selesai Ujian
+    </button>
+  ) : (
+    <button
+      disabled
+      className="bg-gray-300 text-gray-500 cursor-not-allowed px-6 py-2 rounded-lg font-semibold"
+      title={`Jawaban hanya bisa dikirim jika sisa waktu ≤ ${minWaktuSubmit} menit.`}
+    >
+      Tidak Bisa Submit
+    </button>
+  )
+) : (
+  <button
+    onClick={() => setCurrentIndex((i) => Math.min(soalList.length - 1, i + 1))}
+    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
+  >
+    Selanjutnya <FiChevronRight />
+  </button>
+)}
+
+</div>
+
           </div>
         </main>
 

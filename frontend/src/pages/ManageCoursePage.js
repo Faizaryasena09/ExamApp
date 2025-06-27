@@ -24,6 +24,8 @@ function ManageCoursePage() {
     tampilkanHasil: false,
     useToken: false,
     tokenValue: "",
+    minWaktuSubmit: false,
+    minWaktuSubmitValue: "",
   });
 
   const [soalList, setSoalList] = useState([]);
@@ -63,6 +65,8 @@ function ManageCoursePage() {
         // ✅ Include dengan boolean eksplisit
         acakSoal: Boolean(c.acakSoal),
         acakJawaban: Boolean(c.acakJawaban),
+        minWaktuSubmit: Boolean(c.minWaktuSubmit && c.minWaktuSubmit > 0),
+        minWaktuSubmitValue: c.minWaktuSubmit ? String(c.minWaktuSubmit) : "",
       });
     } catch (err) {
       console.error("❌ Gagal ambil course:", err);
@@ -103,6 +107,7 @@ function ManageCoursePage() {
       tokenValue: form.useToken ? form.tokenValue.trim().slice(0, 6) : null,
       acakSoal: form.acakSoal,
       acakJawaban: form.acakJawaban,
+      minWaktuSubmit: form.minWaktuSubmit ? parseInt(form.minWaktuSubmitValue) : 0,
 
     };
   
@@ -306,6 +311,39 @@ function ManageCoursePage() {
                             <input type="checkbox" checked={form.useToken} onChange={(e) => setForm({ ...form, useToken: e.target.checked, tokenValue: "" })} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                             <span className="ml-3 text-sm text-gray-700">Gunakan Token untuk memulai ujian</span>
                         </label>
+                        <label className="flex items-center">
+  <input
+    type="checkbox"
+    checked={form.minWaktuSubmit}
+    onChange={(e) =>
+      setForm((prev) => ({
+        ...prev,
+        minWaktuSubmit: e.target.checked,
+        minWaktuSubmitValue: e.target.checked ? "1" : "", // default 1 menit saat dicentang
+      }))
+    }
+    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+  />
+  <span className="ml-3 text-sm text-gray-700">Minimal waktu tersisa sebelum boleh submit</span>
+</label>
+
+{form.minWaktuSubmit && (
+  <div className="pl-6 pt-2">
+    <label className="block text-sm font-medium text-gray-600 mb-1">
+      Masukkan minimal waktu tersisa (menit)
+    </label>
+    <input
+      type="number"
+      min={1}
+      name="minWaktuSubmitValue"
+      value={form.minWaktuSubmitValue}
+      onChange={handleChange}
+      className="w-full md:w-1/3 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+      placeholder="Misal: 1"
+    />
+  </div>
+)}
+
                     </div>
                 </div>
 

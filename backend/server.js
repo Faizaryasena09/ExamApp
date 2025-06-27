@@ -24,6 +24,7 @@ const resultRoutes = require('./routes/resultRoutes');
 const answerTrailRoutes = require("./routes/answerTrailRoutes");
 const subfolderRoutes = require("./routes/subfolderRoutes");
 
+app.use("/api/answertrail", answerTrailRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/jawaban", answerRoutes);
 app.use("/api", userRoutes);
@@ -31,8 +32,8 @@ app.use("/api/session", sessionRoutes);
 app.use("/api/data/kelas", kelasRoutes);
 app.use('/api/courses', courseRoutes);
 app.use("/api", dashboardRoutes);
-app.use("/api/answertrail", answerTrailRoutes);
 app.use('/api/', resultRoutes);
 app.use("/api/subfolders", subfolderRoutes);
+
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

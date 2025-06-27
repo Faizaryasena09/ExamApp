@@ -7,5 +7,6 @@ router.post("/", subfolderController.createSubfolder);
 router.put("/:oldName/rename", subfolderController.renameSubfolder);
 router.put("/:name/toggle-visibility", subfolderController.toggleVisibility);
 router.put("/move-course", subfolderController.moveCourse);
+router.delete('/:name', subfolderController.deleteSubfolder);
 
 module.exports = router;

@@ -269,6 +269,20 @@ function CoursesPage() {
     }
   };  
 
+  const handleDeleteSubfolder = async (folderName) => {
+    const konfirmasi = window.confirm(`Yakin ingin menghapus folder "${folderName}" beserta seluruh pengelompokannya?`);
+    if (!konfirmasi) return;
+  
+    try {
+      await api.delete(`/subfolders/${encodeURIComponent(folderName)}`);
+      await fetchInitialData(); // refresh data
+      alert("✅ Folder berhasil dihapus");
+    } catch (err) {
+      console.error("❌ Gagal hapus folder:", err);
+      alert("Gagal menghapus folder.");
+    }
+  };  
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-slate-50">
@@ -366,29 +380,30 @@ function CoursesPage() {
                       <span className="text-sm text-slate-500">({visibleCourses.length} course)</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      {role !== "siswa" && (
-                        <>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const newName = prompt(`Ganti nama subfolder:`, folderName);
-                              if (newName && newName !== folderName) renameFolder(folderName, newName);
-                            }}
-                            className="text-sm text-indigo-600 hover:text-indigo-800"
-                          >
-                            Rename
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleSubfolderVisibility(folderName);
-                            }}
-                            className="text-sm text-slate-600 hover:text-slate-800"
-                          >
-                            {coursesInFolder.every((c) => c.hidden) ? "Tampilkan" : "Sembunyikan"}
-                          </button>
-                        </>
-                      )}
+                      {role === "admin" && (
+  <>
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        const newName = prompt(`Ganti nama subfolder:`, folderName);
+        if (newName && newName !== folderName) renameFolder(folderName, newName);
+      }}
+      className="text-sm text-indigo-600 hover:text-indigo-800"
+    >
+      Rename
+    </button>
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        handleDeleteSubfolder(folderName);
+      }}
+      className="text-sm text-red-500 hover:text-red-700"
+    >
+      Hapus Folder
+    </button>
+  </>
+)}
+
                       <span className="text-indigo-600 text-lg">
                         {openFolders[folderName] ? "🔽" : "▶️"}
                       </span>
@@ -499,8 +514,6 @@ function CoursesPage() {
       </div>
     </div>
   );
-  
-  
 }
 
 export default CoursesPage;

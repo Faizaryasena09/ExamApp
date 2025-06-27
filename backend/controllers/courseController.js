@@ -15,8 +15,8 @@ function shuffleArray(array) {
     const {
       nama, pengajarId, kelas, tanggalMulai, tanggalSelesai,
       waktu, deskripsi, maxPercobaan, tampilkanHasil,
-      useToken, tokenValue, acakSoal, acakJawaban
-    } = req.body;
+      useToken, tokenValue, acakSoal, acakJawaban, minWaktuSubmit
+    } = req.body;    
   
     const { name, role } = req.cookies;
     if (!name || !role) return res.status(401).send("Unauthorized");
@@ -26,8 +26,9 @@ function shuffleArray(array) {
       await pool.query(
         `INSERT INTO courses 
         (nama, pengajar_id, pengajar, kelas, tanggal_mulai, tanggal_selesai, waktu, deskripsi,
-          maxPercobaan, tampilkanHasil, useToken, tokenValue, tokenCreatedAt, acakSoal, acakJawaban)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          maxPercobaan, tampilkanHasil, useToken, tokenValue, tokenCreatedAt, 
+          acakSoal, acakJawaban, minWaktuSubmit)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           nama,
           pengajarId,
@@ -43,9 +44,10 @@ function shuffleArray(array) {
           useToken ? tokenValue?.slice(0, 6) : null,
           useToken ? new Date() : null,
           !!acakSoal,
-          !!acakJawaban
+          !!acakJawaban,
+          parseInt(minWaktuSubmit) || 0
         ]
-      );
+      );      
       res.status(201).json({ message: "Course berhasil dibuat!" });
     } catch (err) {
       console.error("Gagal membuat course:", err.message);
@@ -159,8 +161,8 @@ function shuffleArray(array) {
     const {
       nama, kelas, tanggal_mulai, tanggal_selesai, waktu, deskripsi,
       maxPercobaan, tampilkanHasil, useToken, tokenValue,
-      acakSoal, acakJawaban
-    } = req.body;
+      acakSoal, acakJawaban, minWaktuSubmit
+    } = req.body;    
   
     try {
       const pool = await poolPromise;
@@ -178,7 +180,8 @@ function shuffleArray(array) {
           tokenValue = ?, 
           tokenCreatedAt = ?,
           acakSoal = ?, 
-          acakJawaban = ?
+          acakJawaban = ?,
+          minWaktuSubmit = ?
         WHERE id = ?`,
         [
           nama,
@@ -194,9 +197,10 @@ function shuffleArray(array) {
           useToken ? new Date() : null,
           !!acakSoal,
           !!acakJawaban,
+          parseInt(minWaktuSubmit) || 0,
           courseId
         ]
-      );
+      );      
       res.json({ message: "Course berhasil diperbarui!" });
     } catch (err) {
       console.error("Gagal update course:", err.message);

@@ -75,14 +75,18 @@ async function initDatabase() {
     
         acakSoal BOOLEAN DEFAULT FALSE,
         acakJawaban BOOLEAN DEFAULT FALSE,
+        minWaktuSubmit INT DEFAULT 0,  -- ✅ tambahan baru
+    
         subfolder_id INT DEFAULT NULL,
         hidden BOOLEAN DEFAULT FALSE,
     
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (subfolder_id) REFERENCES subfolders(id)
-          ON DELETE SET NULL ON UPDATE CASCADE
+        FOREIGN KEY (subfolder_id)
+          REFERENCES subfolders(id)
+          ON DELETE CASCADE
+          ON UPDATE CASCADE
       )
-    `);
+    `);    
     
     await pool.query(`
       CREATE TABLE IF NOT EXISTS kelas (
@@ -132,7 +136,18 @@ async function initDatabase() {
         soal_id INT,
         jawaban VARCHAR(5),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY (user_id, course_id, soal_id)
+        attemp INT DEFAULT 1,
+        UNIQUE KEY (user_id, course_id, soal_id, attemp)
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS answertrail_timer (
+        user_id INT NOT NULL,
+        course_id INT NOT NULL,
+        waktu_tersisa INT DEFAULT NULL, -- dalam detik
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, course_id)
       )
     `);
 
