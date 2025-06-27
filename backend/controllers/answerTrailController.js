@@ -87,8 +87,6 @@ exports.updateTimer = async (req, res) => {
   const db = await dbPromise;
   const { user_id, course_id, waktu_tersisa } = req.body;
 
-  console.log("⏱️ Request updateTimer:", { user_id, course_id, waktu_tersisa });
-
   if (!user_id || !course_id || waktu_tersisa === undefined) {
     console.warn("❌ Data kurang lengkap:", req.body);
     return res.status(400).json({ message: "Data kurang lengkap." });
@@ -101,7 +99,6 @@ exports.updateTimer = async (req, res) => {
       ON DUPLICATE KEY UPDATE waktu_tersisa = VALUES(waktu_tersisa)
     `, [user_id, course_id, waktu_tersisa]);
 
-    console.log("✅ Waktu tersisa berhasil disimpan.");
     res.json({ success: true });
   } catch (err) {
     console.error("❌ Gagal simpan waktu:", err.message);
@@ -143,7 +140,6 @@ exports.getTimer = async (req, res) => {
 };
 
 exports.deleteTimer = async (req, res) => {
-  console.log("🔥 MASUK  /delete");
   const db = await dbPromise;
   const { user_id, course_id } = req.query;
 
@@ -152,7 +148,6 @@ exports.deleteTimer = async (req, res) => {
   }
 
   try {
-    // Tambahkan delay 3 detik (3000 ms)
     await new Promise(resolve => setTimeout(resolve, 3000));
 
     await db.query(`
@@ -160,7 +155,6 @@ exports.deleteTimer = async (req, res) => {
       WHERE user_id = ? AND course_id = ?
     `, [user_id, course_id]);
 
-    console.log("🗑️ Timer berhasil dihapus dari database (dengan delay).");
     res.json({ success: true });
   } catch (err) {
     console.error("❌ Gagal hapus timer:", err.message);

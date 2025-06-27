@@ -398,7 +398,7 @@ if (!userId || isNaN(userId)) {
   };  
 
   exports.submitUjian = async (req, res) => {
-    const { user_id, jawaban } = req.body;
+    const { user_id, jawaban, waktu_tersisa } = req.body;
     const course_id = parseInt(req.params.id);
     const parsedUserId = parseInt(user_id);
   
@@ -409,6 +409,17 @@ if (!userId || isNaN(userId)) {
   
     try {
       const pool = await poolPromise;
+  
+      const [courseRows] = await pool.query(`SELECT waktu FROM courses WHERE id = ?`, [course_id]);
+      const waktuConfig = courseRows?.[0]?.waktu;
+  
+      if (!waktuConfig) {
+        console.warn("⚠️ Waktu tidak ditemukan di konfigurasi course.");
+      }
+  
+      const durasi = waktuConfig && waktu_tersisa != null
+        ? waktuConfig * 60 - parseInt(waktu_tersisa)
+        : null;
   
       const [result] = await pool.query(
         `SELECT MAX(attemp) AS last_attempt FROM jawaban_siswa WHERE user_id = ? AND course_id = ?`,
@@ -421,14 +432,13 @@ if (!userId || isNaN(userId)) {
       for (const j of jawaban) {
         const soalId = parseInt(j.soal_id);
         const ans = String(j.jawaban || "").toUpperCase().trim();
-  
         if (isNaN(soalId) || ans === "") continue;
   
         await pool.query(`
-          INSERT INTO jawaban_siswa (user_id, course_id, soal_id, jawaban, attemp)
-          VALUES (?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE jawaban = VALUES(jawaban), attemp = VALUES(attemp)
-        `, [parsedUserId, course_id, soalId, ans, nextAttempt]);
+          INSERT INTO jawaban_siswa (user_id, course_id, soal_id, jawaban, attemp, durasi_pengerjaan)
+          VALUES (?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE jawaban = VALUES(jawaban), attemp = VALUES(attemp), durasi_pengerjaan = VALUES(durasi_pengerjaan)
+        `, [parsedUserId, course_id, soalId, ans, nextAttempt, durasi]);
       }
   
       return res.json({ success: true, attempt: nextAttempt });
@@ -537,12 +547,24 @@ if (!userId || isNaN(userId)) {
           js.soal_id,
           LEFT(TRIM(UPPER(js.jawaban)), 1) AS jawaban_siswa,
           js.attemp,
-          TRIM(UPPER(q.jawaban)) AS kunci
+          TRIM(UPPER(q.jawaban)) AS kunci,
+          js.created_at
         FROM jawaban_siswa js
         JOIN questions q ON js.soal_id = q.id
         JOIN users u ON js.user_id = u.id
         WHERE js.course_id = ?
       `, [courseId]);
+  
+      const [durasiRows] = await connection.query(`
+        SELECT user_id, attemp, durasi_pengerjaan
+        FROM jawaban_siswa
+        WHERE course_id = ?
+      `, [courseId]);
+  
+      const durasiMap = {};
+      for (const row of durasiRows) {
+        durasiMap[`${row.user_id}-${row.attemp}`] = row.durasi_pengerjaan;
+      }
   
       const hasil = {};
   
@@ -558,10 +580,12 @@ if (!userId || isNaN(userId)) {
             total_dikerjakan: 0,
             benar: 0,
             salah: 0,
+            durasi_pengerjaan: durasiMap[key] || 0
           };
-        }        
+        }
   
         hasil[key].total_dikerjakan += 1;
+  
         if (row.jawaban_siswa === row.kunci) {
           hasil[key].benar += 1;
         } else {
@@ -574,7 +598,7 @@ if (!userId || isNaN(userId)) {
       console.error("❌ Gagal ambil analytics:", err);
       res.status(500).json({ message: "Gagal ambil analytics" });
     }
-  };  
+  };    
 
   exports.saveTokenAuth = async (req, res) => {
     const { course_id, user_id } = req.body;

@@ -326,36 +326,45 @@ if (saved && !isNaN(saved)) {
   const submitJawabanUjian = async () => {
     try {
       const user_id = Cookies.get("user_id");
+  
       const dataJawaban = Object.entries(jawabanSiswa).map(([soal_id, jawaban]) => ({
         soal_id: parseInt(soal_id),
         jawaban
       }));
   
+      const timerKey = `timer-${userId}-${courseId}`;
+      const timerData = localStorage.getItem(timerKey);
+      let waktu_tersisa = null;
+  
+      if (timerData && !isNaN(timerData)) {
+        waktu_tersisa = parseInt(timerData, 10);
+        console.log("⏱️ waktu_tersisa yang dikirim ke backend:", waktu_tersisa);
+      } else {
+        console.warn("⚠️ Timer tidak ditemukan atau tidak valid");
+      }
+  
       await api.delete(`/answertrail/${id}`, {
-        params: { user_id: userId },
+        params: { user_id }
       });
   
       const res = await api.post(`/courses/${id}/submit`, {
         user_id,
         jawaban: dataJawaban,
-        attemp: attemptNow,
-        waktu_tersisa: waktuSisa
+        waktu_tersisa
       });
   
       const attemptId = res.data?.attempt;
-  
       if (attemptId != null) {
         return attemptId;
       } else {
         console.warn("❗ Attempt tidak dikembalikan oleh server.");
         return null;
       }
-  
     } catch (err) {
       console.error("❌ Gagal submit ujian:", err);
       return null;
     }
-  };  
+  };
 
   const handleJawab = (soalId, jawaban) => {
     setJawabanSiswa((prev) => ({ ...prev, [soalId]: jawaban }));

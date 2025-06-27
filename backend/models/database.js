@@ -98,15 +98,16 @@ async function initDatabase() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS jawaban_siswa (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT,
-        course_id INT,
-        soal_id INT,
+        user_id INT NOT NULL,
+        course_id INT NOT NULL,
+        soal_id INT NOT NULL,
         jawaban VARCHAR(5),
-        attemp INT,
+        attemp INT NOT NULL,
+        durasi_pengerjaan INT DEFAULT NULL, -- dalam detik, opsional
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY unique_jawaban (user_id, course_id, soal_id, attemp)
       )
-    `);    
+    `);       
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS questions (
