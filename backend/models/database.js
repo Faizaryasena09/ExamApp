@@ -88,7 +88,20 @@ async function initDatabase() {
           ON DELETE CASCADE
           ON UPDATE CASCADE
       )
-    `);    
+    `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS student_work_log (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id VARCHAR(100),
+        course_id INT,
+        soal_id INT,
+        jawaban VARCHAR(10),
+        attemp INT DEFAULT 1,
+        waktu INT, -- ⬅️ waktu dari awal ujian, dalam detik
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
     
     await pool.query(`
       CREATE TABLE IF NOT EXISTS kelas (

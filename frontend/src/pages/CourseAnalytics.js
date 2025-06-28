@@ -124,6 +124,16 @@ const StudentRow = ({ student, courseId }) => {
                       </div>
                     </div>
                     <button
+  onClick={(e) => {
+    e.stopPropagation();
+    navigate(`/courses/${courseId}/log/${attempt.user_id}/${attempt.attemp}`);
+  }}
+  className="mt-2 sm:mt-0 px-3 py-1 text-sm text-blue-600 border border-blue-600 hover:bg-blue-50 rounded-md transition-all"
+>
+  Lihat Log
+</button>
+
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate(`/courses/${courseId}/${attempt.user_id}/${attempt.attemp}/hasil`);

@@ -37,6 +37,7 @@ function DoExamPage() {
   const [configWaktu, setConfigWaktu] = useState(30);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [submitCountdown, setSubmitCountdown] = useState(null);
+  const [totalWaktu, setTotalWaktu] = useState(0); // total waktu ujian dalam detik
 
   useEffect(() => {
     const checkTokenRequirement = async () => {
@@ -232,16 +233,17 @@ function DoExamPage() {
     setIsLoading(true);
     try {
       const saved = localStorage.getItem(`timer-${userId}-${id}`);
-        if (saved && !isNaN(saved)) {
-          console.log("📦 Timer dari localStorage:", saved);
-          setWaktuSisa(parseInt(saved));
-          waktuRef.current = parseInt(saved);
-        }
-
+      if (saved && !isNaN(saved)) {
+        console.log("📦 Timer dari localStorage:", saved);
+        setWaktuSisa(parseInt(saved));
+        waktuRef.current = parseInt(saved);
+      }
+  
       const config = await api.get(`/courses/${id}`);
       setExamTitle(config.data.title || "Ujian Kompetensi");
   
       const waktuDefault = (config.data.waktu || 30) * 60;
+      setTotalWaktu(waktuDefault); // ✅ total waktu ujian
       setMinWaktuSubmit(config.data.minWaktuSubmit || 0);
       setConfigWaktu(config.data.waktu || 30);
   
@@ -299,7 +301,7 @@ function DoExamPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  };  
 
   useEffect(() => {
     if (userId && courseId && waktuSisa > 0) {
@@ -341,11 +343,22 @@ function DoExamPage() {
         jawaban,
         attemp: attemptNow,
       });
+  
+      const waktu = totalWaktu - waktuSisa;
+  
+      await api.post("/studentworklog", {
+        user_id: userId,
+        course_id: id,
+        soal_id: soalId,
+        jawaban,
+        attemp: attemptNow,
+        waktu,
+      });
     } catch (err) {
-      console.error("❌ Gagal simpan jawaban:", err);
+      console.error("❌ Gagal simpan jawaban/log:", err.response?.data || err.message || err);
     }
-  };  
-
+  };
+  
   const submitJawabanUjian = async () => {
     try {
       const user_id = Cookies.get("user_id");

@@ -20,6 +20,7 @@ import KelasManagement from "./pages/KelasManagement";
 import ManageCourse from "./pages/ManageCoursePage";
 import AnalyticsCourse from "./pages/CourseAnalytics";
 import AnswerSummaryPage from "./pages/AnswerSummaryPage";
+import StudentLogDetailPage from "./pages/StudentLogDetailPage";
 
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
@@ -163,6 +164,7 @@ function AppLayout() {
             <Route path="/home" element={<PrivateRoute element={<HomePage />} />} />
             <Route path="/courses" element={<PrivateRoute element={<CoursesPage />} />} />
             <Route path="/courses/:id/do" element={<PrivateRoute element={<DoExamPage />} />} />
+            <Route path="/courses/:courseId/log/:userId/:attemp" element={<StudentLogDetailPage />} />
 
             <Route
               path="/courses/:courseId/:userId/:attemp/hasil"

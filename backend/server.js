@@ -25,7 +25,9 @@ const resultRoutes = require('./routes/resultRoutes');
 const answerTrailRoutes = require("./routes/answerTrailRoutes");
 const subfolderRoutes = require("./routes/subfolderRoutes");
 const checkRoutes = require("./routes/checkRoutes");
+const studentworklog = require("./routes/studentWorkLogRoutes");
 
+app.use("/api/studentworklog", studentworklog);
 app.use("/api/check", checkRoutes);
 app.use("/api/answertrail", answerTrailRoutes);
 app.use("/api/auth", authRoutes);
@@ -37,6 +39,7 @@ app.use("/api/courses", courseRoutes);
 app.use("/api", dashboardRoutes);
 app.use("/api", resultRoutes);
 app.use("/api/subfolders", subfolderRoutes);
+
 
 const sessionController = require("./controllers/sessionController");
 sessionController.startAutoSessionChecker();
