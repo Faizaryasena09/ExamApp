@@ -39,10 +39,9 @@ async function initDatabase() {
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS session_status (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        status ENUM('online', 'offline') DEFAULT 'offline',
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        name VARCHAR(100) PRIMARY KEY,
+        status ENUM('online', 'offline') NOT NULL,
+        last_update DATETIME NOT NULL
       )
     `);
 
@@ -75,7 +74,10 @@ async function initDatabase() {
     
         acakSoal BOOLEAN DEFAULT FALSE,
         acakJawaban BOOLEAN DEFAULT FALSE,
-        minWaktuSubmit INT DEFAULT 0,  -- ✅ tambahan baru
+        minWaktuSubmit INT DEFAULT 0,
+    
+        logPengerjaan BOOLEAN DEFAULT FALSE,       -- ✅ Tambahan baru
+        analisisJawaban BOOLEAN DEFAULT FALSE,     -- ✅ Tambahan baru
     
         subfolder_id INT DEFAULT NULL,
         hidden BOOLEAN DEFAULT FALSE,

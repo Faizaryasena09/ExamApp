@@ -27,6 +27,8 @@ function CoursesPage() {
   const name = Cookies.get("name");
   const userId = Cookies.get("user_id");
 
+  const now = new Date();
+
   const fetchInitialData = async () => {
     setLoading(true);
     try {
@@ -130,13 +132,30 @@ function CoursesPage() {
 
   const handleDoClick = async (courseId) => {
     try {
-      const res = await api.get(`/courses/${courseId}/status?user=${userId}`);
-      const { sudahMaksimal, useToken } = res.data;
-
+      // Ambil detail course
+      const detailRes = await api.get(`/courses/${courseId}`);
+      const course = detailRes.data;
+  
+      const now = new Date();
+      const mulai = new Date(course.tanggal_mulai);
+      const selesai = course.tanggal_selesai ? new Date(course.tanggal_selesai) : null;
+  
+      if (now < mulai) {
+        return alert("⏳ Ujian belum dimulai. Silakan cek lagi nanti.");
+      }
+  
+      if (selesai && now > selesai) {
+        return alert("🕔 Waktu ujian sudah berakhir.");
+      }
+  
+      // Cek status pengerjaan
+      const statusRes = await api.get(`/courses/${courseId}/status?user=${userId}`);
+      const { sudahMaksimal, useToken } = statusRes.data;
+  
       if (sudahMaksimal) {
         return alert("❌ Kesempatan Anda untuk mengerjakan course ini sudah habis.");
       }
-
+  
       if (useToken) {
         setSelectedCourseId(courseId);
         setTokenInput("");
@@ -145,10 +164,10 @@ function CoursesPage() {
         navigate(`/courses/${courseId}/do`);
       }
     } catch (err) {
-      console.error("Gagal cek status course:", err);
-      alert("❌ Terjadi kesalahan saat memeriksa status course.");
+      console.error("❌ Gagal cek waktu/status course:", err);
+      alert("Terjadi kesalahan saat memeriksa status course.");
     }
-  };
+  };  
 
   const handleSubmitToken = async (e) => {
     e.preventDefault();
@@ -302,7 +321,7 @@ function CoursesPage() {
               Selamat datang kembali, {name}. Pilih course untuk dimulai.
             </p>
           </div>
-          {role !== "siswa" && (
+          {role == "admin" && (
             <div className="flex gap-3">
               <button
                 onClick={createSubfolder}
@@ -310,6 +329,10 @@ function CoursesPage() {
               >
                 <FiPlus /> Folder Baru
               </button>
+            </div>
+          )}
+          {role !== "siswa" && (
+          <div>
               <button
                 onClick={() => navigate("/createcourses")}
                 className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700"
@@ -317,7 +340,8 @@ function CoursesPage() {
                 <FiPlus /> Buat Course
               </button>
             </div>
-          )}
+            )}
+          
         </header>
   
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
@@ -381,29 +405,28 @@ function CoursesPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       {role === "admin" && (
-  <>
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        const newName = prompt(`Ganti nama subfolder:`, folderName);
-        if (newName && newName !== folderName) renameFolder(folderName, newName);
-      }}
-      className="text-sm text-indigo-600 hover:text-indigo-800"
-    >
-      Rename
-    </button>
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        handleDeleteSubfolder(folderName);
-      }}
-      className="text-sm text-red-500 hover:text-red-700"
-    >
-      Hapus Folder
-    </button>
-  </>
-)}
-
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const newName = prompt(`Ganti nama subfolder:`, folderName);
+                            if (newName && newName !== folderName) renameFolder(folderName, newName);
+                          }}
+                          className="text-sm text-indigo-600 hover:text-indigo-800"
+                        >
+                          Rename
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSubfolder(folderName);
+                          }}
+                          className="text-sm text-red-500 hover:text-red-700"
+                        >
+                          Hapus Folder
+                        </button>
+                      </>
+                    )}
                       <span className="text-indigo-600 text-lg">
                         {openFolders[folderName] ? "🔽" : "▶️"}
                       </span>
@@ -429,6 +452,7 @@ function CoursesPage() {
                               Kelas: {Array.isArray(course.kelas) ? course.kelas.join(", ") : course.kelas}
                             </p>
                             <h3 className="text-xl font-bold text-slate-800 mt-1 truncate">{course.nama}</h3>
+                            <p className="text-sm text-slate-500">Waktu: {new Date(course.tanggal_mulai).toLocaleString()}</p>
                             <p className="text-sm text-slate-500 mt-1">Oleh: {course.pengajar}</p>
                             <p className="text-slate-600 mt-3 text-sm flex-grow line-clamp-2">
                               {course.deskripsi}
@@ -436,21 +460,41 @@ function CoursesPage() {
                           </div>
                           <div className="p-4 bg-slate-50 border-t border-slate-200 mt-auto">
                             {role === "siswa" ? (
-                              statusMap[course.id]?.sudahMaksimal ? (
-                                <button
-                                  disabled
-                                  className="w-full flex items-center justify-center gap-2 bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold cursor-not-allowed"
-                                >
-                                  Anda telah mengerjakan
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => handleDoClick(course.id)}
-                                  className="w-full flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700"
-                                >
-                                  Mulai Kerjakan <FiChevronRight />
-                                </button>
-                              )
+                              (() => {
+                                const mulai = new Date(course.tanggal_mulai);
+                                const selesai = course.tanggal_selesai ? new Date(course.tanggal_selesai) : null;
+                                const now = new Date();
+                                const sudahMaksimal = statusMap[course.id]?.sudahMaksimal;
+                                const belumMulai = now < mulai;
+
+                                return (
+                                  <>
+
+                                    {sudahMaksimal ? (
+                                      <button
+                                        disabled
+                                        className="w-full flex items-center justify-center gap-2 bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold cursor-not-allowed"
+                                      >
+                                        Anda telah mengerjakan
+                                      </button>
+                                    ) : belumMulai ? (
+                                      <button
+                                        disabled
+                                        className="w-full flex items-center justify-center gap-2 bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold cursor-not-allowed"
+                                      >
+                                        Belum Waktunya
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={() => handleDoClick(course.id)}
+                                        className="w-full flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700"
+                                      >
+                                        Mulai Kerjakan <FiChevronRight />
+                                      </button>
+                                    )}
+                                  </>
+                                );
+                              })()
                             ) : (
                               <div className="flex flex-col gap-2 mt-2">
                                 <div className="flex justify-between items-center gap-2">
@@ -468,28 +512,23 @@ function CoursesPage() {
                                   </button>
                                 </div>
 
-                                {role === "admin" && (
-                                  <label className="flex items-center gap-2 text-sm text-slate-600">
-                                    <input
-                                      type="checkbox"
-                                      checked={!course.hidden}
-                                      onChange={() => toggleVisibility(course.id, course.hidden)}
-                                      className="w-4 h-4"
-                                    />
-                                    Tampilkan untuk siswa
-                                  </label>
-                                )}
+                                <label className="flex items-center gap-2 text-sm text-slate-600">
+                                  <input
+                                    type="checkbox"
+                                    checked={!course.hidden}
+                                    onChange={() => toggleVisibility(course.id, course.hidden)}
+                                    className="w-4 h-4"
+                                  />
+                                  Tampilkan untuk siswa
+                                </label>
 
-                                {role !== "siswa" && (
-                                  <div className="mt-1">
-                                    <label className="text-xs text-slate-500 block mb-1">Pindah ke folder:</label>
-                                    <select
-                                value={
-                                  subfolders.find(f => f.id === course.subfolder_id)?.name || "Tanpa Folder"
-                                }
-                                onChange={async (e) => await moveCourse(course.id, e.target.value)}
-                                className="w-full border border-slate-300 px-2 py-1 rounded text-sm bg-white"
-                              >
+                                <div className="mt-1">
+                                  <label className="text-xs text-slate-500 block mb-1">Pindah ke folder:</label>
+                                  <select
+                                    value={subfolders.find(f => f.id === course.subfolder_id)?.name || "Tanpa Folder"}
+                                    onChange={async (e) => await moveCourse(course.id, e.target.value)}
+                                    className="w-full border border-slate-300 px-2 py-1 rounded text-sm bg-white"
+                                  >
                                     <option value="Tanpa Folder">Tanpa Folder</option>
                                     {subfolders.map((f) => (
                                       <option key={f.name} value={f.name}>
@@ -498,8 +537,7 @@ function CoursesPage() {
                                     ))}
                                   </select>
                                 </div>
-                              )}
-                            </div>
+                              </div>
                             )}
                           </div>
                         </div>

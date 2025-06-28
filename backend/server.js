@@ -13,6 +13,7 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
+// === ROUTES ===
 const authRoutes = require("./routes/authRoutes");
 const sessionRoutes = require("./routes/sessionRoutes");
 const userRoutes = require("./routes/userRoutes");
@@ -32,9 +33,12 @@ app.use("/api/jawaban", answerRoutes);
 app.use("/api", userRoutes);
 app.use("/api/session", sessionRoutes);
 app.use("/api/data/kelas", kelasRoutes);
-app.use('/api/courses', courseRoutes);
+app.use("/api/courses", courseRoutes);
 app.use("/api", dashboardRoutes);
-app.use('/api/', resultRoutes);
+app.use("/api", resultRoutes);
 app.use("/api/subfolders", subfolderRoutes);
+
+const sessionController = require("./controllers/sessionController");
+sessionController.startAutoSessionChecker();
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

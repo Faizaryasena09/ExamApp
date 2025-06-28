@@ -26,6 +26,8 @@ function ManageCoursePage() {
     tokenValue: "",
     minWaktuSubmit: false,
     minWaktuSubmitValue: "",
+    logPengerjaan: false,
+    analisisJawaban: false,
   });
 
   const [soalList, setSoalList] = useState([]);
@@ -66,6 +68,8 @@ function ManageCoursePage() {
         acakJawaban: Boolean(c.acakJawaban),
         minWaktuSubmit: Boolean(c.minWaktuSubmit && c.minWaktuSubmit > 0),
         minWaktuSubmitValue: c.minWaktuSubmit ? String(c.minWaktuSubmit) : "",
+        logPengerjaan: Boolean(c.logPengerjaan),
+        analisisJawaban: Boolean(c.analisisJawaban),      
       });
     } catch (err) {
       console.error("❌ Gagal ambil course:", err);
@@ -107,7 +111,8 @@ function ManageCoursePage() {
       acakSoal: form.acakSoal,
       acakJawaban: form.acakJawaban,
       minWaktuSubmit: form.minWaktuSubmit ? parseInt(form.minWaktuSubmitValue) : 0,
-
+      logPengerjaan: form.logPengerjaan,
+      analisisJawaban: form.analisisJawaban,
     };
   
     try {
@@ -191,7 +196,9 @@ function ManageCoursePage() {
     <div className="bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto p-6 sm:p-8">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">🛠️ Manage Course</h1>
+        <h1 className="text-3xl font-bold text-gray-800">
+          🛠️ Manage Course: {form.nama || "Memuat..."}
+        </h1>
         </div>
         <MngNavbar />
 
@@ -275,83 +282,139 @@ function ManageCoursePage() {
               </div>
             </div>
 
-            <div className="border-t pt-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                    <div>
-                        <label htmlFor="max-percobaan" className="block text-sm font-medium text-gray-600 mb-1">Maksimal Percobaan</label>
-                        <input id="max-percobaan" type="number" min="1" value={form.maxPercobaan} onChange={(e) => setForm({ ...form, maxPercobaan: parseInt(e.target.value) })} className="w-full md:w-1/2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"/>
-                    </div>
-                    <div className="space-y-3 pt-2">
-                    <label className="flex items-center">
-  <input
-    type="checkbox"
-    checked={form.acakSoal}
-    onChange={(e) => setForm((prev) => ({ ...prev, acakSoal: e.target.checked }))}
-    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-  />
-  <span className="ml-3 text-sm text-gray-700">Acak Urutan Soal</span>
-</label>
-
-<label className="flex items-center">
-  <input
-    type="checkbox"
-    checked={form.acakJawaban}
-    onChange={(e) => setForm((prev) => ({ ...prev, acakJawaban: e.target.checked }))}
-    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-  />
-  <span className="ml-3 text-sm text-gray-700">Acak Urutan Jawaban</span>
-</label>
-
-                        <label className="flex items-center">
-                            <input type="checkbox" checked={form.tampilkanHasil} onChange={(e) => setForm({ ...form, tampilkanHasil: e.target.checked })} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                            <span className="ml-3 text-sm text-gray-700">Tampilkan hasil ke siswa setelah ujian</span>
-                        </label>
-                        <label className="flex items-center">
-                            <input type="checkbox" checked={form.useToken} onChange={(e) => setForm({ ...form, useToken: e.target.checked, tokenValue: "" })} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                            <span className="ml-3 text-sm text-gray-700">Gunakan Token untuk memulai ujian</span>
-                        </label>
-                        <label className="flex items-center">
-  <input
-    type="checkbox"
-    checked={form.minWaktuSubmit}
-    onChange={(e) =>
-      setForm((prev) => ({
-        ...prev,
-        minWaktuSubmit: e.target.checked,
-        minWaktuSubmitValue: e.target.checked ? "1" : "", // default 1 menit saat dicentang
-      }))
-    }
-    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-  />
-  <span className="ml-3 text-sm text-gray-700">Minimal waktu tersisa sebelum boleh submit</span>
-</label>
-
-{form.minWaktuSubmit && (
-  <div className="pl-6 pt-2">
-    <label className="block text-sm font-medium text-gray-600 mb-1">
-      Masukkan minimal waktu tersisa (menit)
-    </label>
-    <input
-      type="number"
-      min={1}
-      name="minWaktuSubmitValue"
-      value={form.minWaktuSubmitValue}
-      onChange={handleChange}
-      className="w-full md:w-1/3 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-      placeholder="Misal: 1"
-    />
-  </div>
-)}
-
-                    </div>
+            <div className="border-t pt-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div>
+                  <label htmlFor="max-percobaan" className="block text-sm font-medium text-gray-700">
+                    Maksimal Percobaan
+                  </label>
+                  <input
+                    id="max-percobaan"
+                    type="number"
+                    min="1"
+                    value={form.maxPercobaan}
+                    onChange={(e) => setForm({ ...form, maxPercobaan: parseInt(e.target.value) })}
+                    className="mt-1 block w-full md:w-1/2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
                 </div>
 
-                {form.useToken && (
-                <div className="pl-6 border-l-4 border-blue-200">
-                    <label htmlFor="token-quiz" className="block text-sm font-medium text-gray-600 mb-1">Token Quiz (maks 6 karakter, token kadaluarsa setelah 15 menit)</label>
-                    <input id="token-quiz" type="text" maxLength={6} value={form.tokenValue} onChange={(e) => setForm({ ...form, tokenValue: e.target.value.toUpperCase() })} className="w-full md:w-1/2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 uppercase" placeholder="Contoh: ABC123" />
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={form.useToken}
+                      onChange={(e) => setForm({ ...form, useToken: e.target.checked, tokenValue: "" })}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-sm text-gray-800">Gunakan Token untuk Memulai Ujian</span>
+                  </label>
+                  {form.useToken && (
+                    <div className="pl-7">
+                      <label htmlFor="token-quiz" className="block text-xs font-medium text-gray-600">
+                        Token (maks 6 karakter, kedaluwarsa 15 menit)
+                      </label>
+                      <input
+                        id="token-quiz"
+                        type="text"
+                        maxLength={6}
+                        value={form.tokenValue}
+                        onChange={(e) => setForm({ ...form, tokenValue: e.target.value.toUpperCase() })}
+                        className="mt-1 block w-full md:w-1/2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 uppercase"
+                        placeholder="Contoh: ABC123"
+                      />
+                    </div>
+                  )}
                 </div>
-                )}
+              </div>
+
+              <div className="space-y-4 pt-4 border-t">
+                <h3 className="text-base font-medium text-gray-800">Opsi Tambahan</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={form.acakSoal}
+                      onChange={(e) => setForm((prev) => ({ ...prev, acakSoal: e.target.checked }))}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-sm text-gray-800">Acak Urutan Soal</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={form.acakJawaban}
+                      onChange={(e) => setForm((prev) => ({ ...prev, acakJawaban: e.target.checked }))}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-sm text-gray-800">Acak Urutan Jawaban</span>
+                  </label>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={form.tampilkanHasil}
+                      onChange={(e) => setForm({ ...form, tampilkanHasil: e.target.checked })}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-sm text-gray-800">Tampilkan Hasil ke Siswa Setelah Ujian</span>
+                  </label>
+                  {form.tampilkanHasil && (
+                    <div className="pl-7">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={form.analisisJawaban}
+                          onChange={(e) => setForm((prev) => ({ ...prev, analisisJawaban: e.target.checked }))}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="ml-3 text-sm text-gray-800">Tampilkan Analisis Jawaban ke Siswa</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={form.minWaktuSubmit}
+                      onChange={(e) => setForm((prev) => ({ ...prev, minWaktuSubmit: e.target.checked, minWaktuSubmitValue: e.target.checked ? "1" : "" }))}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-sm text-gray-800">Batas Minimal Waktu Submit</span>
+                  </label>
+                  {form.minWaktuSubmit && (
+                    <div className="pl-7">
+                      <label htmlFor="min-waktu-submit" className="block text-xs font-medium text-gray-600">
+                        Waktu tersisa minimal (menit)
+                      </label>
+                      <input
+                        id="min-waktu-submit"
+                        type="number"
+                        min="1"
+                        name="minWaktuSubmitValue"
+                        value={form.minWaktuSubmitValue}
+                        onChange={handleChange}
+                        className="mt-1 block w-full md:w-1/3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        placeholder="Contoh: 5"
+                      />
+                    </div>
+                  )}
+                </div>
+                
+                <label className="flex items-center pt-2">
+                    <input
+                      type="checkbox"
+                      checked={form.logPengerjaan}
+                      onChange={(e) => setForm((prev) => ({ ...prev, logPengerjaan: e.target.checked }))}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-sm text-gray-800">Aktifkan Log Pengerjaan Siswa</span>
+                  </label>
+              </div>
             </div>
 
             <div className="text-right pt-4">

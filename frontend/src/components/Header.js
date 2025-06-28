@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiLogOut, FiChevronDown } from "react-icons/fi";
 import Cookies from "js-cookie";
@@ -40,6 +40,63 @@ function Header({ onToggleSidebar }) {
     Cookies.remove("user_id");
     navigate("/");
   };
+
+  useEffect(() => {
+    const name = Cookies.get("name");
+    if (!name) return;
+
+    let idleTimeout = null;
+    let interval = null;
+    let isIdle = false;
+
+    const setOffline = () => {
+      isIdle = true;
+    };
+
+    const resetIdleTimer = () => {
+      isIdle = false;
+      clearTimeout(idleTimeout);
+      idleTimeout = setTimeout(setOffline, 10 * 60 * 1000); // 10 menit
+    };
+
+    const sendStatusAndCheck = async () => {
+      try {
+        const status = isIdle ? "offline" : "online";
+        await api.post("/session", { name, status });
+
+        const res = await api.get("/auth/islogin", { params: { name } });
+        if (res.data.status === "offline") {
+          console.warn("🚪 Status offline terdeteksi, logout...");
+          handleLogout();
+        }
+      } catch (err) {
+        console.error("❌ Gagal update status session:", err.message);
+      }
+    };
+
+    const events = ["mousemove", "keydown", "click", "scroll"];
+    events.forEach((event) => window.addEventListener(event, resetIdleTimer));
+    resetIdleTimer();
+
+    interval = setInterval(sendStatusAndCheck, 10 * 1000); // Setiap 10 detik
+
+    // ⛔ Kirim offline saat tab ditutup
+    window.addEventListener("beforeunload", () => {
+      const payload = new URLSearchParams();
+      payload.append("name", name);
+      payload.append("status", "offline");
+
+      navigator.sendBeacon("/api/session", payload);
+    });
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(idleTimeout);
+      events.forEach((event) =>
+        window.removeEventListener(event, resetIdleTimer)
+      );
+    };
+  }, []);
 
   return (
     <header className="bg-slate-800 px-4 sm:px-6 py-2 flex justify-between items-center shadow-md border-b border-slate-700">

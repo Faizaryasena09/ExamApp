@@ -86,7 +86,7 @@ exports.cekTampilkanHasil = async (req, res) => {
 
   try {
     const [rows] = await db.query(
-      "SELECT tampilkanHasil FROM courses WHERE id = ?",
+      `SELECT tampilkanHasil, analisisJawaban FROM courses WHERE id = ?`,
       [course_id]
     );
 
@@ -94,11 +94,12 @@ exports.cekTampilkanHasil = async (req, res) => {
       return res.status(404).json({ error: "Course tidak ditemukan" });
     }
 
-    const tampilkan = rows[0].tampilkanHasil === 1;
-    res.json({ tampilkan_hasil: tampilkan });
+    res.json({
+      tampilkan_hasil: rows[0].tampilkanHasil === 1,
+      analisis_jawaban: rows[0].analisisJawaban === 1
+    });
   } catch (err) {
-    console.error("❌ Gagal cek tampilkanHasil:", err.message);
+    console.error("❌ Gagal cek hasil tampilan:", err.message);
     res.status(500).json({ error: "Gagal mengambil data" });
   }
 };
-

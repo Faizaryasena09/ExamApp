@@ -7,9 +7,8 @@ import {
   Navigate,
 } from "react-router-dom";
 import { useEffect, useState } from "react";
-import api from "./api"; // Harus sudah ada api.js (axios instance)
+import api from "./api"; 
 
-// Pages
 import LoginPage from "./pages/Login";
 import HomePage from "./pages/Home";
 import CoursesPage from "./pages/Courses";
@@ -20,18 +19,16 @@ import UserManage from "./pages/UserManagementPage";
 import KelasManagement from "./pages/KelasManagement";
 import ManageCourse from "./pages/ManageCoursePage";
 import AnalyticsCourse from "./pages/CourseAnalytics";
+import AnswerSummaryPage from "./pages/AnswerSummaryPage";
 
-// Layout
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 
-// Utils
 function getCookie(name) {
   const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
   return match ? decodeURIComponent(match[2]) : null;
 }
 
-// Route Wrappers
 function PublicRoute({ element }) {
   return getCookie("name") ? <Navigate to="/home" /> : element;
 }
@@ -122,7 +119,6 @@ function CourseAccessRoute({ element, type = "general" }) {
   return allowed ? element : <Navigate to="/home" />;
 }
 
-// Layout Component
 function AppLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -168,13 +164,11 @@ function AppLayout() {
             <Route path="/courses" element={<PrivateRoute element={<CoursesPage />} />} />
             <Route path="/courses/:id/do" element={<PrivateRoute element={<DoExamPage />} />} />
 
-            {/* 🧠 Hasil ujian (siswa hanya hasil sendiri & kalau tampilkanHasil = true) */}
             <Route
               path="/courses/:courseId/:userId/:attemp/hasil"
               element={<ExamResultAccessRoute element={<ExamResultPage />} />}
             />
 
-            {/* 🔐 Guru & Admin - akses ke course (manage/analytics) hanya jika pemilik */}
             <Route
               path="/courses/:id/manage"
               element={
@@ -194,13 +188,11 @@ function AppLayout() {
               }
             />
 
-            {/* ✏️ Create hanya guru/admin */}
             <Route
               path="/createcourses"
               element={<RoleRoute allowedRoles={["guru", "admin"]} element={<CreateCoursesPage />} />}
             />
 
-            {/* 🔒 Admin only */}
             <Route
               path="/usrmng"
               element={<RoleRoute allowedRoles={["admin"]} element={<UserManage />} />}
@@ -209,6 +201,7 @@ function AppLayout() {
               path="/classmanage"
               element={<RoleRoute allowedRoles={["admin"]} element={<KelasManagement />} />}
             />
+            <Route path="/courses/:courseId/:userId/:attemp/summary" element={<AnswerSummaryPage />} />
           </Routes>
         </main>
       </div>
@@ -216,7 +209,6 @@ function AppLayout() {
   );
 }
 
-// Wrapper
 function App() {
   return (
     <Router>

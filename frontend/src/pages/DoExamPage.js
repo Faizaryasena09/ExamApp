@@ -36,6 +36,7 @@ function DoExamPage() {
   const [minWaktuSubmit, setMinWaktuSubmit] = useState(0);
   const [configWaktu, setConfigWaktu] = useState(30);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
+  const [submitCountdown, setSubmitCountdown] = useState(null);
 
   useEffect(() => {
     const checkTokenRequirement = async () => {
@@ -162,6 +163,28 @@ function DoExamPage() {
       cekWaktuUjian();
     }
   }, [showStartModal, courseId, userId, id, navigate, attemptNow]);
+
+  useEffect(() => {
+    if (!minWaktuSubmit || minWaktuSubmit <= 0) return;
+  
+    const interval = setInterval(() => {
+      const secondsLeft = waktuSisa - minWaktuSubmit * 60;
+      if (secondsLeft > 0) {
+        setSubmitCountdown(secondsLeft);
+      } else {
+        setSubmitCountdown(0); // Saat sudah bisa submit
+        clearInterval(interval);
+      }
+    }, 1000);
+  
+    return () => clearInterval(interval);
+  }, [waktuSisa, minWaktuSubmit]);
+
+  const formatMenitDetik = (totalDetik) => {
+    const menit = Math.floor(totalDetik / 60);
+    const detik = totalDetik % 60;
+    return `${menit.toString().padStart(2, "0")}:${detik.toString().padStart(2, "0")}`;
+  };  
 
   useEffect(() => {
     const fetchAttempt = async () => {
@@ -414,7 +437,7 @@ function DoExamPage() {
     fetchCourseConfig();
   }, [id]);  
 
-  const handleSelesaiUjian = async () => {
+  const handleSelesaiUjian = async () => { 
     setLoadingSubmit(true);
   
     const attemptId = await submitJawabanUjian();
@@ -436,11 +459,15 @@ function DoExamPage() {
         });
   
         const tampilkanHasil = res.data?.tampilkan_hasil;
+        const analisisJawaban = res.data?.analisis_jawaban;
   
-        navigate(tampilkanHasil
-          ? `/courses/${courseId}/${userId}/${attemptId}/hasil`
-          : `/`
-        );
+        if (tampilkanHasil) {
+          navigate(`/courses/${courseId}/${userId}/${attemptId}/summary`);
+        } else if (analisisJawaban) {
+          navigate(`/courses/${courseId}/${userId}/${attemptId}/hasil`);
+        } else {
+          navigate(`/`);
+        }
   
       } catch (err) {
         console.error("❌ Gagal cek hasil:", err.message);
@@ -453,7 +480,7 @@ function DoExamPage() {
   
     setLoadingSubmit(false);
   };  
-
+  
   const currentSoal = soalList[currentIndex];
   
   const opsiArray = currentSoal ? (
@@ -471,8 +498,12 @@ function DoExamPage() {
   };  
 
   const isSubmitAllowed = () => {
+    if (!minWaktuSubmit || isNaN(minWaktuSubmit) || minWaktuSubmit <= 0) {
+      return true;
+    }
+  
     return waktuSisa <= minWaktuSubmit * 60;
-  };  
+  };   
 
   if (blocked) {
     return (
@@ -616,30 +647,42 @@ function DoExamPage() {
               </button>
 
               {currentIndex === soalList.length - 1 ? (
-              isSubmitAllowed() ? (
-                <button
-                  onClick={() => setShowSelesaiModal(true)}
-                  className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-sm"
-                >
-                  Selesai Ujian
-                </button>
+                isSubmitAllowed() ? (
+                  <button
+                    onClick={() => setShowSelesaiModal(true)}
+                    className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-sm"
+                  >
+                    Selesai Ujian
+                  </button>
+                ) : (
+                  <div className="text-center">
+                    <button
+                      disabled
+                      className="bg-gray-300 text-gray-500 cursor-not-allowed px-6 py-2 rounded-lg font-semibold mb-2"
+                      title={`Jawaban hanya bisa dikirim jika sisa waktu ≤ ${minWaktuSubmit} menit.`}
+                    >
+                      Tidak Bisa Submit
+                    </button>
+                    {minWaktuSubmit > 0 && waktuSisa > minWaktuSubmit * 60 && (
+                      <p className="text-sm text-gray-500">
+                        Bisa submit dalam{" "}
+                        <span className="font-semibold text-blue-600">
+                          {formatMenitDetik(waktuSisa - minWaktuSubmit * 60)}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                )
               ) : (
                 <button
-                  disabled
-                  className="bg-gray-300 text-gray-500 cursor-not-allowed px-6 py-2 rounded-lg font-semibold"
-                  title={`Jawaban hanya bisa dikirim jika sisa waktu ≤ ${minWaktuSubmit} menit.`}
+                  onClick={() =>
+                    setCurrentIndex((i) => Math.min(soalList.length - 1, i + 1))
+                  }
+                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
                 >
-                  Tidak Bisa Submit
+                  Selanjutnya <FiChevronRight />
                 </button>
-              )
-            ) : (
-              <button
-                onClick={() => setCurrentIndex((i) => Math.min(soalList.length - 1, i + 1))}
-                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
-              >
-                Selanjutnya <FiChevronRight />
-              </button>
-            )}
+              )}
             </div>
           </div>
         </main>

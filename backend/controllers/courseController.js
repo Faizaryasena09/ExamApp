@@ -15,8 +15,9 @@ function shuffleArray(array) {
     const {
       nama, pengajarId, kelas, tanggalMulai, tanggalSelesai,
       waktu, deskripsi, maxPercobaan, tampilkanHasil,
-      useToken, tokenValue, acakSoal, acakJawaban, minWaktuSubmit
-    } = req.body;    
+      useToken, tokenValue, acakSoal, acakJawaban, minWaktuSubmit,
+      logPengerjaan, analisisJawaban     // ✅ Tambahan
+    } = req.body;
   
     const { name, role } = req.cookies;
     if (!name || !role) return res.status(401).send("Unauthorized");
@@ -27,8 +28,9 @@ function shuffleArray(array) {
         `INSERT INTO courses 
         (nama, pengajar_id, pengajar, kelas, tanggal_mulai, tanggal_selesai, waktu, deskripsi,
           maxPercobaan, tampilkanHasil, useToken, tokenValue, tokenCreatedAt, 
-          acakSoal, acakJawaban, minWaktuSubmit)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          acakSoal, acakJawaban, minWaktuSubmit,
+          logPengerjaan, analisisJawaban)   -- ✅ Tambahkan ini
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           nama,
           pengajarId,
@@ -45,15 +47,74 @@ function shuffleArray(array) {
           useToken ? new Date() : null,
           !!acakSoal,
           !!acakJawaban,
-          parseInt(minWaktuSubmit) || 0
+          parseInt(minWaktuSubmit) || 0,
+          !!logPengerjaan,          // ✅
+          !!analisisJawaban         // ✅
         ]
-      );      
+      );
       res.status(201).json({ message: "Course berhasil dibuat!" });
     } catch (err) {
       console.error("Gagal membuat course:", err.message);
       res.status(500).json({ message: "Server error" });
     }
   };
+  
+  exports.updateCourse = async (req, res) => {
+    const courseId = req.params.id;
+    const {
+      nama, kelas, tanggal_mulai, tanggal_selesai, waktu, deskripsi,
+      maxPercobaan, tampilkanHasil, useToken, tokenValue,
+      acakSoal, acakJawaban, minWaktuSubmit,
+      logPengerjaan, analisisJawaban   // ✅ Tambahan
+    } = req.body;
+  
+    try {
+      const pool = await poolPromise;
+      await pool.query(
+        `UPDATE courses SET 
+          nama = ?, 
+          kelas = ?, 
+          tanggal_mulai = ?, 
+          tanggal_selesai = ?, 
+          waktu = ?, 
+          deskripsi = ?,
+          maxPercobaan = ?, 
+          tampilkanHasil = ?, 
+          useToken = ?, 
+          tokenValue = ?, 
+          tokenCreatedAt = ?,
+          acakSoal = ?, 
+          acakJawaban = ?,
+          minWaktuSubmit = ?,
+          logPengerjaan = ?,           -- ✅
+          analisisJawaban = ?          -- ✅
+        WHERE id = ?`,
+        [
+          nama,
+          JSON.stringify(kelas),
+          tanggal_mulai,
+          tanggal_selesai || null,
+          waktu,
+          deskripsi,
+          maxPercobaan || 1,
+          tampilkanHasil || false,
+          useToken || false,
+          useToken ? tokenValue?.slice(0, 6) : null,
+          useToken ? new Date() : null,
+          !!acakSoal,
+          !!acakJawaban,
+          parseInt(minWaktuSubmit) || 0,
+          !!logPengerjaan,
+          !!analisisJawaban,
+          courseId
+        ]
+      );
+      res.json({ message: "Course berhasil diperbarui!" });
+    } catch (err) {
+      console.error("Gagal update course:", err.message);
+      res.status(500).json({ message: "Server error" });
+    }
+  };  
   
   exports.getCourses = async (req, res) => {
     const { role, name } = req.cookies;
@@ -88,8 +149,6 @@ function shuffleArray(array) {
   
       const [rows] = await pool.query(query, params);
   
-      const now = new Date();
-  
       const result = rows
         .map((row) => {
           let kelasParsed = [];
@@ -114,14 +173,7 @@ function shuffleArray(array) {
             const courseKelasLower = course.kelas.map((k) =>
               String(k).toLowerCase().trim()
             );
-  
-            const mulai = new Date(course.tanggal_mulai);
-            const selesai = course.tanggal_selesai ? new Date(course.tanggal_selesai) : null;
-  
-            const isWaktuValid =
-              now >= mulai && (selesai === null || now <= selesai);
-  
-            return courseKelasLower.includes(siswaKelas) && isWaktuValid;
+            return courseKelasLower.includes(siswaKelas);
           }
   
           return true;
@@ -153,20 +205,6 @@ function shuffleArray(array) {
   
       const course = rows[0];
   
-      if (role === "siswa") {
-        const now = new Date();
-        const mulai = new Date(course.tanggal_mulai);
-        const selesai = course.tanggal_selesai ? new Date(course.tanggal_selesai) : null;
-  
-        if (now < mulai) {
-          return res.status(403).json({ message: "Ujian belum dimulai" });
-        }
-  
-        if (selesai && now > selesai) {
-          return res.status(403).json({ message: "Ujian sudah berakhir" });
-        }
-      }
-  
       try {
         course.kelas = JSON.parse(course.kelas);
       } catch {
@@ -180,58 +218,6 @@ function shuffleArray(array) {
       res.status(500).json({ message: "Server error" });
     }
   };  
-
-  exports.updateCourse = async (req, res) => {
-    const courseId = req.params.id;
-    const {
-      nama, kelas, tanggal_mulai, tanggal_selesai, waktu, deskripsi,
-      maxPercobaan, tampilkanHasil, useToken, tokenValue,
-      acakSoal, acakJawaban, minWaktuSubmit
-    } = req.body;    
-  
-    try {
-      const pool = await poolPromise;
-      await pool.query(
-        `UPDATE courses SET 
-          nama = ?, 
-          kelas = ?, 
-          tanggal_mulai = ?, 
-          tanggal_selesai = ?, 
-          waktu = ?, 
-          deskripsi = ?,
-          maxPercobaan = ?, 
-          tampilkanHasil = ?, 
-          useToken = ?, 
-          tokenValue = ?, 
-          tokenCreatedAt = ?,
-          acakSoal = ?, 
-          acakJawaban = ?,
-          minWaktuSubmit = ?
-        WHERE id = ?`,
-        [
-          nama,
-          JSON.stringify(kelas),
-          tanggal_mulai,
-          tanggal_selesai || null,
-          waktu,
-          deskripsi,
-          maxPercobaan || 1,
-          tampilkanHasil || false,
-          useToken || false,
-          useToken ? tokenValue?.slice(0, 6) : null,
-          useToken ? new Date() : null,
-          !!acakSoal,
-          !!acakJawaban,
-          parseInt(minWaktuSubmit) || 0,
-          courseId
-        ]
-      );      
-      res.json({ message: "Course berhasil diperbarui!" });
-    } catch (err) {
-      console.error("Gagal update course:", err.message);
-      res.status(500).json({ message: "Server error" });
-    }
-  };   
 
 exports.deleteCourse = async (req, res) => {
   const courseId = req.params.id;
