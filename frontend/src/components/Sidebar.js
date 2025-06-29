@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { FiHome, FiUsers, FiBookOpen, FiX, FiFileText } from "react-icons/fi";
+import { FiHome, FiUsers, FiBookOpen, FiX, FiFileText, FiSettings } from "react-icons/fi";
 
 // Fungsi bantu ambil cookie
 function getCookie(name) {
@@ -61,7 +61,6 @@ function Sidebar({ isOpen, onClose }) {
               </NavLink>
             </li>
 
-            {/* 👑 Hanya Admin */}
             {role === "admin" && (
               <>
                 <li>
@@ -86,10 +85,20 @@ function Sidebar({ isOpen, onClose }) {
                     <span>Manajemen Kelas</span>
                   </NavLink>
                 </li>
+                <li>
+                  <NavLink
+                    to="/examcontrol"
+                    onClick={onClose}
+                    style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+                    className="flex items-center px-4 py-2.5 rounded-lg hover:bg-slate-700 hover:text-white transition-colors duration-200"
+                  >
+                    <FiSettings className="mr-3 text-lg" />
+                    <span>Kontrol Ujian</span>
+                  </NavLink>
+                </li>
               </>
             )}
 
-            {/* Semua Role bisa akses courses */}
             <li>
               <NavLink
                 to="/courses"
@@ -104,9 +113,7 @@ function Sidebar({ isOpen, onClose }) {
           </ul>
         </nav>
 
-        {/* Footer Sidebar */}
         <div className="absolute bottom-0 left-0 w-full p-4 border-t border-slate-700">
-          {/* Tambahkan info tambahan jika perlu */}
         </div>
       </aside>
     </>

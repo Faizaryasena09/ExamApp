@@ -693,10 +693,30 @@ function DoExamPage() {
         </div>
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
-            <button onClick={() => toggleRagu(currentSoal.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors ${raguRagu[currentSoal.id] ? "bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => toggleRagu(currentSoal.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors ${
+                raguRagu[currentSoal.id]
+                  ? "bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+            >
               <FiFlag />
               {raguRagu[currentSoal.id] ? "Hapus Tanda" : "Tandai Ragu-Ragu"}
             </button>
+
+            <button
+              onClick={() => {
+                const updated = { ...jawabanSiswa };
+                delete updated[currentSoal.id];
+                setJawabanSiswa(updated);
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-red-600 border border-red-300 bg-red-50 hover:bg-red-100 transition-colors"
+            >
+              🗑️ Hapus Pilihan
+            </button>
+          </div>
             <div className="flex gap-4">
               <button
                 onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}

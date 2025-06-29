@@ -33,7 +33,8 @@ async function initDatabase() {
         username VARCHAR(50) NOT NULL UNIQUE,
         password VARCHAR(255) NOT NULL,
         role ENUM('admin', 'siswa', 'guru') DEFAULT 'siswa',
-        kelas VARCHAR(50)
+        kelas VARCHAR(50),
+        login_locked BOOLEAN DEFAULT 0
       )
     `);
 
@@ -163,6 +164,7 @@ async function initDatabase() {
         course_id INT NOT NULL,
         waktu_tersisa INT DEFAULT NULL, -- dalam detik
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        total_penambahan_waktu INT DEFAULT 0,
         PRIMARY KEY (user_id, course_id)
       )
     `);

@@ -481,28 +481,38 @@ if (!userId || isNaN(userId)) {
     try {
       const db = await dbPromise;
   
+      // 1️⃣ Ambil semua id soal lama di database
+      const [existingSoal] = await db.query(
+        "SELECT id FROM questions WHERE course_id = ?",
+        [course_id]
+      );
+      const existingIds = existingSoal.map((s) => s.id);
+  
+      // 2️⃣ Ambil semua id soal yang dikirim dari FE
+      const incomingIds = soal.filter(s => s.id).map(s => parseInt(s.id));
+  
+      // 3️⃣ Hapus soal yang tidak ada dalam list id FE
+      const toDelete = existingIds.filter(id => !incomingIds.includes(id));
+      if (toDelete.length > 0) {
+        await db.query(
+          "DELETE FROM questions WHERE id IN (?) AND course_id = ?",
+          [toDelete, course_id]
+        );
+      }
+  
+      // 4️⃣ Simpan/update semua soal yang dikirim
       for (const item of soal) {
         const opsi = acakJawaban ? shuffleArray(item.opsi) : item.opsi;
         const soalId = parseInt(item.id);
   
         if (!isNaN(soalId)) {
-          const [existing] = await db.query(
-            "SELECT id FROM questions WHERE id = ? AND course_id = ?",
-            [soalId, course_id]
+          // Update
+          await db.query(
+            "UPDATE questions SET soal = ?, opsi = ?, jawaban = ? WHERE id = ? AND course_id = ?",
+            [item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase(), soalId, course_id]
           );
-  
-          if (existing.length > 0) {
-            await db.query(
-              "UPDATE questions SET soal = ?, opsi = ?, jawaban = ? WHERE id = ? AND course_id = ?",
-              [item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase(), soalId, course_id]
-            );
-          } else {
-            await db.query(
-              "INSERT INTO questions (id, course_id, soal, opsi, jawaban) VALUES (?, ?, ?, ?, ?)",
-              [soalId, course_id, item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase()]
-            );
-          }
         } else {
+          // Insert baru (auto increment)
           await db.query(
             "INSERT INTO questions (course_id, soal, opsi, jawaban) VALUES (?, ?, ?, ?)",
             [course_id, item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase()]

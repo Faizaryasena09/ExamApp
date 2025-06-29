@@ -36,19 +36,19 @@ const KelasManagement = () => {
   const handleTambah = async (e) => {
     e.preventDefault();
     if (!namaKelas.trim() || isSubmitting) return;
-    
+  
     setIsSubmitting(true);
     try {
-      const res = await api.post("/data/kelas", { nama_kelas: namaKelas });
-      setDaftarKelas([...daftarKelas, res.data]);
+      await api.post("/data/kelas", { nama_kelas: namaKelas });
       setNamaKelas("");
+      await fetchKelas();
     } catch (err) {
       console.error("Gagal tambah kelas:", err);
       alert("Gagal menambahkan kelas baru.");
     } finally {
       setIsSubmitting(false);
     }
-  };
+  };  
 
   const handleHapus = async (id) => {
     if (!window.confirm("Anda yakin ingin menghapus kelas ini? Tindakan ini tidak dapat diurungkan.")) return;

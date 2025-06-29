@@ -27,7 +27,9 @@ const answerTrailRoutes = require("./routes/answerTrailRoutes");
 const subfolderRoutes = require("./routes/subfolderRoutes");
 const checkRoutes = require("./routes/checkRoutes");
 const studentworklog = require("./routes/studentWorkLogRoutes");
+const examRoutes = require("./routes/examRoutes");
 
+app.use("/api/exam", examRoutes);
 app.use("/api/studentworklog", studentworklog);
 app.use("/api/check", checkRoutes);
 app.use("/api/answertrail", answerTrailRoutes);

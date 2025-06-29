@@ -21,6 +21,7 @@ import ManageCourse from "./pages/ManageCoursePage";
 import AnalyticsCourse from "./pages/CourseAnalytics";
 import AnswerSummaryPage from "./pages/AnswerSummaryPage";
 import StudentLogDetailPage from "./pages/StudentLogDetailPage";
+import ManageExamPage from "./pages/ManageExamPage";
 
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
@@ -177,6 +178,15 @@ function AppLayout() {
                 <RoleRoute
                   allowedRoles={["guru", "admin"]}
                   element={<CourseAccessRoute element={<ManageCourse />} type="manage" />}
+                />
+              }
+            />
+            <Route
+              path="/examcontrol"
+              element={
+                <RoleRoute
+                  allowedRoles={["admin"]}
+                  element={<CourseAccessRoute element={<ManageExamPage />} type="control" />}
                 />
               }
             />

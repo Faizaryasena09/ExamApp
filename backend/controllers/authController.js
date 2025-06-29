@@ -40,3 +40,31 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+exports.isLogin = async (req, res) => {
+  const { name } = req.query;
+
+  if (!name) {
+    return res.status(400).json({ error: "Parameter 'name' wajib diisi." });
+  }
+
+  try {
+    const connection = await db; // ✅ tunggu koneksi
+    const [rows] = await connection.execute(
+      "SELECT * FROM session_status WHERE name = ?",
+      [name]
+    );
+
+    if (rows.length === 0) {
+      return res.status(200).json({ status: "offline" });
+    }
+
+    return res.status(200).json({
+      status: rows[0].status,
+      lastUpdate: rows[0].updated_at,
+    });
+  } catch (err) {
+    console.error("❌ Gagal cek isLogin:", err);
+    res.status(500).json({ error: "Terjadi kesalahan di server." });
+  }
+};
