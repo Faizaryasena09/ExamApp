@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -40,6 +41,7 @@ app.use("/api", dashboardRoutes);
 app.use("/api", resultRoutes);
 app.use("/api/subfolders", subfolderRoutes);
 
+app.use("/uploads", express.static(path.join(__dirname, "public", "uploads")));
 
 const sessionController = require("./controllers/sessionController");
 sessionController.startAutoSessionChecker();

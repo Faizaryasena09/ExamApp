@@ -452,7 +452,9 @@ function CoursesPage() {
                               Kelas: {Array.isArray(course.kelas) ? course.kelas.join(", ") : course.kelas}
                             </p>
                             <h3 className="text-xl font-bold text-slate-800 mt-1 truncate">{course.nama}</h3>
-                            <p className="text-sm text-slate-500">Waktu: {new Date(course.tanggal_mulai).toLocaleString()}</p>
+                            <p className="text-sm text-slate-500">
+                              Waktu: {new Date(course.tanggal_mulai).toLocaleDateString('id-ID')} {new Date(course.tanggal_mulai).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
                             <p className="text-sm text-slate-500 mt-1">Oleh: {course.pengajar}</p>
                             <p className="text-slate-600 mt-3 text-sm flex-grow line-clamp-2">
                               {course.deskripsi}

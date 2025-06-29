@@ -3,6 +3,9 @@ const dbPromise = require('../models/database');
 const mammoth = require("mammoth");
 const fs = require("fs");
 const db = require('../models/database');
+const path = require("path");
+const { v4: uuidv4 } = require("uuid");
+const cheerio = require("cheerio");
 
 function shuffleArray(array) {
     return array
@@ -304,20 +307,27 @@ exports.ambilSoal = async (req, res) => {
   }
 };
 
-  exports.uploadSoalDocx = async (req, res) => {
-    const filePath = req.file.path;
-  
-    try {
-      const result = await mammoth.extractRawText({ path: filePath });
-      const text = result.value;
-      const soalList = parseSoalFromText(text);
-      fs.unlinkSync(filePath);
-      res.json({ soal: soalList });
-    } catch (err) {
-      console.error("❌ Gagal parsing Word:", err);
-      res.status(500).json({ error: "Gagal membaca file Word" });
-    }
-  };
+exports.uploadSoalDocx = async (req, res) => {
+  const filePath = req.file.path;
+
+  try {
+    const result = await mammoth.convertToHtml({ path: filePath });
+    const html = result.value;
+
+    console.log("🔍 HTML hasil mammoth:", html.slice(0, 300)); // log 300 karakter pertama
+    
+    const soalList = parseSoalFromHtml(html);
+
+    console.log("📦 Soal berhasil di-parse:", soalList.length);
+    fs.unlinkSync(filePath);
+
+    res.json({ soal: soalList });
+  } catch (err) {
+    console.error("❌ Gagal parsing Word dengan gambar:", err);
+    res.status(500).json({ error: "Gagal membaca file Word" });
+  }
+};
+
   
   exports.getCourseStatus = async (req, res) => {
     const courseId = req.params.id;
@@ -693,44 +703,75 @@ exports.toggleVisibility = async (req, res) => {
   }
 };
   
-  function parseSoalFromText(text) {
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    const soalList = [];
-  
-    let currentQuestion = null;
-    let currentOptions = [];
-    let currentAnswer = null;
-  
-    lines.forEach((line) => {
-      if (/^\d+\./.test(line)) {
-        if (currentQuestion && currentAnswer && currentOptions.length >= 2) {
-          soalList.push({
-            soal: currentQuestion,
-            opsi: currentOptions,
-            jawaban: currentAnswer,
-          });
-        }
-        currentQuestion = line.replace(/^\d+\.\s*/, '');
-        currentOptions = [];
-        currentAnswer = null;
-      } else if (/^[A-Da-d]\./.test(line)) {
-        currentOptions.push(line);
-      } else if (/^ANS:\s*/i.test(line)) {
-        const match = line.match(/^ANS:\s*([A-Da-d])/);
-        if (match) currentAnswer = match[1].toUpperCase();
+function parseSoalFromHtml(html) {
+  const $ = cheerio.load(html);
+  const lines = [];
+
+  $("p").each((_, el) => {
+    const content = $(el).html()?.trim(); // pertahankan HTML (untuk gambar)
+    if (content) lines.push(content);
+  });
+
+  const soalList = [];
+  let currentQuestion = "";
+  let currentOptions = [];
+  let currentAnswer = null;
+
+  lines.forEach((line) => {
+    const plain = cheerio.load(line).text().trim();
+
+    // Deteksi soal baru
+    if (/^\d+\./.test(plain)) {
+      if (currentQuestion && currentAnswer && currentOptions.length >= 2) {
+        soalList.push({
+          soal: currentQuestion.trim(),
+          opsi: currentOptions,
+          jawaban: currentAnswer,
+        });
+      }
+      currentQuestion = line.replace(/^\d+\.\s*/, "");
+      currentOptions = [];
+      currentAnswer = null;
+    }
+
+    // Deteksi opsi baru A./B./C.
+    else if (/^[A-Da-d]\./.test(plain)) {
+      currentOptions.push(`<span class="inline-option">${line}</span>`);
+    }
+
+    // Jika ini ANS: A
+    else if (/^ANS:/i.test(plain)) {
+      const match = plain.match(/^ANS:\s*([A-Da-d])/);
+      if (match) currentAnswer = match[1].toUpperCase();
+    }
+
+    // Jika ini adalah gambar atau tambahan lanjutan
+    else {
+      // Cek apakah ini gambar
+      const isImage = line.includes("<img");
+      const lastOpsiIdx = currentOptions.length - 1;
+
+      if (isImage && lastOpsiIdx >= 0) {
+        // Tambahkan ke opsi terakhir jika ada
+        currentOptions[lastOpsiIdx] = currentOptions[lastOpsiIdx].replace(
+          "</span>",
+          ` <br/>${line}</span>`
+        );
       } else if (currentQuestion) {
+        // Tambahkan ke soal jika belum ada jawaban dan belum mulai opsi
         currentQuestion += " " + line;
       }
-    });
-  
-    if (currentQuestion && currentAnswer && currentOptions.length >= 2) {
-      soalList.push({
-        soal: currentQuestion,
-        opsi: currentOptions,
-        jawaban: currentAnswer,
-      });
     }
-  
-    return soalList;
+  });
+
+  // Tambahkan pertanyaan terakhir
+  if (currentQuestion && currentAnswer && currentOptions.length >= 2) {
+    soalList.push({
+      soal: currentQuestion.trim(),
+      opsi: currentOptions,
+      jawaban: currentAnswer,
+    });
   }
-  
+
+  return soalList;
+}

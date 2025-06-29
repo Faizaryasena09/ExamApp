@@ -151,8 +151,8 @@ function DoExamPage() {
         }
   
         if (waktuDetik == null) {
-          waktuDetik = (res.data.waktu || 30) * 60;
-        }
+          waktuDetik = (res.data.waktu == null ? 0 : res.data.waktu * 60);
+        }        
   
         setWaktuSisa(waktuDetik);
       } catch (err) {
@@ -242,8 +242,8 @@ function DoExamPage() {
       const config = await api.get(`/courses/${id}`);
       setExamTitle(config.data.title || "Ujian Kompetensi");
   
-      const waktuDefault = (config.data.waktu || 30) * 60;
-      setTotalWaktu(waktuDefault); // ✅ total waktu ujian
+      const waktuDefault = (config.data.waktu == null ? 0 : config.data.waktu * 60);
+      setTotalWaktu(waktuDefault);
       setMinWaktuSubmit(config.data.minWaktuSubmit || 0);
       setConfigWaktu(config.data.waktu || 30);
   
@@ -281,17 +281,56 @@ function DoExamPage() {
       const soalRes = await api.get(`/courses/${id}/questions`);
       const rawSoal = soalRes.data;
   
-      const soalFinal = (acakSoalFromServer ? shuffleArray(rawSoal) : rawSoal).map((soal) => {
+      console.log("📥 Soal Mentah dari Server:", rawSoal);
+  
+      const soalFinal = (acakSoalFromServer ? shuffleArray(rawSoal) : rawSoal).map((soal, index) => {
         const opsiOriginal = typeof soal.opsi === "string" ? JSON.parse(soal.opsi) : soal.opsi;
-        const opsiFinal = acakJawabanFromServer ? shuffleArray(opsiOriginal) : opsiOriginal;
-        const opsiDenganAbjad = opsiFinal.map((opsiText, index) => {
-          const huruf = String.fromCharCode(65 + index);
-          return `${huruf}. ${opsiText.substring(3)}`;
+        const opsiFinal = acakJawabanFromServer ? shuffleArray([...opsiOriginal]) : [...opsiOriginal];
+  
+        // 🧼 Bersihkan huruf A. B. dst dari opsiFinal secara aman
+        const opsiCleaned = opsiFinal.map((opsiHTML) => {
+          try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(opsiHTML, "text/html");
+            const firstNode = doc.body.firstChild;
+  
+            // Jika elemen teks sederhana seperti <p>A. Kucing</p>
+            if (
+              firstNode &&
+              firstNode.nodeType === 1 &&
+              firstNode.childNodes.length === 1 &&
+              firstNode.firstChild.nodeType === 3 // TEXT_NODE
+            ) {
+              const rawText = firstNode.textContent;
+              if (/^[A-Da-d]\.\s*/.test(rawText)) {
+                firstNode.textContent = rawText.replace(/^[A-Da-d]\.\s*/, '');
+                return firstNode.outerHTML;
+              }
+            }
+  
+            // Jika isinya kompleks (gambar, kombinasi elemen), kembalikan tanpa perubahan
+            return opsiHTML;
+          } catch {
+            return opsiHTML;
+          }
         });
+  
+        // 🔁 Buat mapping huruf asli (untuk dikirim saat submit)
+        const opsiMapping = opsiFinal.map((opsi) => {
+          const idxAsli = opsiOriginal.findIndex(o => o === opsi);
+          return String.fromCharCode(65 + idxAsli);
+        });
+  
+        console.log(`🔍 Soal #${index + 1}:`, soal.soal);
+        console.log(`📦 Opsi Original:`, opsiOriginal);
+        console.log(`🔀 Opsi Final:`, opsiFinal);
+        console.log(`🧼 Opsi Cleaned:`, opsiCleaned);
+        console.log(`🧭 Mapping ke huruf asli:`, opsiMapping);
+  
         return {
           ...soal,
-          opsi: opsiDenganAbjad,
-          opsiMapping: opsiFinal,
+          opsi: opsiCleaned,
+          opsiMapping,
         };
       });
   
@@ -301,8 +340,9 @@ function DoExamPage() {
     } finally {
       setIsLoading(false);
     }
-  };  
-
+  };
+  
+  
   useEffect(() => {
     if (userId && courseId && waktuSisa > 0) {
       localStorage.setItem(`timer-${userId}-${courseId}`, waktuSisa.toString());
@@ -611,19 +651,22 @@ function DoExamPage() {
 
       <div className="flex flex-1 overflow-hidden">
         <main className="flex-1 p-6 md:p-8 overflow-y-auto">
-          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-            <div className="prose max-w-none mb-6 text-gray-800" dangerouslySetInnerHTML={{ __html: currentSoal.soal }} />
+        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+          <div className="prose max-w-none mb-6 text-gray-800" dangerouslySetInnerHTML={{ __html: currentSoal.soal }} />
 
-            <div className="space-y-3">
+          <div className="space-y-3">
             {opsiArray.map((opsi, idx) => {
-              const huruf = opsi.slice(0, 1);
+              const huruf = String.fromCharCode(65 + idx);
               const opsiAsli = currentSoal.opsiMapping[idx].slice(0, 1);
               const isSelected = jawabanSiswa[currentSoal.id] === opsiAsli;
 
               return (
-                <label key={idx} className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
-                  isSelected ? "bg-blue-50 border-blue-500 shadow-sm" : "bg-white border-gray-300 hover:border-blue-400"
-                }`}>
+                <label
+                  key={idx}
+                  className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+                    isSelected ? "bg-blue-50 border-blue-500 shadow-sm" : "bg-white border-gray-300 hover:border-blue-400"
+                  }`}
+                >
                   <input
                     type="radio"
                     name={`soal-${currentSoal.id}`}
@@ -632,17 +675,22 @@ function DoExamPage() {
                     onChange={() => handleJawab(currentSoal.id, opsiAsli)}
                     className="hidden"
                   />
-                  <span className={`flex items-center justify-center w-6 h-6 mr-4 border rounded-full text-sm font-bold ${
-                    isSelected ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-400 text-gray-600'
-                  }`}>
+                  <span
+                    className={`flex items-center justify-center w-6 h-6 mr-4 border rounded-full text-sm font-bold ${
+                      isSelected ? "bg-blue-500 border-blue-500 text-white" : "border-gray-400 text-gray-600"
+                    }`}
+                  >
                     {huruf}
                   </span>
-                  <span className="text-gray-700">{opsi.slice(3)}</span>
+                  <span
+                    className="text-gray-700 prose max-w-none"
+                    dangerouslySetInnerHTML={{ __html: opsi.replace(/^<span[^>]*>[A-D]\.\s*<br\/?>/i, '') }}
+                  />
                 </label>
               );
             })}
-            </div>
           </div>
+        </div>
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
             <button onClick={() => toggleRagu(currentSoal.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors ${raguRagu[currentSoal.id] ? "bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}>
