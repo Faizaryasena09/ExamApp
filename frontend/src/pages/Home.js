@@ -104,7 +104,7 @@ function HomePage() {
           </p>
         </header>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 mt-8">
           <StatCard
             icon={<FiBookOpen size={22} />}
             title="Course Tersedia"
@@ -116,12 +116,6 @@ function HomePage() {
             title="Ujian Selesai"
             value={stats.completed}
             color="green"
-          />
-          <StatCard
-            icon={<FiTrendingUp size={22} />}
-            title="Rata-rata Skor"
-            value={parseFloat(stats.averageScore).toFixed(1)}
-            color="yellow"
           />
         </div>
 

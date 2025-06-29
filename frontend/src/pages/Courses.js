@@ -275,6 +275,20 @@ function CoursesPage() {
     }
   }; 
 
+  const handleDuplicateCourse = async (id) => {
+    const konfirmasi = window.confirm("Yakin ingin menduplikat course ini?");
+    if (!konfirmasi) return;
+  
+    try {
+      await api.post(`/courses/${id}/duplicate`);
+      alert("✅ Course berhasil diduplikat");
+      fetchCourses();
+    } catch (err) {
+      console.error("❌ Gagal duplikat course:", err);
+      alert("Gagal menduplikat course.");
+    }
+  };  
+
   const createSubfolder = async () => {
     const name = prompt("Masukkan nama folder baru:");
     if (name) {
@@ -321,8 +335,9 @@ function CoursesPage() {
               Selamat datang kembali, {name}. Pilih course untuk dimulai.
             </p>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {role == "admin" && (
-            <div className="flex gap-3">
+            <div className="flex gap-1">
               <button
                 onClick={createSubfolder}
                 className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700"
@@ -341,6 +356,7 @@ function CoursesPage() {
               </button>
             </div>
             )}
+          </div>
           
         </header>
   
@@ -500,19 +516,25 @@ function CoursesPage() {
                             ) : (
                               <div className="flex flex-col gap-2 mt-2">
                                 <div className="flex justify-between items-center gap-2">
-                                  <button
-                                    onClick={() => handleManageClick(course.id)}
-                                    className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-800"
-                                  >
-                                    <FiSettings /> Manage
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteCourse(course.id)}
-                                    className="flex items-center gap-1 text-sm font-medium text-red-500 hover:text-red-700"
-                                  >
-                                    <FiTrash2 /> Hapus
-                                  </button>
-                                </div>
+  <button
+    onClick={() => handleManageClick(course.id)}
+    className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-800"
+  >
+    <FiSettings /> Manage
+  </button>
+  <button
+    onClick={() => handleDuplicateCourse(course.id)}
+    className="flex items-center gap-2 text-sm font-medium text-yellow-600 hover:text-yellow-800"
+  >
+    <FiPlus /> Duplikat
+  </button>
+  <button
+    onClick={() => handleDeleteCourse(course.id)}
+    className="flex items-center gap-1 text-sm font-medium text-red-500 hover:text-red-700"
+  >
+    <FiTrash2 /> Hapus
+  </button>
+</div>
 
                                 <label className="flex items-center gap-2 text-sm text-slate-600">
                                   <input

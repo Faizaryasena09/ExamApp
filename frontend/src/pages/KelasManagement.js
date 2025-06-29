@@ -110,7 +110,7 @@ const KelasManagement = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-white font-semibold bg-indigo-600 hover:bg-indigo-700 transition-all transform hover:scale-105 disabled:bg-indigo-300 disabled:scale-100 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto flex items-center  gap-2 px-8 rounded-lg text-white font-semibold bg-indigo-600 hover:bg-indigo-700 transition-all transform hover:scale-105 disabled:bg-indigo-300 disabled:scale-100 disabled:cursor-not-allowed"
             >
               {isSubmitting ? <FiLoader className="animate-spin" /> : <FiPlus />}
               <span>{isSubmitting ? "Menyimpan..." : "Tambah Kelas"}</span>

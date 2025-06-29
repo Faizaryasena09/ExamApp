@@ -37,7 +37,8 @@ function DoExamPage() {
   const [configWaktu, setConfigWaktu] = useState(30);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [submitCountdown, setSubmitCountdown] = useState(null);
-  const [totalWaktu, setTotalWaktu] = useState(0); // total waktu ujian dalam detik
+  const [totalWaktu, setTotalWaktu] = useState(0);
+  const [showSidebar, setShowSidebar] = useState(false);
 
   useEffect(() => {
     const checkTokenRequirement = async () => {
@@ -342,6 +343,9 @@ function DoExamPage() {
     }
   };
   
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [currentIndex]);  
   
   useEffect(() => {
     if (userId && courseId && waktuSisa > 0) {
@@ -550,6 +554,45 @@ function DoExamPage() {
     return `${jam}:${menit}:${dtk}`;
   };  
 
+  const renderSidebarContent = () => (
+    <>
+      <div className="flex-1 overflow-y-auto">
+        <div className="grid grid-cols-5 gap-2 mb-4">
+          {soalList.map((soal, index) => {
+            const isCurrent = index === currentIndex;
+            const isAnswered = jawabanSiswa[soal.id];
+            const isMarked = raguRagu[soal.id];
+            let btnClass = 'bg-gray-200 text-gray-700 hover:bg-gray-300';
+            if (isAnswered) btnClass = 'bg-green-500 text-white hover:bg-green-600';
+            if (isMarked) btnClass = 'bg-yellow-400 text-white hover:bg-yellow-500';
+            if (isCurrent) btnClass = 'bg-blue-600 text-white ring-2 ring-blue-300 ring-offset-1';
+            return (
+              <button
+                key={soal.id}
+                onClick={() => {
+                  setCurrentIndex(index);
+                  setShowSidebar(false); // biar auto close di mobile
+                }}
+                className={`w-10 h-10 rounded-md font-bold text-sm transition-all duration-200 flex items-center justify-center ${btnClass}`}
+              >
+                {index + 1}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="mt-4 border-t pt-3">
+        <h4 className="text-sm font-semibold text-gray-600 mb-3">Legenda:</h4>
+        <ul className="space-y-2 text-xs text-gray-600">
+          <li className="flex items-center gap-2"><div className="w-4 h-4 rounded-sm bg-green-500"></div><span>Sudah Dijawab</span></li>
+          <li className="flex items-center gap-2"><div className="w-4 h-4 rounded-sm bg-yellow-400"></div><span>Ragu-ragu</span></li>
+          <li className="flex items-center gap-2"><div className="w-4 h-4 rounded-sm bg-gray-200"></div><span>Belum Dijawab</span></li>
+          <li className="flex items-center gap-2"><div className="w-4 h-4 rounded-sm bg-blue-600"></div><span>Soal Aktif</span></li>
+        </ul>
+      </div>
+    </>
+  );  
+
   const isSubmitAllowed = () => {
     if (!minWaktuSubmit || isNaN(minWaktuSubmit) || minWaktuSubmit <= 0) {
       return true;
@@ -636,6 +679,7 @@ function DoExamPage() {
   
   return (
     <div className="flex flex-col h-screen bg-gray-50 font-sans">
+      {/* Header */}
       <header className="flex items-center justify-between p-4 bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
         <div>
           <h1 className="text-xl font-bold text-gray-800">{examTitle}</h1>
@@ -648,76 +692,80 @@ function DoExamPage() {
           </span>
         </div>
       </header>
-
+  
+      {/* Isi Konten */}
       <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto">
-        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-          <div className="prose max-w-none mb-6 text-gray-800" dangerouslySetInnerHTML={{ __html: currentSoal.soal }} />
-
-          <div className="space-y-3">
-            {opsiArray.map((opsi, idx) => {
-              const huruf = String.fromCharCode(65 + idx);
-              const opsiAsli = currentSoal.opsiMapping[idx].slice(0, 1);
-              const isSelected = jawabanSiswa[currentSoal.id] === opsiAsli;
-
-              return (
-                <label
-                  key={idx}
-                  className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
-                    isSelected ? "bg-blue-50 border-blue-500 shadow-sm" : "bg-white border-gray-300 hover:border-blue-400"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name={`soal-${currentSoal.id}`}
-                    value={opsiAsli}
-                    checked={isSelected}
-                    onChange={() => handleJawab(currentSoal.id, opsiAsli)}
-                    className="hidden"
-                  />
-                  <span
-                    className={`flex items-center justify-center w-6 h-6 mr-4 border rounded-full text-sm font-bold ${
-                      isSelected ? "bg-blue-500 border-blue-500 text-white" : "border-gray-400 text-gray-600"
+        {/* Main Content */}
+        <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto min-w-0">
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <div className="prose max-w-none mb-6 text-gray-800" dangerouslySetInnerHTML={{ __html: currentSoal.soal }} />
+  
+            <div className="space-y-3">
+              {opsiArray.map((opsi, idx) => {
+                const huruf = String.fromCharCode(65 + idx);
+                const opsiAsli = currentSoal.opsiMapping[idx].slice(0, 1);
+                const isSelected = jawabanSiswa[currentSoal.id] === opsiAsli;
+  
+                return (
+                  <label
+                    key={idx}
+                    className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+                      isSelected ? "bg-blue-50 border-blue-500 shadow-sm" : "bg-white border-gray-300 hover:border-blue-400"
                     }`}
                   >
-                    {huruf}
-                  </span>
-                  <span
-                    className="text-gray-700 prose max-w-none"
-                    dangerouslySetInnerHTML={{ __html: opsi.replace(/^<span[^>]*>[A-D]\.\s*<br\/?>/i, '') }}
-                  />
-                </label>
-              );
-            })}
+                    <input
+                      type="radio"
+                      name={`soal-${currentSoal.id}`}
+                      value={opsiAsli}
+                      checked={isSelected}
+                      onChange={() => handleJawab(currentSoal.id, opsiAsli)}
+                      className="hidden"
+                    />
+                    <span
+                      className={`flex items-center justify-center w-6 h-6 mr-4 border rounded-full text-sm font-bold ${
+                        isSelected ? "bg-blue-500 border-blue-500 text-white" : "border-gray-400 text-gray-600"
+                      }`}
+                    >
+                      {huruf}
+                    </span>
+                    <span
+                      className="text-gray-700 prose max-w-none"
+                      dangerouslySetInnerHTML={{ __html: opsi.replace(/^<span[^>]*>[A-D]\.\s*<br\/?>/i, '') }}
+                    />
+                  </label>
+                );
+              })}
+            </div>
           </div>
-        </div>
-
+  
+          {/* Navigasi Bawah */}
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => toggleRagu(currentSoal.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors ${
-                raguRagu[currentSoal.id]
-                  ? "bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-            >
-              <FiFlag />
-              {raguRagu[currentSoal.id] ? "Hapus Tanda" : "Tandai Ragu-Ragu"}
-            </button>
-
-            <button
-              onClick={() => {
-                const updated = { ...jawabanSiswa };
-                delete updated[currentSoal.id];
-                setJawabanSiswa(updated);
-              }}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-red-600 border border-red-300 bg-red-50 hover:bg-red-100 transition-colors"
-            >
-              🗑️ Hapus Pilihan
-            </button>
-          </div>
-            <div className="flex gap-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={() => toggleRagu(currentSoal.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors ${
+                  raguRagu[currentSoal.id]
+                    ? "bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                <FiFlag />
+                {raguRagu[currentSoal.id] ? "Hapus Tanda" : "Tandai Ragu-Ragu"}
+              </button>
+  
+              <button
+                onClick={() => {
+                  const updated = { ...jawabanSiswa };
+                  delete updated[currentSoal.id];
+                  setJawabanSiswa(updated);
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-red-600 border border-red-300 bg-red-50 hover:bg-red-100 transition-colors"
+              >
+                🗑️ Hapus Pilihan
+              </button>
+            </div>
+  
+            <div className="flex gap-4 flex-wrap">
               <button
                 onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
                 disabled={currentIndex === 0}
@@ -726,7 +774,7 @@ function DoExamPage() {
                 <FiChevronLeft />
                 Sebelumnya
               </button>
-
+  
               {currentIndex === soalList.length - 1 ? (
                 isSubmitAllowed() ? (
                   <button
@@ -756,9 +804,7 @@ function DoExamPage() {
                 )
               ) : (
                 <button
-                  onClick={() =>
-                    setCurrentIndex((i) => Math.min(soalList.length - 1, i + 1))
-                  }
+                  onClick={() => setCurrentIndex((i) => Math.min(soalList.length - 1, i + 1))}
                   className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
                 >
                   Selanjutnya <FiChevronRight />
@@ -767,39 +813,35 @@ function DoExamPage() {
             </div>
           </div>
         </main>
-
-        <aside className="w-72 bg-white border-l border-gray-200 p-4 flex flex-col overflow-y-auto">
-          <div className="flex-1">
-            <h3 className="text-md font-bold text-gray-800 mb-4">Navigasi Soal</h3>
-            <div className="grid grid-cols-5 gap-2">
-              {soalList.map((soal, index) => {
-                const isCurrent = index === currentIndex;
-                const isAnswered = jawabanSiswa[soal.id];
-                const isMarked = raguRagu[soal.id];
-                let btnClass = 'bg-gray-200 text-gray-700 hover:bg-gray-300';
-                if (isAnswered) btnClass = 'bg-green-500 text-white hover:bg-green-600';
-                if (isMarked) btnClass = 'bg-yellow-400 text-white hover:bg-yellow-500';
-                if (isCurrent) btnClass = 'bg-blue-600 text-white ring-2 ring-blue-300 ring-offset-1';
-                return (
-                  <button key={soal.id} onClick={() => setCurrentIndex(index)} className={`w-10 h-10 rounded-md font-bold text-sm transition-all duration-200 flex items-center justify-center ${btnClass}`}>
-                    {index + 1}
-                  </button>
-                );
-              })}
+  
+        {/* Sidebar Navigasi untuk Desktop */}
+        <aside className="hidden md:block w-72 bg-white border-l border-gray-200 p-4 flex flex-col overflow-y-auto">
+          {renderSidebarContent()}
+        </aside>
+  
+        {/* Drawer Navigasi Soal (Mobile) */}
+        {showSidebar && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-end md:hidden">
+            <div className="w-11/12 max-w-xs bg-white p-4 shadow-xl h-full flex flex-col">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-md font-bold text-gray-800">Navigasi Soal</h3>
+                <button onClick={() => setShowSidebar(false)} className="text-gray-500 hover:text-gray-800">✖</button>
+              </div>
+              {renderSidebarContent()}
             </div>
           </div>
-          <div className="mt-6 border-t pt-4">
-             <h4 className="text-sm font-semibold text-gray-600 mb-3">Legenda:</h4>
-             <ul className="space-y-2 text-xs text-gray-600">
-                <li className="flex items-center gap-2"><div className="w-4 h-4 rounded-sm bg-green-500"></div><span>Sudah Dijawab</span></li>
-                <li className="flex items-center gap-2"><div className="w-4 h-4 rounded-sm bg-yellow-400"></div><span>Ragu-ragu</span></li>
-                <li className="flex items-center gap-2"><div className="w-4 h-4 rounded-sm bg-gray-200"></div><span>Belum Dijawab</span></li>
-                <li className="flex items-center gap-2"><div className="w-4 h-4 rounded-sm bg-blue-600"></div><span>Soal Aktif</span></li>
-             </ul>
-          </div>
-        </aside>
+        )}
       </div>
-
+  
+      {/* Tombol buka sidebar di mobile */}
+      <button
+        className="md:hidden fixed bottom-4 right-4 bg-blue-600 text-white p-3 rounded-full shadow-lg z-40"
+        onClick={() => setShowSidebar(true)}
+      >
+        🧭
+      </button>
+  
+      {/* Modal Selesai Ujian */}
       {showSelesaiModal && (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-60 flex justify-center items-center z-50">
           <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md text-center transform transition-all">
@@ -808,7 +850,7 @@ function DoExamPage() {
             <p className="mb-6 text-gray-600">
               Apakah Anda yakin ingin menyelesaikan dan mengirim semua jawaban Anda sekarang?
             </p>
-
+  
             <div className="flex justify-center gap-4">
               <button
                 onClick={() => setShowSelesaiModal(false)}
@@ -819,7 +861,7 @@ function DoExamPage() {
               >
                 Batal
               </button>
-
+  
               <button
                 onClick={async () => {
                   setLoadingSubmit(true);
@@ -845,7 +887,7 @@ function DoExamPage() {
         </div>
       )}
     </div>
-  );
+  );  
 }
 
 export default DoExamPage;

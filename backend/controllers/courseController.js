@@ -118,6 +118,49 @@ function shuffleArray(array) {
       res.status(500).json({ message: "Server error" });
     }
   };  
+
+  exports.duplicateCourse = async (req, res) => {
+    const courseId = req.params.id;
+  
+    try {
+      const db = await dbPromise; // <-- wajib ini kalau pakai model async export
+  
+      // Ambil data course asli
+      const [originalCourses] = await db.query("SELECT * FROM courses WHERE id = ?", [courseId]);
+      if (originalCourses.length === 0) {
+        return res.status(404).json({ error: "Course tidak ditemukan" });
+      }
+  
+      const original = originalCourses[0];
+  
+      // Buat duplikat course
+      const newCourse = { ...original };
+      delete newCourse.id;
+      newCourse.nama = `${original.nama} (Salinan)`;
+      newCourse.tanggal_mulai = new Date();
+      newCourse.tanggal_selesai = null;
+  
+      const [insertResult] = await db.query("INSERT INTO courses SET ?", [newCourse]);
+      const newCourseId = insertResult.insertId;
+  
+      // Ambil soal dari course lama
+      const [questions] = await db.query("SELECT * FROM questions WHERE course_id = ?", [courseId]);
+  
+      for (const q of questions) {
+        const { id, ...rest } = q;
+        const duplicated = {
+          ...rest,
+          course_id: newCourseId,
+        };
+        await db.query("INSERT INTO questions SET ?", [duplicated]);
+      }
+  
+      res.json({ success: true, newCourseId });
+    } catch (err) {
+      console.error("❌ Error duplikat course:", err);
+      res.status(500).json({ error: "Gagal menduplikat course" });
+    }
+  };
   
   exports.getCourses = async (req, res) => {
     const { role, name } = req.cookies;

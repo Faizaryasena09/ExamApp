@@ -23,5 +23,6 @@ router.get('/:courseId/userid/:name', courseController.getUserIdByName);
 router.post("/tokenAuth", courseController.saveTokenAuth);
 router.get("/:id/tokenAuth", courseController.checkTokenAuth);
 router.put("/:id/toggle-visibility", courseController.toggleVisibility);
+router.post("/:id/duplicate", courseController.duplicateCourse);
 
 module.exports = router;
