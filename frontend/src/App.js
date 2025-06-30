@@ -8,6 +8,8 @@ import {
 } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "./api"; 
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 import LoginPage from "./pages/Login";
 import HomePage from "./pages/Home";
@@ -225,6 +227,18 @@ function App() {
   return (
     <Router>
       <AppLayout />
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
     </Router>
   );
 }

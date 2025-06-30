@@ -19,7 +19,7 @@ function shuffleArray(array) {
       nama, pengajarId, kelas, tanggalMulai, tanggalSelesai,
       waktu, deskripsi, maxPercobaan, tampilkanHasil,
       useToken, tokenValue, acakSoal, acakJawaban, minWaktuSubmit,
-      logPengerjaan, analisisJawaban     // ✅ Tambahan
+      logPengerjaan, analisisJawaban
     } = req.body;
   
     const { name, role } = req.cookies;
@@ -51,8 +51,8 @@ function shuffleArray(array) {
           !!acakSoal,
           !!acakJawaban,
           parseInt(minWaktuSubmit) || 0,
-          !!logPengerjaan,          // ✅
-          !!analisisJawaban         // ✅
+          !!logPengerjaan,
+          !!analisisJawaban
         ]
       );
       res.status(201).json({ message: "Course berhasil dibuat!" });
@@ -68,7 +68,7 @@ function shuffleArray(array) {
       nama, kelas, tanggal_mulai, tanggal_selesai, waktu, deskripsi,
       maxPercobaan, tampilkanHasil, useToken, tokenValue,
       acakSoal, acakJawaban, minWaktuSubmit,
-      logPengerjaan, analisisJawaban   // ✅ Tambahan
+      logPengerjaan, analisisJawaban
     } = req.body;
   
     try {
@@ -123,9 +123,8 @@ function shuffleArray(array) {
     const courseId = req.params.id;
   
     try {
-      const db = await dbPromise; // <-- wajib ini kalau pakai model async export
+      const db = await dbPromise;
   
-      // Ambil data course asli
       const [originalCourses] = await db.query("SELECT * FROM courses WHERE id = ?", [courseId]);
       if (originalCourses.length === 0) {
         return res.status(404).json({ error: "Course tidak ditemukan" });
@@ -133,7 +132,6 @@ function shuffleArray(array) {
   
       const original = originalCourses[0];
   
-      // Buat duplikat course
       const newCourse = { ...original };
       delete newCourse.id;
       newCourse.nama = `${original.nama} (Salinan)`;
@@ -143,7 +141,6 @@ function shuffleArray(array) {
       const [insertResult] = await db.query("INSERT INTO courses SET ?", [newCourse]);
       const newCourseId = insertResult.insertId;
   
-      // Ambil soal dari course lama
       const [questions] = await db.query("SELECT * FROM questions WHERE course_id = ?", [courseId]);
   
       for (const q of questions) {
@@ -247,7 +244,9 @@ function shuffleArray(array) {
         WHERE c.id = ?
       `, [courseId]);
   
-      if (rows.length === 0) return res.status(404).json({ message: "Course tidak ditemukan" });
+      if (rows.length === 0) {
+        return res.status(404).json({ message: "Course tidak ditemukan" });
+      }
   
       const course = rows[0];
   
@@ -258,6 +257,9 @@ function shuffleArray(array) {
       }
   
       course.subfolder = course.subfolder || null;
+  
+      course.title = course.nama;
+  
       res.json(course);
     } catch (err) {
       console.error("Gagal ambil course by ID:", err.message);
@@ -356,12 +358,9 @@ exports.uploadSoalDocx = async (req, res) => {
   try {
     const result = await mammoth.convertToHtml({ path: filePath });
     const html = result.value;
-
-    console.log("🔍 HTML hasil mammoth:", html.slice(0, 300)); // log 300 karakter pertama
     
     const soalList = parseSoalFromHtml(html);
 
-    console.log("📦 Soal berhasil di-parse:", soalList.length);
     fs.unlinkSync(filePath);
 
     res.json({ soal: soalList });
@@ -524,17 +523,14 @@ if (!userId || isNaN(userId)) {
     try {
       const db = await dbPromise;
   
-      // 1️⃣ Ambil semua id soal lama di database
       const [existingSoal] = await db.query(
         "SELECT id FROM questions WHERE course_id = ?",
         [course_id]
       );
       const existingIds = existingSoal.map((s) => s.id);
   
-      // 2️⃣ Ambil semua id soal yang dikirim dari FE
       const incomingIds = soal.filter(s => s.id).map(s => parseInt(s.id));
   
-      // 3️⃣ Hapus soal yang tidak ada dalam list id FE
       const toDelete = existingIds.filter(id => !incomingIds.includes(id));
       if (toDelete.length > 0) {
         await db.query(
@@ -543,19 +539,16 @@ if (!userId || isNaN(userId)) {
         );
       }
   
-      // 4️⃣ Simpan/update semua soal yang dikirim
       for (const item of soal) {
         const opsi = acakJawaban ? shuffleArray(item.opsi) : item.opsi;
         const soalId = parseInt(item.id);
   
         if (!isNaN(soalId)) {
-          // Update
           await db.query(
             "UPDATE questions SET soal = ?, opsi = ?, jawaban = ? WHERE id = ? AND course_id = ?",
             [item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase(), soalId, course_id]
           );
         } else {
-          // Insert baru (auto increment)
           await db.query(
             "INSERT INTO questions (course_id, soal, opsi, jawaban) VALUES (?, ?, ?, ?)",
             [course_id, item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase()]
@@ -761,7 +754,7 @@ function parseSoalFromHtml(html) {
   const lines = [];
 
   $("p").each((_, el) => {
-    const content = $(el).html()?.trim(); // pertahankan HTML (untuk gambar)
+    const content = $(el).html()?.trim();
     if (content) lines.push(content);
   });
 
@@ -773,7 +766,6 @@ function parseSoalFromHtml(html) {
   lines.forEach((line) => {
     const plain = cheerio.load(line).text().trim();
 
-    // Deteksi soal baru
     if (/^\d+\./.test(plain)) {
       if (currentQuestion && currentAnswer && currentOptions.length >= 2) {
         soalList.push({
@@ -787,37 +779,30 @@ function parseSoalFromHtml(html) {
       currentAnswer = null;
     }
 
-    // Deteksi opsi baru A./B./C.
     else if (/^[A-Da-d]\./.test(plain)) {
       currentOptions.push(`<span class="inline-option">${line}</span>`);
     }
 
-    // Jika ini ANS: A
     else if (/^ANS:/i.test(plain)) {
       const match = plain.match(/^ANS:\s*([A-Da-d])/);
       if (match) currentAnswer = match[1].toUpperCase();
     }
 
-    // Jika ini adalah gambar atau tambahan lanjutan
     else {
-      // Cek apakah ini gambar
       const isImage = line.includes("<img");
       const lastOpsiIdx = currentOptions.length - 1;
 
       if (isImage && lastOpsiIdx >= 0) {
-        // Tambahkan ke opsi terakhir jika ada
         currentOptions[lastOpsiIdx] = currentOptions[lastOpsiIdx].replace(
           "</span>",
           ` <br/>${line}</span>`
         );
       } else if (currentQuestion) {
-        // Tambahkan ke soal jika belum ada jawaban dan belum mulai opsi
         currentQuestion += " " + line;
       }
     }
   });
 
-  // Tambahkan pertanyaan terakhir
   if (currentQuestion && currentAnswer && currentOptions.length >= 2) {
     soalList.push({
       soal: currentQuestion.trim(),

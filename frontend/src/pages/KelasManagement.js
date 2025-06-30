@@ -1,6 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import api from "../api";
-import { FiPlus, FiEdit2, FiTrash2, FiSave, FiXCircle, FiLoader, FiUsers } from "react-icons/fi";
+import {
+  FiPlus,
+  FiEdit2,
+  FiTrash2,
+  FiSave,
+  FiXCircle,
+  FiLoader,
+  FiUsers,
+} from "react-icons/fi";
+import { toast } from "../utils/toast";
 
 const KelasManagement = () => {
   const [namaKelas, setNamaKelas] = useState("");
@@ -9,6 +18,7 @@ const KelasManagement = () => {
   const [editNama, setEditNama] = useState("");
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const editInputRef = useRef(null);
 
   const fetchKelas = async () => {
@@ -16,7 +26,7 @@ const KelasManagement = () => {
       const res = await api.get("/data/kelas");
       setDaftarKelas(res.data);
     } catch (err) {
-      console.error("Gagal fetch kelas:", err);
+      toast.error("Gagal mengambil data kelas");
     } finally {
       setLoading(false);
     }
@@ -25,43 +35,43 @@ const KelasManagement = () => {
   useEffect(() => {
     fetchKelas();
   }, []);
-  
+
   useEffect(() => {
     if (editId !== null && editInputRef.current) {
       editInputRef.current.focus();
     }
   }, [editId]);
 
-
   const handleTambah = async (e) => {
     e.preventDefault();
     if (!namaKelas.trim() || isSubmitting) return;
-  
+
     setIsSubmitting(true);
     try {
       await api.post("/data/kelas", { nama_kelas: namaKelas });
+      toast.success("Kelas berhasil ditambahkan");
       setNamaKelas("");
+      setShowModal(false);
       await fetchKelas();
     } catch (err) {
-      console.error("Gagal tambah kelas:", err);
-      alert("Gagal menambahkan kelas baru.");
+      toast.error("Gagal menambahkan kelas");
     } finally {
       setIsSubmitting(false);
     }
-  };  
+  };
 
   const handleHapus = async (id) => {
-    if (!window.confirm("Anda yakin ingin menghapus kelas ini? Tindakan ini tidak dapat diurungkan.")) return;
+    if (!window.confirm("Yakin ingin menghapus kelas ini?")) return;
 
-    const daftarKelasLama = [...daftarKelas];
+    const backup = [...daftarKelas];
     setDaftarKelas(daftarKelas.filter((k) => k.id !== id));
 
     try {
       await api.delete(`/data/kelas/${id}`);
+      toast.success("Kelas berhasil dihapus");
     } catch (err) {
-      console.error("Gagal hapus kelas:", err);
-      alert("Gagal menghapus kelas.");
-      setDaftarKelas(daftarKelasLama);
+      toast.error("Gagal menghapus kelas");
+      setDaftarKelas(backup);
     }
   };
 
@@ -69,54 +79,84 @@ const KelasManagement = () => {
     setEditId(kelas.id);
     setEditNama(kelas.nama_kelas);
   };
-  
+
   const handleBatalEdit = () => {
     setEditId(null);
     setEditNama("");
-  }
+  };
 
   const handleSimpan = async (id) => {
     if (!editNama.trim()) return;
+
     try {
       await api.put(`/data/kelas/${id}`, { nama_kelas: editNama });
-      setDaftarKelas(daftarKelas.map(k => k.id === id ? { ...k, nama_kelas: editNama } : k));
+      toast.success("Kelas berhasil diperbarui");
+      setDaftarKelas((prev) =>
+        prev.map((k) => (k.id === id ? { ...k, nama_kelas: editNama } : k))
+      );
       handleBatalEdit();
     } catch (err) {
-      console.error("Gagal ubah kelas:", err);
-      alert("Gagal menyimpan perubahan.");
+      toast.error("Gagal memperbarui kelas");
     }
   };
 
   return (
     <div className="bg-slate-50 min-h-screen p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-800">Manajemen Kelas</h1>
-          <p className="text-slate-500 mt-1">Tambah, ubah, atau hapus daftar kelas yang tersedia.</p>
+        <header className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-800">Manajemen Kelas</h1>
+            <p className="text-slate-500 mt-1">
+              Tambah, ubah, atau hapus daftar kelas yang tersedia.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition"
+          >
+            <FiPlus />
+            Tambah Kelas
+          </button>
         </header>
 
-        <div className="bg-white p-6 rounded-xl shadow-md mb-8">
-          <form onSubmit={handleTambah} className="flex flex-col sm:flex-row gap-4 items-center">
-            <div className="relative w-full">
-              <FiUsers className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"/>
-              <input
-                type="text"
-                placeholder="Contoh: XII-RPL-1"
-                className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
-                value={namaKelas}
-                onChange={(e) => setNamaKelas(e.target.value)}
-              />
+        {showModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md animate-fade-in">
+              <h2 className="text-xl font-bold text-indigo-700 mb-4 flex items-center gap-2">
+                <FiUsers />
+                Tambah Kelas Baru
+              </h2>
+
+              <form onSubmit={handleTambah} className="flex flex-col gap-4">
+                <input
+                  type="text"
+                  placeholder="Contoh: XII-RPL-1"
+                  value={namaKelas}
+                  onChange={(e) => setNamaKelas(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+
+                <div className="flex justify-end gap-2 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:bg-indigo-300"
+                  >
+                    {isSubmitting ? <FiLoader className="animate-spin" /> : <FiPlus />}
+                    Simpan
+                  </button>
+                </div>
+              </form>
             </div>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full sm:w-auto flex items-center  gap-2 px-8 rounded-lg text-white font-semibold bg-indigo-600 hover:bg-indigo-700 transition-all transform hover:scale-105 disabled:bg-indigo-300 disabled:scale-100 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? <FiLoader className="animate-spin" /> : <FiPlus />}
-              <span>{isSubmitting ? "Menyimpan..." : "Tambah Kelas"}</span>
-            </button>
-          </form>
-        </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-xl shadow-md overflow-hidden">
           <div className="overflow-x-auto">
@@ -139,40 +179,43 @@ const KelasManagement = () => {
                     <td colSpan="2" className="text-center p-10">
                       <FiXCircle className="mx-auto text-4xl text-slate-400 mb-2" />
                       <p className="font-semibold text-slate-600">Belum ada kelas</p>
-                      <p className="text-sm text-slate-500">Silakan tambahkan kelas baru menggunakan form di atas.</p>
+                      <p className="text-sm text-slate-500">Silakan tambahkan kelas baru.</p>
                     </td>
                   </tr>
                 ) : (
                   daftarKelas.map((kelas) => (
-                    <tr key={kelas.id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors">
-                      <td className="p-4 align-middle">
+                    <tr key={kelas.id} className="border-b border-slate-200 hover:bg-slate-50">
+                      <td className="p-4">
                         {editId === kelas.id ? (
                           <input
                             ref={editInputRef}
-                            type="text"
                             value={editNama}
                             onChange={(e) => setEditNama(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSimpan(kelas.id)}
-                            className="w-full px-2 py-1 border border-indigo-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                            onKeyDown={(e) =>
+                              e.key === "Enter" && handleSimpan(kelas.id)
+                            }
+                            className="w-full px-2 py-1 border rounded focus:ring-2 focus:ring-indigo-400"
                           />
                         ) : (
-                          <span className="text-slate-800 font-medium">{kelas.nama_kelas}</span>
+                          <span className="text-slate-800 font-medium">
+                            {kelas.nama_kelas}
+                          </span>
                         )}
                       </td>
-                      <td className="p-4 align-middle">
-                        <div className="flex justify-end items-center gap-2">
+                      <td className="p-4 text-right">
+                        <div className="flex justify-end gap-2">
                           {editId === kelas.id ? (
                             <>
                               <button
                                 onClick={() => handleSimpan(kelas.id)}
-                                className="p-2 text-white bg-green-500 rounded-full hover:bg-green-600 transition-all"
-                                title="Simpan Perubahan"
+                                className="p-2 bg-green-500 text-white rounded-full hover:bg-green-600"
+                                title="Simpan"
                               >
                                 <FiSave />
                               </button>
-                               <button
+                              <button
                                 onClick={handleBatalEdit}
-                                className="p-2 text-white bg-slate-400 rounded-full hover:bg-slate-500 transition-all"
+                                className="p-2 bg-gray-400 text-white rounded-full hover:bg-gray-500"
                                 title="Batal"
                               >
                                 <FiXCircle />
@@ -182,15 +225,15 @@ const KelasManagement = () => {
                             <>
                               <button
                                 onClick={() => handleEdit(kelas)}
-                                className="p-2 text-white bg-blue-500 rounded-full hover:bg-blue-600 transition-all"
-                                title="Edit Kelas"
+                                className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600"
+                                title="Edit"
                               >
                                 <FiEdit2 />
                               </button>
                               <button
                                 onClick={() => handleHapus(kelas.id)}
-                                className="p-2 text-white bg-red-500 rounded-full hover:bg-red-600 transition-all"
-                                title="Hapus Kelas"
+                                className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600"
+                                title="Hapus"
                               >
                                 <FiTrash2 />
                               </button>
@@ -205,7 +248,6 @@ const KelasManagement = () => {
             </table>
           </div>
         </div>
-
       </div>
     </div>
   );

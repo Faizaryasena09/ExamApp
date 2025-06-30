@@ -35,7 +35,6 @@ exports.updateSessionStatus = async (req, res) => {
   }
 };
 
-// 🔁 Fungsi Auto-Update (jalankan saat app start)
 exports.startAutoSessionChecker = () => {
   setInterval(async () => {
     try {
@@ -50,7 +49,6 @@ exports.startAutoSessionChecker = () => {
         const diffMinutes = (now - lastUpdate) / (1000 * 60);
 
         if (diffMinutes > 20) {
-          console.log(`⏳ Auto set offline: ${row.name}`);
           await connection.query(
             "UPDATE session_status SET status = 'offline' WHERE name = ?",
             [row.name]
@@ -60,5 +58,5 @@ exports.startAutoSessionChecker = () => {
     } catch (err) {
       console.error("❌ Gagal auto update session:", err.message);
     }
-  }, 5 * 60 * 1000); // setiap 5 menit
+  }, 5 * 60 * 1000);
 };

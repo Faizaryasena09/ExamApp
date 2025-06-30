@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import api from "../api";
 import Cookies from "js-cookie";
 import MngNavbar from "../components/ManageNavbar";
+import { toast } from "../utils/toast";
 
 function ManageCoursePage() {
   const { id } = useParams();
@@ -117,7 +118,7 @@ function ManageCoursePage() {
   
     try {
       await api.put(`/courses/${id}`, payload);
-      alert("Konfigurasi berhasil disimpan!");
+      toast.success("Konfigurasi berhasil disimpan!");
     } catch (err) {
       console.error("Gagal simpan konfigurasi:", err);
     }
@@ -210,7 +211,7 @@ function ManageCoursePage() {
       <div className="max-w-7xl mx-auto p-6 sm:p-8">
         <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold text-gray-800">
-          🛠️ Manage Course: {form.nama || "Memuat..."}
+          🛠️ Manage Assesmen: {form.nama || "Memuat..."}
         </h1>
         </div>
         <MngNavbar />
@@ -479,7 +480,6 @@ function ManageCoursePage() {
                     </button>
                   </div>
 
-                  {/* Soal: Editable atau Gambar */}
                   {isImageOnly(item.soal) ? (
                     <div className="prose max-w-none border p-3 rounded bg-gray-50 mb-4">
                       <div dangerouslySetInnerHTML={{ __html: item.soal }} />
@@ -499,7 +499,6 @@ function ManageCoursePage() {
                     />
                   )}
 
-                  {/* Opsi Jawaban */}
                   <div className="mt-2">
                     <label className="block text-sm font-medium text-gray-600 mb-2">Pilihan Jawaban:</label>
                     <div className="space-y-3">
@@ -533,7 +532,6 @@ function ManageCoursePage() {
                               />
                             )}
 
-                            {/* Radio & Hapus */}
                             <div className="flex items-center gap-2">
                               <label className="flex items-center text-sm text-gray-600 whitespace-nowrap">
                                 <input

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../api";
+import { toast } from "../utils/toast";
 
 function UserFormModal({ user, kelasList, onClose, onSubmit }) {
   const [form, setForm] = useState({
@@ -30,20 +31,23 @@ function UserFormModal({ user, kelasList, onClose, onSubmit }) {
     try {
       if (user) {
         await api.put(`/users/${user.id}`, form);
+        toast.success("Berhasil memperbarui pengguna");
       } else {
         await api.post("/users", form);
+        toast.success("Berhasil menambahkan pengguna");
       }
       onSubmit();
     } catch (error) {
-      console.error("Gagal simpan user:", error);
+      toast.error("Gagal menyimpan pengguna");
+      console.error(error);
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
       <div className="bg-white rounded-md p-6 w-full max-w-md shadow-lg">
-        <h2 className="text-xl font-bold mb-4 text-blue-700">
-          {user ? "Edit Pengguna" : "Tambah Pengguna"}
+        <h2 className={`text-xl font-bold mb-4 flex items-center gap-2 ${user ? "text-green-700" : "text-blue-700"}`}>
+          {user ? "🛠️ Edit Pengguna" : "➕ Tambah Pengguna"}
         </h2>
 
         <div className="mb-3">
@@ -104,10 +108,12 @@ function UserFormModal({ user, kelasList, onClose, onSubmit }) {
           <input
             name="password"
             type="password"
-            placeholder="(Kosongkan jika tidak diganti)"
+            placeholder={user ? "(Biarkan kosong jika tidak diubah)" : "Masukkan password"}
             value={form.password}
             onChange={handleChange}
-            className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className={`w-full p-2 border rounded focus:outline-none focus:ring-2 ${
+              user ? "focus:ring-green-400" : "focus:ring-blue-400"
+            }`}
           />
         </div>
 
@@ -120,9 +126,11 @@ function UserFormModal({ user, kelasList, onClose, onSubmit }) {
           </button>
           <button
             onClick={handleSubmit}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className={`px-4 py-2 rounded text-white hover:opacity-90 ${
+              user ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"
+            }`}
           >
-            Simpan
+            {user ? "Perbarui" : "Tambah"}
           </button>
         </div>
       </div>

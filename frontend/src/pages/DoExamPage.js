@@ -174,7 +174,7 @@ function DoExamPage() {
       if (secondsLeft > 0) {
         setSubmitCountdown(secondsLeft);
       } else {
-        setSubmitCountdown(0); // Saat sudah bisa submit
+        setSubmitCountdown(0);
         clearInterval(interval);
       }
     }, 1000);
@@ -288,14 +288,12 @@ function DoExamPage() {
         const opsiOriginal = typeof soal.opsi === "string" ? JSON.parse(soal.opsi) : soal.opsi;
         const opsiFinal = acakJawabanFromServer ? shuffleArray([...opsiOriginal]) : [...opsiOriginal];
   
-        // 🧼 Bersihkan huruf A. B. dst dari opsiFinal secara aman
         const opsiCleaned = opsiFinal.map((opsiHTML) => {
           try {
             const parser = new DOMParser();
             const doc = parser.parseFromString(opsiHTML, "text/html");
             const firstNode = doc.body.firstChild;
   
-            // Jika elemen teks sederhana seperti <p>A. Kucing</p>
             if (
               firstNode &&
               firstNode.nodeType === 1 &&
@@ -309,14 +307,12 @@ function DoExamPage() {
               }
             }
   
-            // Jika isinya kompleks (gambar, kombinasi elemen), kembalikan tanpa perubahan
             return opsiHTML;
           } catch {
             return opsiHTML;
           }
         });
   
-        // 🔁 Buat mapping huruf asli (untuk dikirim saat submit)
         const opsiMapping = opsiFinal.map((opsi) => {
           const idxAsli = opsiOriginal.findIndex(o => o === opsi);
           return String.fromCharCode(65 + idxAsli);
@@ -494,7 +490,7 @@ function DoExamPage() {
     fetchCourseConfig();
   }, [id]);  
 
-  const handleSelesaiUjian = async () => { 
+  const handleSelesaiUjian = async () => {
     setLoadingSubmit(true);
   
     const attemptId = await submitJawabanUjian();
@@ -515,6 +511,10 @@ function DoExamPage() {
           params: { course_id: courseId }
         });
   
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage("UNLOCK");
+        }
+  
         const tampilkanHasil = res.data?.tampilkan_hasil;
         const analisisJawaban = res.data?.analisis_jawaban;
   
@@ -528,11 +528,18 @@ function DoExamPage() {
   
       } catch (err) {
         console.error("❌ Gagal cek hasil:", err.message);
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage("UNLOCK");
+        }
+  
         navigate(`/`);
       }
   
     } else {
-      alert("Gagal simpan jawaban.");
+      alert("❌ Gagal simpan jawaban.");
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage("UNLOCK");
+      }
     }
   
     setLoadingSubmit(false);
@@ -571,7 +578,7 @@ function DoExamPage() {
                 key={soal.id}
                 onClick={() => {
                   setCurrentIndex(index);
-                  setShowSidebar(false); // biar auto close di mobile
+                  setShowSidebar(false);
                 }}
                 className={`w-10 h-10 rounded-md font-bold text-sm transition-all duration-200 flex items-center justify-center ${btnClass}`}
               >
@@ -658,11 +665,17 @@ function DoExamPage() {
               Kembali
             </button>
             <button
-              onClick={() => setShowStartModal(false)}
-              className="px-6 py-2 rounded-lg font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-            >
-              Mulai Kerjakan
-            </button>
+  onClick={() => {
+    if (window.ReactNativeWebView) {
+      window.ReactNativeWebView.postMessage("LOCK");
+    }
+    setShowStartModal(false);
+  }}
+  className="px-6 py-2 rounded-lg font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+>
+  Mulai Kerjakan
+</button>
+
           </div>
         </div>
       </div>
@@ -679,10 +692,9 @@ function DoExamPage() {
   
   return (
     <div className="flex flex-col h-screen bg-gray-50 font-sans">
-      {/* Header */}
       <header className="flex items-center justify-between p-4 bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
         <div>
-          <h1 className="text-xl font-bold text-gray-800">{examTitle}</h1>
+          <h1 className="text-xl font-bold text-gray-800">Ujian {examTitle}</h1>
           <p className="text-sm text-gray-500">Soal {currentIndex + 1} dari {soalList.length}</p>
         </div>
         <div className="flex items-center gap-4 bg-gray-100 border border-gray-200 p-2 rounded-lg">
@@ -693,9 +705,7 @@ function DoExamPage() {
         </div>
       </header>
   
-      {/* Isi Konten */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Main Content */}
         <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto min-w-0">
           <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
             <div className="prose max-w-none mb-6 text-gray-800" dangerouslySetInnerHTML={{ __html: currentSoal.soal }} />
@@ -738,7 +748,6 @@ function DoExamPage() {
             </div>
           </div>
   
-          {/* Navigasi Bawah */}
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3 flex-wrap">
               <button
@@ -814,12 +823,10 @@ function DoExamPage() {
           </div>
         </main>
   
-        {/* Sidebar Navigasi untuk Desktop */}
         <aside className="hidden md:block w-72 bg-white border-l border-gray-200 p-4 flex flex-col overflow-y-auto">
           {renderSidebarContent()}
         </aside>
   
-        {/* Drawer Navigasi Soal (Mobile) */}
         {showSidebar && (
           <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-end md:hidden">
             <div className="w-11/12 max-w-xs bg-white p-4 shadow-xl h-full flex flex-col">
@@ -833,7 +840,6 @@ function DoExamPage() {
         )}
       </div>
   
-      {/* Tombol buka sidebar di mobile */}
       <button
         className="md:hidden fixed bottom-4 right-4 bg-blue-600 text-white p-3 rounded-full shadow-lg z-40"
         onClick={() => setShowSidebar(true)}
@@ -841,7 +847,6 @@ function DoExamPage() {
         🧭
       </button>
   
-      {/* Modal Selesai Ujian */}
       {showSelesaiModal && (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-60 flex justify-center items-center z-50">
           <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md text-center transform transition-all">

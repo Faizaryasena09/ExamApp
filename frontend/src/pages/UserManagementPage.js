@@ -3,6 +3,7 @@ import api from "../api";
 import UserFormModal from "../components/UserFormModal";
 import * as XLSX from "xlsx";
 import { FiPlus, FiUpload, FiSearch } from 'react-icons/fi';
+import { toast } from "../utils/toast";
 
 function UserManagementPage() {
   const [users, setUsers] = useState([]);
@@ -23,8 +24,8 @@ function UserManagementPage() {
       setUsers(usersRes.data);
       setKelas(kelasRes.data);
     } catch (error) {
-      console.error("Gagal mengambil data:", error);
-      alert("Gagal mengambil data dari server.");
+      console.error("Gagal mengambil data:");
+      toast.error("Gagal mengambil data dari server.");
     } finally {
       setIsLoading(false);
     }
@@ -50,10 +51,11 @@ function UserManagementPage() {
 
     try {
       await api.delete(`/users/${id}`);
+      toast.success("Berhasil Menghapus Pengguna")
       fetchData();
     } catch (err) {
       console.error("Gagal menghapus pengguna:", err);
-      alert("Gagal menghapus pengguna!");
+      toast.error("Gagal menghapus pengguna!");
     }
   };
 
@@ -107,7 +109,7 @@ function UserManagementPage() {
           header.includes(field)
         )
       ) {
-        alert("Format Excel tidak sesuai!");
+        toast.error("Format Excel tidak sesuai!");
         return;
       }
 
@@ -127,11 +129,11 @@ function UserManagementPage() {
 
       try {
         await api.post("/users/import", { users: usersToImport });
-        alert("Berhasil mengimpor pengguna!");
+        toast.success("Berhasil mengimpor pengguna!");
         fetchData();
       } catch (error) {
         console.error("Gagal import:", error);
-        alert("Terjadi kesalahan saat import data.");
+        toast.error("Terjadi kesalahan saat import data.");
       }
     };
 

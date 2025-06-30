@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Cookies from "js-cookie";
 import api from "../api";
-import { useNavigate } from "react-router-dom";
+import { toast } from "../utils/toast";
+
 import {
   FiPlus, FiSearch, FiBookOpen, FiSettings,
   FiTrash2, FiChevronRight, FiAlertCircle, FiLoader
@@ -10,62 +12,70 @@ import {
 function CoursesPage() {
   const [courses, setCourses] = useState([]);
   const [kelasList, setKelasList] = useState([]);
+  const [subfolders, setSubfolders] = useState([]);
+  const [statusMap, setStatusMap] = useState({});
+
   const [selectedKelas, setSelectedKelas] = useState("all");
   const [search, setSearch] = useState("");
-  const [siswaKelas, setSiswaKelas] = useState("");
-  const [tokenInput, setTokenInput] = useState("");
-  const [showTokenModal, setShowTokenModal] = useState(false);
-  const [selectedCourseId, setSelectedCourseId] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [statusMap, setStatusMap] = useState({});
   const [openFolders, setOpenFolders] = useState({});
-  const [subfolders, setSubfolders] = useState([]);
+
+  const [loading, setLoading] = useState(true);
   const [movingCourse, setMovingCourse] = useState(false);
+  
+  const [showTokenModal, setShowTokenModal] = useState(false);
+  const [tokenInput, setTokenInput] = useState("");
+  const [selectedCourseId, setSelectedCourseId] = useState(null);
+
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [confirmationAction, setConfirmationAction] = useState(null);
+  const [confirmationMessage, setConfirmationMessage] = useState("");
+  const [confirmationButtonText, setConfirmationButtonText] = useState("Ya, Lanjutkan");
+
+
+  const [showPromptModal, setShowPromptModal] = useState(false);
+  const [promptAction, setPromptAction] = useState(null);
+  const [promptMessage, setPromptMessage] = useState("");
+  const [promptDefaultValue, setPromptDefaultValue] = useState("");
 
   const navigate = useNavigate();
   const role = Cookies.get("role");
   const name = Cookies.get("name");
   const userId = Cookies.get("user_id");
-
   const now = new Date();
 
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      await fetchKelasList();
-      await fetchSubfolders();
-
-      if (role === "siswa") {
-        const userRes = await api.get(`/users?name=${encodeURIComponent(name)}`);
-        if (userRes.data && userRes.data.kelas) {
-          setSiswaKelas(userRes.data.kelas);
-          await fetchCourses(userRes.data.kelas);
-          const courseRes = await api.get(`/courses?kelas=${userRes.data.kelas}`);
-          await fetchStatusMap(courseRes.data);
-        }
-      } else {
-        await fetchCourses();
-        const res = await api.get("/courses");
-        await fetchStatusMap(res.data);
-      }
+      await Promise.all([
+        fetchKelasList(),
+        fetchSubfolders(),
+        fetchCoursesAndStatus(),
+      ]);
     } catch (err) {
       console.error("❌ Gagal memuat data awal:", err);
+      toast.error("Gagal memuat data course. Coba refresh halaman.");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchInitialData();
-  }, [role, name]);
-
-  const fetchCourses = async (kelasSiswa = null) => {
+  const fetchCoursesAndStatus = async () => {
     try {
-      const url = kelasSiswa ? `/courses?kelas=${kelasSiswa}` : "/courses";
+      const isSiswa = role === "siswa";
+      let kelasSiswa = null;
+
+      if (isSiswa) {
+        const userRes = await api.get(`/users?name=${encodeURIComponent(name)}`);
+        kelasSiswa = userRes.data?.kelas;
+      }
+      
+      const url = isSiswa && kelasSiswa ? `/courses?kelas=${kelasSiswa}` : "/courses";
       const res = await api.get(url);
       setCourses(res.data);
+      await fetchStatusMap(res.data);
     } catch (err) {
-      console.error("❌ Gagal ambil courses:", err);
+        console.error("❌ Gagal ambil courses & status:", err);
+        toast.error("Gagal memuat daftar course.");
     }
   };
 
@@ -88,75 +98,70 @@ function CoursesPage() {
   };
 
   const fetchStatusMap = async (courseList) => {
-    const map = {};
-    for (const course of courseList) {
+    const statusPromises = courseList.map(course =>
+      api.get(`/courses/${course.id}/status?user=${userId}`)
+        .then(res => ({ [course.id]: res.data }))
+        .catch(err => {
+          console.error(`Gagal ambil status course ${course.id}:`, err);
+          return { [course.id]: {} };
+        })
+    );
+    const statuses = await Promise.all(statusPromises);
+    setStatusMap(Object.assign({}, ...statuses));
+  };
+
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [role, name]);
+
+  const handleManageClick = (id) => navigate(`/courses/${id}/manage`);
+
+  const handleDeleteCourse = (courseId) => {
+    setConfirmationMessage("Anda yakin ingin menghapus Assesmen ini secara permanen? Tindakan ini tidak dapat diurungkan.");
+    setConfirmationButtonText("Ya, Hapus");
+    setConfirmationAction(() => async () => {
       try {
-        const res = await api.get(`/courses/${course.id}/status?user=${userId}`);
-        map[course.id] = res.data;
+        await api.delete(`/courses/${courseId}`);
+        toast.success("✅ Course berhasil dihapus");
+        setCourses(courses.filter(c => c.id !== courseId));
       } catch (err) {
-        console.error(`Gagal ambil status course ${course.id}:`, err);
+        console.error("Gagal hapus course:", err);
+        toast.error("❌ Gagal menghapus course.");
       }
-    }
-    setStatusMap(map);
+    });
+    setShowConfirmationModal(true);
   };
-
-  const filteredCourses = courses.filter((course) => {
-    const matchKelas =
-      selectedKelas === "all" ||
-      (Array.isArray(course.kelas)
-        ? course.kelas.includes(selectedKelas)
-        : course.kelas === selectedKelas);
-
-    const matchSearch = course.nama.toLowerCase().includes(search.toLowerCase());
-
-    return matchKelas && matchSearch;
-  });
-
-  const handleManageClick = (id) => {
-    navigate(`/courses/${id}/manage`);
+  
+  const handleDuplicateCourse = (id) => {
+    setConfirmationMessage("Yakin ingin menduplikat Assesmen ini? Assesmen baru akan dibuat sebagai salinan.");
+    setConfirmationButtonText("Ya, Duplikat");
+    setConfirmationAction(() => async () => {
+      try {
+        await api.post(`/courses/${id}/duplicate`);
+        toast.success("✅ Course berhasil diduplikat");
+        fetchInitialData(); // Refresh semua data
+      } catch (err) {
+        console.error("❌ Gagal duplikat course:", err);
+        toast.error("Gagal menduplikat course.");
+      }
+    });
+    setShowConfirmationModal(true);
   };
-
-  const handleDeleteCourse = async (id) => {
-    const konfirmasi = window.confirm("Anda yakin ingin menghapus course ini secara permanen?");
-    if (!konfirmasi) return;
-
-    try {
-      await api.delete(`/courses/${id}`);
-      alert("✅ Course berhasil dihapus");
-      setCourses(courses.filter(c => c.id !== id));
-    } catch (err) {
-      console.error("Gagal hapus course:", err);
-      alert("❌ Gagal menghapus course");
-    }
-  };
-
+  
   const handleDoClick = async (courseId) => {
     try {
-      // Ambil detail course
-      const detailRes = await api.get(`/courses/${courseId}`);
-      const course = detailRes.data;
-  
-      const now = new Date();
+      const { data: course } = await api.get(`/courses/${courseId}`);
       const mulai = new Date(course.tanggal_mulai);
       const selesai = course.tanggal_selesai ? new Date(course.tanggal_selesai) : null;
   
-      if (now < mulai) {
-        return alert("⏳ Ujian belum dimulai. Silakan cek lagi nanti.");
-      }
+      if (now < mulai) return toast.warn("⏳ Ujian belum dimulai. Silakan cek lagi nanti.");
+      if (selesai && now > selesai) return toast.error("🕔 Waktu ujian sudah berakhir.");
   
-      if (selesai && now > selesai) {
-        return alert("🕔 Waktu ujian sudah berakhir.");
-      }
+      const { data: status } = await api.get(`/courses/${courseId}/status?user=${userId}`);
+      if (status.sudahMaksimal) return toast.error("❌ Kesempatan Anda untuk mengerjakan sudah habis.");
   
-      // Cek status pengerjaan
-      const statusRes = await api.get(`/courses/${courseId}/status?user=${userId}`);
-      const { sudahMaksimal, useToken } = statusRes.data;
-  
-      if (sudahMaksimal) {
-        return alert("❌ Kesempatan Anda untuk mengerjakan course ini sudah habis.");
-      }
-  
-      if (useToken) {
+      if (status.useToken) {
         setSelectedCourseId(courseId);
         setTokenInput("");
         setShowTokenModal(true);
@@ -165,97 +170,38 @@ function CoursesPage() {
       }
     } catch (err) {
       console.error("❌ Gagal cek waktu/status course:", err);
-      alert("Terjadi kesalahan saat memeriksa status course.");
+      toast.error("Terjadi kesalahan saat memeriksa status course.");
     }
-  };  
+  };
 
   const handleSubmitToken = async (e) => {
     e.preventDefault();
     if (!tokenInput) return;
 
     try {
-      const res = await api.post(`/courses/${selectedCourseId}/validate-token`, {
-        token: tokenInput,
-        user: userId,
-      });
-
+      const res = await api.post(`/courses/${selectedCourseId}/validate-token`, { token: tokenInput, user: userId });
       if (res.data.valid) {
-        await api.post("/courses/tokenAuth", {
-          course_id: selectedCourseId,
-          user_id: userId,
-        });
-
+        await api.post("/courses/tokenAuth", { course_id: selectedCourseId, user_id: userId });
+        toast.success("✅ Token valid! Memulai ujian...");
         setShowTokenModal(false);
         navigate(`/courses/${selectedCourseId}/do`);
       } else {
-        alert("❌ Token salah atau sudah kedaluwarsa.");
+        toast.error("❌ Token salah atau sudah kedaluwarsa.");
       }
     } catch (err) {
       console.error("❌ Gagal validasi token:", err);
-      alert("Gagal memvalidasi token.");
+      toast.error("Gagal memvalidasi token.");
     }
   };
-
-  const grouped = {};
-
-  subfolders.forEach((folder) => {
-    grouped[folder.name] = [];
-  });
-
-  let tanpaFolderCourses = [];
-
-  filteredCourses.forEach((course) => {
-    const folder = course.subfolder;
-    if (folder) {
-      if (!grouped[folder]) grouped[folder] = [];
-      grouped[folder].push(course);
-    } else {
-      tanpaFolderCourses.push(course);
-    }
-  });
-
-  if (tanpaFolderCourses.length > 0) {
-    grouped["Tanpa Folder"] = tanpaFolderCourses;
-  }
 
   const toggleVisibility = async (id, currentHidden) => {
     try {
-      await api.put(`/courses/${id}/toggle-visibility`, {
-        hidden: !currentHidden,
-      });
-      fetchCourses();
+      await api.put(`/courses/${id}/toggle-visibility`, { hidden: !currentHidden });
+      toast.success(`Visibilitas course berhasil diubah.`);
+      setCourses(courses.map(c => c.id === id ? { ...c, hidden: !c.hidden } : c));
     } catch (err) {
       console.error("🚫 Gagal toggle visibility:", err);
-      alert("Gagal mengubah visibilitas course");
-    }
-  };
-
-  const toggleFolder = (folderName) => {
-    setOpenFolders((prev) => ({
-      ...prev,
-      [folderName]: !prev[folderName],
-    }));
-  };
-
-  const renameFolder = async (oldName, newName) => {
-    try {
-      await api.put(`/subfolders/${encodeURIComponent(oldName)}/rename`, { newName });
-      await fetchSubfolders();
-      await fetchCourses();
-    } catch (err) {
-      console.error("❌ Gagal rename folder:", err);
-      alert("Gagal rename folder.");
-    }
-  };  
-
-  const toggleSubfolderVisibility = async (folderName) => {
-    try {
-      const hidden = !grouped[folderName].every(c => c.hidden);
-      await api.put(`/subfolders/${encodeURIComponent(folderName)}/toggle-visibility`, { hidden });
-      await fetchCourses();
-    } catch (err) {
-      alert("Gagal mengubah visibilitas folder");
-      console.error(err);
+      toast.error("Gagal mengubah visibilitas course.");
     }
   };
 
@@ -266,55 +212,98 @@ function CoursesPage() {
         courseId,
         toSubfolderId: toSubfolderName === "Tanpa Folder" ? null : toSubfolderName
       });
+      toast.success(`Course berhasil dipindahkan.`);
       await fetchInitialData();
     } catch (err) {
       console.error("Gagal memindahkan course:", err);
-      alert("❌ Gagal memindahkan course.");
+      toast.error("❌ Gagal memindahkan course.");
     } finally {
       setMovingCourse(false);
     }
-  }; 
+  };
 
-  const handleDuplicateCourse = async (id) => {
-    const konfirmasi = window.confirm("Yakin ingin menduplikat course ini?");
-    if (!konfirmasi) return;
+  const createSubfolder = () => {
+    setPromptMessage("Masukkan nama folder baru:");
+    setPromptDefaultValue("");
+    setPromptAction(() => async (name) => {
+      if (name && name.trim()) {
+        try {
+          await api.post("/subfolders", { name: name.trim() });
+          toast.success("✅ Folder baru berhasil dibuat");
+          await fetchInitialData();
+        } catch (err) {
+          toast.error(err.response?.data?.error || "❌ Gagal membuat folder");
+          console.error(err);
+        }
+      }
+    });
+    setShowPromptModal(true);
+  };
   
-    try {
-      await api.post(`/courses/${id}/duplicate`);
-      alert("✅ Course berhasil diduplikat");
-      fetchCourses();
-    } catch (err) {
-      console.error("❌ Gagal duplikat course:", err);
-      alert("Gagal menduplikat course.");
-    }
-  };  
+  const renameFolder = (oldName) => {
+    setPromptMessage(`Ganti nama folder "${oldName}":`);
+    setPromptDefaultValue(oldName);
+    setPromptAction(() => async (newName) => {
+      if (newName && newName.trim() && newName.trim() !== oldName) {
+        try {
+          await api.put(`/subfolders/${encodeURIComponent(oldName)}/rename`, { newName: newName.trim() });
+          toast.success("Folder berhasil di-rename.");
+          await fetchInitialData();
+        } catch (err) {
+          console.error("❌ Gagal rename folder:", err);
+          toast.error("Gagal me-rename folder.");
+        }
+      }
+    });
+    setShowPromptModal(true);
+  };
 
-  const createSubfolder = async () => {
-    const name = prompt("Masukkan nama folder baru:");
-    if (name) {
+  const handleDeleteSubfolder = (folderName) => {
+    setConfirmationMessage(`Yakin ingin menghapus folder "${folderName}"? Pengelompokan Assesmen akan dihapus, Assesmen course di dalamnya tidak akan terhapus.`);
+    setConfirmationButtonText("Ya, Hapus Folder");
+    setConfirmationAction(() => async () => {
       try {
-        await api.post("/subfolders", { name });
+        await api.delete(`/subfolders/${encodeURIComponent(folderName)}`);
+        toast.success("✅ Folder berhasil dihapus.");
         await fetchInitialData();
       } catch (err) {
-        alert("❌ Gagal membuat folder");
-        console.error(err);
+        console.error("❌ Gagal hapus folder:", err);
+        toast.error("Gagal menghapus folder.");
       }
-    }
-  };  
+    });
+    setShowConfirmationModal(true);
+  };
 
-  const handleDeleteSubfolder = async (folderName) => {
-    const konfirmasi = window.confirm(`Yakin ingin menghapus folder "${folderName}" beserta seluruh pengelompokannya?`);
-    if (!konfirmasi) return;
+  const toggleFolder = (folderName) => {
+    setOpenFolders(prev => ({ ...prev, [folderName]: !prev[folderName] }));
+  };
+
+  const filteredCourses = courses.filter((course) => {
+    const matchKelas =
+      selectedKelas === "all" ||
+      (Array.isArray(course.kelas)
+        ? course.kelas.includes(selectedKelas)
+        : course.kelas === selectedKelas);
+    const matchSearch = course.nama.toLowerCase().includes(search.toLowerCase());
+    return matchKelas && matchSearch;
+  });
+
+  const grouped = {};
+  subfolders.forEach((folder) => { grouped[folder.name] = []; });
   
-    try {
-      await api.delete(`/subfolders/${encodeURIComponent(folderName)}`);
-      await fetchInitialData(); // refresh data
-      alert("✅ Folder berhasil dihapus");
-    } catch (err) {
-      console.error("❌ Gagal hapus folder:", err);
-      alert("Gagal menghapus folder.");
+  let tanpaFolderCourses = [];
+  filteredCourses.forEach((course) => {
+    const folder = course.subfolder;
+    if (folder && grouped.hasOwnProperty(folder)) {
+      grouped[folder].push(course);
+    } else {
+      tanpaFolderCourses.push(course);
     }
-  };  
+  });
+
+  if (tanpaFolderCourses.length > 0) {
+    grouped["Tanpa Folder"] = tanpaFolderCourses;
+  }
 
   if (loading) {
     return (
@@ -328,65 +317,62 @@ function CoursesPage() {
   return (
     <div className="bg-slate-50 min-h-screen p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        <header className="flex justify-between items-center mb-8 flex-wrap gap-4">
+        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">Courses</h1>
+            <h1 className="text-3xl font-bold text-slate-800">Assesmen</h1>
             <p className="text-slate-500 mt-1">
-              Selamat datang kembali, {name}. Pilih course untuk dimulai.
+              Selamat datang kembali, {name}. Pilih Assesmen untuk dimulai.
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {role == "admin" && (
-            <div className="flex gap-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            {role !== "siswa" && (
               <button
                 onClick={createSubfolder}
-                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700"
+                className="flex items-center gap-2 bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg font-semibold hover:bg-slate-100 transition-colors duration-200"
               >
                 <FiPlus /> Folder Baru
               </button>
-            </div>
-          )}
-          {role !== "siswa" && (
-          <div>
+            )}
+            {role !== "siswa" && (
               <button
                 onClick={() => navigate("/createcourses")}
-                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700"
+                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-105"
               >
-                <FiPlus /> Buat Course
+                <FiPlus /> Buat Assesmen
               </button>
-            </div>
             )}
           </div>
-          
         </header>
   
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           <div className="relative flex-grow">
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Cari berdasarkan nama course..."
+              placeholder="Cari berdasarkan nama Assesmen..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="border border-slate-300 pl-10 pr-4 py-2 rounded-lg w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full border border-slate-300 pl-10 pr-4 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
             />
           </div>
-          <select
-            value={selectedKelas}
-            onChange={(e) => setSelectedKelas(e.target.value)}
-            className="border border-slate-300 px-4 py-2 rounded-lg w-full sm:w-52 bg-white"
-          >
-            <option value="all">Semua Kelas</option>
-            {kelasList.map((k) => (
-              <option key={k.id} value={k.nama_kelas}>
-                {k.nama_kelas}
-              </option>
-            ))}
-          </select>
+          {role !== "siswa" && (
+            <select
+              value={selectedKelas}
+              onChange={(e) => setSelectedKelas(e.target.value)}
+              className="border border-slate-300 px-4 py-2.5 rounded-lg w-full sm:w-auto md:w-52 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+            >
+              <option value="all">Semua Kelas</option>
+              {kelasList.map((k) => (
+                <option key={k.id} value={k.nama_kelas}>
+                  {k.nama_kelas}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
   
         {Object.keys(grouped).length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-lg shadow-sm">
+          <div className="text-center py-20 bg-white rounded-lg shadow-sm border">
             <FiAlertCircle className="mx-auto text-5xl text-slate-400 mb-4" />
             <h3 className="text-xl font-semibold text-slate-700">Tidak Ada Course Ditemukan</h3>
             <p className="text-slate-500 mt-2">Coba ubah kata kunci pencarian atau filter kelas Anda.</p>
@@ -395,177 +381,84 @@ function CoursesPage() {
           <div className="space-y-6">
             {Object.entries(grouped).map(([folderName, coursesInFolder]) => {
               const isHiddenForSiswa = role === "siswa" && coursesInFolder.every((c) => c.hidden);
-              if (isHiddenForSiswa) return null;
-  
-              const visibleCourses = coursesInFolder.filter((course) => {
-                if (role === "siswa" && course.hidden) return false;
-                const matchKelas =
-                  selectedKelas === "all" ||
-                  (Array.isArray(course.kelas)
-                    ? course.kelas.includes(selectedKelas)
-                    : course.kelas === selectedKelas);
-                const matchSearch = course.nama.toLowerCase().includes(search.toLowerCase());
-                return matchKelas && matchSearch;
-              });
   
               return (
-                <div key={folderName} className="bg-white rounded-lg shadow-md mb-4 border border-slate-200">
-                  {/* Folder Header */}
+                <div key={folderName} className="bg-white rounded-xl shadow-sm border border-slate-200">
                   <div
-                    className="flex justify-between items-center px-5 py-3 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
+                    className="flex justify-between items-center px-4 sm:px-6 py-3 bg-slate-50/50 hover:bg-slate-100 transition cursor-pointer rounded-t-xl"
                     onClick={() => toggleFolder(folderName)}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-xl font-semibold text-slate-800">{folderName}</span>
-                      <span className="text-sm text-slate-500">({visibleCourses.length} course)</span>
+                      <h2 className="text-lg font-semibold text-slate-800">{folderName}</h2>
+                      <span className="hidden sm:block text-sm text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full">
+                        {coursesInFolder.length} Assesmen
+                      </span>
                     </div>
                     <div className="flex items-center gap-3">
-                      {role === "admin" && (
-                      <>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const newName = prompt(`Ganti nama subfolder:`, folderName);
-                            if (newName && newName !== folderName) renameFolder(folderName, newName);
-                          }}
-                          className="text-sm text-indigo-600 hover:text-indigo-800"
-                        >
-                          Rename
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteSubfolder(folderName);
-                          }}
-                          className="text-sm text-red-500 hover:text-red-700"
-                        >
-                          Hapus Folder
-                        </button>
-                      </>
-                    )}
-                      <span className="text-indigo-600 text-lg">
-                        {openFolders[folderName] ? "🔽" : "▶️"}
+                      {role === "admin" && folderName !== "Tanpa Folder" && (
+                        <div className="flex items-center gap-3">
+                          <button onClick={(e) => { e.stopPropagation(); renameFolder(folderName);}} className="text-xs font-medium text-indigo-600 hover:text-indigo-800"> Rename </button>
+                          <button onClick={(e) => { e.stopPropagation(); handleDeleteSubfolder(folderName);}} className="text-xs font-medium text-red-500 hover:text-red-700"> Hapus </button>
+                        </div>
+                      )}
+                      <span className={`transform transition-transform duration-300 ${openFolders[folderName] ? 'rotate-90' : ''}`}>
+                        <FiChevronRight className="text-slate-600" />
                       </span>
                     </div>
                   </div>
   
-                  <div
-                    className={`transition-all duration-300 ease-in-out ${
-                      openFolders[folderName] ? "max-h-[3000px]" : "max-h-0 overflow-hidden"
-                    }`}
-                  >
-                    <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 p-6 pt-4">
-                      {visibleCourses.map((course) => (
-                        <div
-                          key={course.id}
-                          className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-2xl hover:-translate-y-2"
-                        >
-                          <div className="h-40 bg-indigo-200 flex items-center justify-center">
-                            <FiBookOpen className="text-5xl text-indigo-400" />
-                          </div>
-                          <div className="p-5 flex flex-col flex-grow">
-                            <p className="text-sm font-semibold text-indigo-600">
-                              Kelas: {Array.isArray(course.kelas) ? course.kelas.join(", ") : course.kelas}
-                            </p>
-                            <h3 className="text-xl font-bold text-slate-800 mt-1 truncate">{course.nama}</h3>
-                            <p className="text-sm text-slate-500">
-                              Waktu: {new Date(course.tanggal_mulai).toLocaleDateString('id-ID')} {new Date(course.tanggal_mulai).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                            <p className="text-sm text-slate-500 mt-1">Oleh: {course.pengajar}</p>
-                            <p className="text-slate-600 mt-3 text-sm flex-grow line-clamp-2">
-                              {course.deskripsi}
-                            </p>
-                          </div>
-                          <div className="p-4 bg-slate-50 border-t border-slate-200 mt-auto">
-                            {role === "siswa" ? (
-                              (() => {
-                                const mulai = new Date(course.tanggal_mulai);
-                                const selesai = course.tanggal_selesai ? new Date(course.tanggal_selesai) : null;
-                                const now = new Date();
-                                const sudahMaksimal = statusMap[course.id]?.sudahMaksimal;
-                                const belumMulai = now < mulai;
-
-                                return (
-                                  <>
-
-                                    {sudahMaksimal ? (
-                                      <button
-                                        disabled
-                                        className="w-full flex items-center justify-center gap-2 bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold cursor-not-allowed"
-                                      >
-                                        Anda telah mengerjakan
-                                      </button>
-                                    ) : belumMulai ? (
-                                      <button
-                                        disabled
-                                        className="w-full flex items-center justify-center gap-2 bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold cursor-not-allowed"
-                                      >
-                                        Belum Waktunya
-                                      </button>
-                                    ) : (
-                                      <button
-                                        onClick={() => handleDoClick(course.id)}
-                                        className="w-full flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700"
-                                      >
-                                        Mulai Kerjakan <FiChevronRight />
-                                      </button>
-                                    )}
-                                  </>
-                                );
-                              })()
-                            ) : (
-                              <div className="flex flex-col gap-2 mt-2">
-                                <div className="flex justify-between items-center gap-2">
-  <button
-    onClick={() => handleManageClick(course.id)}
-    className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-800"
-  >
-    <FiSettings /> Manage
-  </button>
-  <button
-    onClick={() => handleDuplicateCourse(course.id)}
-    className="flex items-center gap-2 text-sm font-medium text-yellow-600 hover:text-yellow-800"
-  >
-    <FiPlus /> Duplikat
-  </button>
-  <button
-    onClick={() => handleDeleteCourse(course.id)}
-    className="flex items-center gap-1 text-sm font-medium text-red-500 hover:text-red-700"
-  >
-    <FiTrash2 /> Hapus
-  </button>
-</div>
-
-                                <label className="flex items-center gap-2 text-sm text-slate-600">
-                                  <input
-                                    type="checkbox"
-                                    checked={!course.hidden}
-                                    onChange={() => toggleVisibility(course.id, course.hidden)}
-                                    className="w-4 h-4"
-                                  />
-                                  Tampilkan untuk siswa
-                                </label>
-
-                                <div className="mt-1">
-                                  <label className="text-xs text-slate-500 block mb-1">Pindah ke folder:</label>
-                                  <select
-                                    value={subfolders.find(f => f.id === course.subfolder_id)?.name || "Tanpa Folder"}
-                                    onChange={async (e) => await moveCourse(course.id, e.target.value)}
-                                    className="w-full border border-slate-300 px-2 py-1 rounded text-sm bg-white"
-                                  >
-                                    <option value="Tanpa Folder">Tanpa Folder</option>
-                                    {subfolders.map((f) => (
-                                      <option key={f.name} value={f.name}>
-                                        {f.name}
-                                      </option>
-                                    ))}
-                                  </select>
+                  <div className={`grid transition-all duration-500 ease-in-out ${openFolders[folderName] ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                    <div className="overflow-hidden">
+                      <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 p-4 sm:p-6">
+                        {coursesInFolder.map((course) => (
+                          <div key={course.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+                            <div className="h-32 bg-indigo-50 flex items-center justify-center"> <FiBookOpen className="text-4xl text-indigo-300" /> </div>
+                            <div className="p-4 flex flex-col flex-grow">
+                              <p className="text-xs font-semibold text-indigo-600 uppercase"> {Array.isArray(course.kelas) ? course.kelas.join(", ") : course.kelas} </p>
+                              <h3 className="text-lg font-bold text-slate-800 mt-1 truncate group-hover:text-indigo-600 transition-colors"> {course.nama} </h3>
+                              <p className="text-xs text-slate-500 mt-2"> {new Date(course.tanggal_mulai).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} </p>
+                              <p className="text-xs text-slate-500"> Jam: {new Date(course.tanggal_mulai).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} </p>
+                              <div className="mt-4 flex-grow"> <p className="text-sm text-slate-600 line-clamp-2">{course.deskripsi}</p> </div>
+                            </div>
+                            <div className="p-4 bg-slate-50/70 border-t border-slate-200 mt-auto">
+                              {role === "siswa" ? (
+                                (() => {
+                                  const mulai = new Date(course.tanggal_mulai);
+                                  const selesai = course.tanggal_selesai ? new Date(course.tanggal_selesai) : null;
+                                  const sudahMaksimal = statusMap[course.id]?.sudahMaksimal;
+                                  const belumMulai = now < mulai;
+                                  const sudahSelesai = selesai && now > selesai;
+                                  let btnClass = "bg-green-600 hover:bg-green-700 text-white"; let btnText = "Mulai Kerjakan"; let btnIcon = <FiChevronRight />; let isDisabled = false;
+                                  if (sudahMaksimal) { btnClass = "bg-slate-300 text-slate-600 cursor-not-allowed"; btnText = "Sudah Dikerjakan"; btnIcon = null; isDisabled = true; } 
+                                  else if (belumMulai) { btnClass = "bg-amber-400 text-amber-800 cursor-not-allowed"; btnText = "Belum Dimulai"; btnIcon = null; isDisabled = true; } 
+                                  else if (sudahSelesai) { btnClass = "bg-red-400 text-red-800 cursor-not-allowed"; btnText = "Waktu Habis"; btnIcon = null; isDisabled = true; }
+                                  return ( <button onClick={() => !isDisabled && handleDoClick(course.id)} disabled={isDisabled} className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${btnClass}`} > {btnText} {btnIcon} </button> );
+                                })()
+                              ) : (
+                                <div className="space-y-3">
+                                  <div className="flex justify-between items-center gap-2">
+                                    <button onClick={() => handleManageClick(course.id)} className="flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"> <FiSettings size={14} /> Kelola </button>
+                                    <button onClick={() => handleDuplicateCourse(course.id)} className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"> <FiPlus size={14} /> Duplikat </button>
+                                    <button onClick={() => handleDeleteCourse(course.id)} className="flex items-center gap-1.5 text-sm font-medium text-red-500 hover:text-red-700 transition-colors"> <FiTrash2 size={14} /> Hapus </button>
+                                  </div>
+                                  <div className="border-t border-slate-200 pt-3 space-y-2">
+                                    <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                                      <input type="checkbox" checked={!course.hidden} onChange={() => toggleVisibility(course.id, course.hidden)} className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500" /> Tampilkan ke siswa
+                                    </label>
+                                    <div>
+                                      <label className="text-xs text-slate-500 block mb-1">Pindahkan folder:</label>
+                                      <select value={course.subfolder || "Tanpa Folder"} onChange={(e) => moveCourse(course.id, e.target.value)} disabled={movingCourse} className="w-full border border-slate-300 px-2 py-1 rounded text-sm bg-white focus:ring-1 focus:ring-indigo-500 transition disabled:bg-slate-100" >
+                                        <option value="Tanpa Folder">Tanpa Folder</option>
+                                        {subfolders.map((f) => ( <option key={f.name} value={f.name}> {f.name} </option> ))}
+                                      </select>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -574,6 +467,10 @@ function CoursesPage() {
           </div>
         )}
       </div>
+  
+      {showTokenModal && ( <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm"> <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 m-4 transform transition-all animate-in fade-in-90 slide-in-from-bottom-10"> <h2 className="text-xl font-bold mb-4 text-slate-800">Masukkan Token Ujian</h2> <p className="text-slate-500 mb-4 text-sm">Course ini memerlukan token untuk bisa diakses. Silakan minta token kepada pengajar.</p> <form onSubmit={handleSubmitToken}> <input type="text" value={tokenInput} onChange={(e) => setTokenInput(e.target.value.toUpperCase())} placeholder="TOKEN UJIAN" className="w-full text-center tracking-widest font-mono border border-slate-300 px-4 py-2.5 rounded-lg mb-4 focus:ring-2 focus:ring-indigo-500" autoFocus /> <div className="flex justify-end gap-3"> <button type="button" onClick={() => setShowTokenModal(false)} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300 font-semibold transition-colors" > Batal </button> <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold transition-colors" > Kirim </button> </div> </form> </div> </div> )}
+      {showConfirmationModal && ( <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm"> <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 m-4 animate-in fade-in-90"> <h2 className="text-xl font-bold mb-2 text-slate-800">Konfirmasi Tindakan</h2> <p className="text-slate-600 mb-6">{confirmationMessage}</p> <div className="flex justify-end gap-3"> <button onClick={() => setShowConfirmationModal(false)} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300 font-semibold"> Batal </button> <button onClick={() => { if(confirmationAction) confirmationAction(); setShowConfirmationModal(false); }} className={`px-4 py-2 text-white rounded-lg font-semibold ${ confirmationButtonText.includes('Hapus') ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700' }`} > {confirmationButtonText} </button> </div> </div> </div> )}
+      {showPromptModal && ( <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm"> <form onSubmit={(e) => { e.preventDefault(); const inputValue = e.currentTarget.elements.promptInput.value; if (promptAction) promptAction(inputValue); setShowPromptModal(false); }} className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 m-4 animate-in fade-in-90"> <h2 className="text-xl font-bold mb-2 text-slate-800">{promptMessage}</h2> <input name="promptInput" defaultValue={promptDefaultValue} className="w-full border border-slate-300 px-4 py-2.5 rounded-lg my-4 focus:ring-2 focus:ring-indigo-500" autoFocus /> <div className="flex justify-end gap-3"> <button type="button" onClick={() => setShowPromptModal(false)} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300 font-semibold"> Batal </button> <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold"> Simpan </button> </div> </form> </div> )}
     </div>
   );
 }
