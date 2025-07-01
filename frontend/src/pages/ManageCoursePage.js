@@ -4,6 +4,7 @@ import api from "../api";
 import Cookies from "js-cookie";
 import MngNavbar from "../components/ManageNavbar";
 import { toast } from "../utils/toast";
+import { uploadImageToServer } from "../utils/uploadImageToServer";
 
 window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
 
@@ -218,7 +219,10 @@ function ManageCoursePage() {
   function isImageOnly(html) {
     return html.includes("<img");
   }
-  
+
+  function toAbsoluteImageSrc(html) {
+    return html.replace(/src="\/uploads/g, `src="http://localhost:5000/uploads`);
+  }  
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -481,134 +485,233 @@ function ManageCoursePage() {
 
           {soalList.length > 0 && (
             <div className="space-y-6">
-              {soalList.map((item, index) => (
-                <div
-                  key={index}
-                  className="p-5 border border-gray-200 rounded-lg bg-white shadow-sm transition-shadow hover:shadow-md mb-4"
-                >
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="font-bold text-gray-700">Soal #{index + 1}</span>
-                    <button
-                      onClick={() => {
-                        const updated = soalList.filter((_, i) => i !== index);
-                        setSoalList(updated);
-                      }}
-                      className="text-gray-400 hover:text-red-600 transition-colors text-sm font-medium"
-                    >
-                      ❌ Hapus
-                    </button>
-                  </div>
+              {soalList.map((item, index) => {
+  const labelHuruf = (i) => String.fromCharCode(65 + i);
 
-                  {isImageOnly(item.soal) ? (
-                    <div className="prose max-w-none border p-3 rounded bg-gray-50 mb-4">
-                      <div dangerouslySetInnerHTML={{ __html: item.soal }} />
-                      <div className="text-xs text-gray-500 italic mt-2">Soal berupa gambar, tidak bisa diedit.</div>
-                    </div>
-                  ) : (
-                    <textarea
-                      value={item.soal}
-                      onChange={(e) => {
-                        const updated = [...soalList];
-                        updated[index].soal = e.target.value;
-                        setSoalList(updated);
-                      }}
-                      rows={4}
-                      className="w-full border border-gray-300 rounded-md p-3 mb-4 shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Tulis soal di sini..."
-                    />
-                  )}
+  return (
+    <div
+      key={index}
+      className="p-5 border border-gray-200 rounded-lg bg-white shadow-sm transition-shadow hover:shadow-md mb-4"
+    >
+      {/* === Header === */}
+      <div className="flex justify-between items-center mb-4">
+        <span className="font-bold text-gray-700">Soal #{index + 1}</span>
+        <button
+          onClick={() => setSoalList(soalList.filter((_, i) => i !== index))}
+          className="text-gray-400 hover:text-red-600 transition-colors text-sm font-medium"
+        >
+          ❌ Hapus
+        </button>
+      </div>
 
-                  <div className="mt-2">
-                    <label className="block text-sm font-medium text-gray-600 mb-2">Pilihan Jawaban:</label>
-                    <div className="space-y-3">
-                      {item.opsi.map((opsi, opsiIdx) => (
-                        <div key={opsiIdx} className="flex items-start gap-3 mb-3">
-                          <div className="pt-2 font-mono text-sm text-gray-500 min-w-[1.5rem]">
-                            {String.fromCharCode(65 + opsiIdx)}.
-                          </div>
+      {/* === Soal === */}
+      <div className="mb-4">
+        <textarea
+          value={(() => {
+            const div = document.createElement("div");
+            div.innerHTML = item.soal || "";
+            return div.textContent?.trim() || "";
+          })()}
+          onChange={(e) => {
+            const updated = [...soalList];
+            const html = item.soal || "";
+            const div = document.createElement("div");
+            div.innerHTML = html;
+            const img = div.querySelector("img");
+            const imgHTML = img ? img.outerHTML + "<br/>" : "";
+            updated[index].soal = `${imgHTML}<span class="inline-option">${e.target.value}</span>`;
+            setSoalList(updated);
+          }}
+          rows={4}
+          className="w-full border border-gray-300 rounded-md p-3 mb-2 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+          placeholder="Tulis soal di sini..."
+        />
 
-                          <div className="flex flex-col md:flex-row gap-3 flex-1">
-                            {isImageOnly(opsi) ? (
-                              <div
-                                className="inline-option flex-1 border border-gray-300 p-3 rounded-md bg-gray-50"
-                                dangerouslySetInnerHTML={{ __html: opsi }}
-                              />
-                            ) : (
-                              <textarea
-                                className="w-full border rounded p-2 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                value={(() => {
-                                  const temp = document.createElement("div");
-                                  temp.innerHTML = opsi;
-                                  return temp.textContent || "";
-                                })()}
-                                onChange={(e) => {
-                                  const updated = [...soalList];
-                                  updated[index].opsi[opsiIdx] = `<span class="inline-option">${e.target.value}</span>`;
-                                  setSoalList(updated);
-                                }}
-                                rows={2}
-                                placeholder="Tulis pilihan..."
-                              />
-                            )}
+        {/* Gambar soal (jika ada) */}
+        {item.soal?.includes("<img") && (
+          <div className="mb-2">
+            <div
+              dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(item.soal) }}
+            />
+            <button
+              onClick={() => {
+                const updated = [...soalList];
+                const div = document.createElement("div");
+                div.innerHTML = item.soal;
+                div.querySelector("img")?.remove();
+                updated[index].soal = div.innerHTML;
+                setSoalList(updated);
+              }}
+              className="text-xs text-red-500 hover:text-red-700 mt-1"
+            >
+              ❌ Hapus Gambar Soal
+            </button>
+          </div>
+        )}
 
-                            <div className="flex items-center gap-2">
-                              <label className="flex items-center text-sm text-gray-600 whitespace-nowrap">
-                                <input
-                                  type="radio"
-                                  name={`jawaban-${index}`}
-                                  value={String.fromCharCode(65 + opsiIdx)}
-                                  checked={item.jawaban === String.fromCharCode(65 + opsiIdx)}
-                                  onChange={(e) => {
-                                    const updated = [...soalList];
-                                    updated[index].jawaban = e.target.value;
-                                    setSoalList(updated);
-                                  }}
-                                  className="h-4 w-4 text-green-600 border-gray-300 focus:ring-green-500"
-                                />
-                                <span className="ml-2">Benar</span>
-                              </label>
+        {/* Upload Gambar Soal */}
+        <input
+          type="file"
+          accept="image/*"
+          onChange={async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            try {
+              const imgPath = await uploadImageToServer(file);
+              const updated = [...soalList];
+              const div = document.createElement("div");
+              div.innerHTML = updated[index].soal || "";
+              const text = div.textContent?.trim() || "";
+              updated[index].soal = `<img src="${imgPath}" class="max-h-60 mb-2"><br/><span class="inline-option">${text}</span>`;
+              setSoalList(updated);
+            } catch {
+              alert("❌ Gagal upload gambar soal.");
+            }
+          }}
+          className="text-sm text-gray-600"
+        />
+      </div>
 
-                              <button
-                                className="text-xs text-red-500 hover:text-red-700"
-                                onClick={() => {
-                                  const updated = [...soalList];
-                                  updated[index].opsi.splice(opsiIdx, 1);
-                                  if (updated[index].jawaban === String.fromCharCode(65 + opsiIdx)) {
-                                    updated[index].jawaban = "";
-                                  }
-                                  setSoalList(updated);
-                                }}
-                                title="Hapus opsi"
-                              >
-                                ❌
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+      {/* === OPSI === */}
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-600 mb-2">
+          Pilihan Jawaban:
+        </label>
 
-                    <div className="mt-3">
+        <div className="space-y-3">
+          {item.opsi.map((opsi, opsiIdx) => {
+            const huruf = labelHuruf(opsiIdx);
+            const div = document.createElement("div");
+            div.innerHTML = opsi;
+            const img = div.querySelector("img");
+            const imgHTML = img ? img.outerHTML + "<br/>" : "";
+            const text = div.textContent?.replace(`${huruf}.`, "").trim() || "";
+
+            return (
+              <div key={opsiIdx} className="flex items-start gap-3">
+                <div className="pt-2 font-mono text-sm text-gray-500 min-w-[1.5rem]">
+                  {huruf}.
+                </div>
+
+                <div className="flex-1 flex flex-col gap-2">
+                  <textarea
+                    className="w-full border rounded p-2 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    value={text}
+                    onChange={(e) => {
+                      const updated = [...soalList];
+                      updated[index].opsi[opsiIdx] =
+                        `<span class="inline-option">${huruf}. <br/>${imgHTML}${e.target.value}</span>`;
+                      setSoalList(updated);
+                    }}
+                    rows={2}
+                    placeholder="Tulis pilihan..."
+                  />
+
+                  {/* Preview gambar opsi (jika ada) */}
+                  {img && (
+                    <div>
+                      <div
+                        dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(img.outerHTML) }}
+                      />
                       <button
                         onClick={() => {
                           const updated = [...soalList];
-                          updated[index].opsi.push(`<span class="inline-option"></span>`);
+                          const div = document.createElement("div");
+                          div.innerHTML = opsi;
+                          div.querySelector("img")?.remove();
+                          updated[index].opsi[opsiIdx] = div.innerHTML;
                           setSoalList(updated);
                         }}
-                        className="text-sm text-blue-600 hover:text-blue-800"
+                        className="text-xs text-red-500 hover:text-red-700"
                       >
-                        ➕ Tambah Pilihan
+                        ❌ Hapus Gambar Opsi
                       </button>
                     </div>
+                  )}
 
-                    {(item.opsi.length < 2 || !item.jawaban) && (
-                      <div className="text-xs text-red-600 mt-2 p-2 bg-red-50 rounded-md">
-                        ⚠️ Soal harus memiliki minimal 2 pilihan dan 1 jawaban benar.
-                      </div>
-                    )}
-                  </div>
+                  {/* Upload gambar opsi */}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      try {
+                        const imgPath = await uploadImageToServer(file);
+                        const updated = [...soalList];
+                        updated[index].opsi[opsiIdx] =
+                          `<span class="inline-option">${huruf}. <br/><img src="${imgPath}" class="max-h-28 mb-2"><br/>${text}</span>`;
+                        setSoalList(updated);
+                      } catch {
+                        alert("❌ Gagal upload gambar opsi.");
+                      }
+                    }}
+                    className="text-sm text-gray-600"
+                  />
                 </div>
-              ))}
+
+                {/* Tombol benar dan hapus */}
+                <div className="flex flex-col items-center gap-2 ml-2">
+                  <label className="flex items-center text-sm text-gray-600 whitespace-nowrap">
+                    <input
+                      type="radio"
+                      name={`jawaban-${index}`}
+                      value={huruf}
+                      checked={item.jawaban === huruf}
+                      onChange={(e) => {
+                        const updated = [...soalList];
+                        updated[index].jawaban = e.target.value;
+                        setSoalList(updated);
+                      }}
+                      className="h-4 w-4 text-green-600 border-gray-300 focus:ring-green-500"
+                    />
+                    <span className="ml-1">Benar</span>
+                  </label>
+
+                  <button
+                    className="text-xs text-red-500 hover:text-red-700"
+                    onClick={() => {
+                      const updated = [...soalList];
+                      updated[index].opsi.splice(opsiIdx, 1);
+                      if (updated[index].jawaban === huruf) {
+                        updated[index].jawaban = "";
+                      }
+                      setSoalList(updated);
+                    }}
+                    title="Hapus opsi"
+                  >
+                    ❌
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Tambah Pilihan */}
+        <div className="mt-3">
+          <button
+            onClick={() => {
+              const updated = [...soalList];
+              updated[index].opsi.push(`<span class="inline-option"></span>`);
+              setSoalList(updated);
+            }}
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
+            ➕ Tambah Pilihan
+          </button>
+        </div>
+
+        {(item.opsi.length < 2 || !item.jawaban) && (
+          <div className="text-xs text-red-600 mt-2 p-2 bg-red-50 rounded-md">
+            ⚠️ Soal harus memiliki minimal 2 pilihan dan 1 jawaban benar.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+})}
+
 
               <div className="text-right border-t pt-6 mt-8">
                 <button

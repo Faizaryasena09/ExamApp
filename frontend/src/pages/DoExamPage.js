@@ -446,6 +446,10 @@ function DoExamPage() {
     }
   };
 
+  function toAbsoluteImageSrc(html) {
+    return html.replace(/src="\/uploads/g, `src="http://localhost:5000/uploads`);
+  }  
+
   const handleJawab = (soalId, jawaban) => {
     setJawabanSiswa((prev) => ({ ...prev, [soalId]: jawaban }));
     simpanJawabanKeServer(soalId, jawaban);
@@ -737,7 +741,7 @@ function DoExamPage() {
       <div className="flex flex-1 overflow-hidden">
         <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto min-w-0">
           <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-            <div className="prose max-w-none mb-6 text-gray-800" dangerouslySetInnerHTML={{ __html: currentSoal.soal }} />
+            <div className="prose max-w-none mb-6 text-gray-800" dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(currentSoal.soal) }} />
   
             <div className="space-y-3">
               {opsiArray.map((opsi, idx) => {
@@ -769,7 +773,11 @@ function DoExamPage() {
                     </span>
                     <span
                       className="text-gray-700 prose max-w-none"
-                      dangerouslySetInnerHTML={{ __html: opsi.replace(/^<span[^>]*>[A-D]\.\s*<br\/?>/i, '') }}
+                      dangerouslySetInnerHTML={{
+                        __html: toAbsoluteImageSrc(
+                          opsi.replace(/^<span[^>]*>[A-D]\.\s*<br\/?>/i, '')
+                        ),
+                      }}
                     />
                   </label>
                 );

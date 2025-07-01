@@ -749,6 +749,15 @@ exports.toggleVisibility = async (req, res) => {
   }
 };
   
+function saveBase64ImageToUploads(base64Data, ext = "png") {
+  const base64 = base64Data.split(";base64,").pop();
+  const fileName = `${Date.now()}-${Math.floor(Math.random() * 1e6)}.${ext}`;
+  const filePath = path.join(__dirname, "../uploads", fileName);
+  fs.writeFileSync(filePath, base64, { encoding: "base64" });
+  return `/uploads/${fileName}`;
+}
+
+// Parse soal dari HTML Word
 function parseSoalFromHtml(html) {
   const $ = cheerio.load(html);
   const lines = [];
@@ -763,8 +772,28 @@ function parseSoalFromHtml(html) {
   let currentOptions = [];
   let currentAnswer = null;
 
+  const cleanHtml = (html) =>
+    html
+      .replace(/<\/?(html|head|body)>/gi, "") // hapus tag aneh
+      .replace(/\s{2,}/g, " ")
+      .trim();
+
   lines.forEach((line) => {
-    const plain = cheerio.load(line).text().trim();
+    const $line = cheerio.load(line, { decodeEntities: false });
+    const plain = $line.text().trim();
+
+    // Proses semua gambar dalam baris ini
+    $line("img").each((_, imgEl) => {
+      const src = $line(imgEl).attr("src");
+      if (src?.startsWith("data:image")) {
+        const ext = src.split(";")[0].split("/")[1] || "png";
+        const newPath = saveBase64ImageToUploads(src, ext);
+        $line(imgEl).attr("src", newPath);
+        $line(imgEl).addClass("max-h-28 mb-2");
+      }
+    });
+
+    const processedLine = cleanHtml($line.root().html());
 
     if (/^\d+\./.test(plain)) {
       if (currentQuestion && currentAnswer && currentOptions.length >= 2) {
@@ -774,13 +803,13 @@ function parseSoalFromHtml(html) {
           jawaban: currentAnswer,
         });
       }
-      currentQuestion = line.replace(/^\d+\.\s*/, "");
+      currentQuestion = processedLine.replace(/^\d+\.\s*/, "");
       currentOptions = [];
       currentAnswer = null;
     }
 
     else if (/^[A-Da-d]\./.test(plain)) {
-      currentOptions.push(`<span class="inline-option">${line}</span>`);
+      currentOptions.push(`<span class="inline-option">${processedLine}</span>`);
     }
 
     else if (/^ANS:/i.test(plain)) {
@@ -789,20 +818,21 @@ function parseSoalFromHtml(html) {
     }
 
     else {
-      const isImage = line.includes("<img");
+      const isImage = processedLine.includes("<img");
       const lastOpsiIdx = currentOptions.length - 1;
 
       if (isImage && lastOpsiIdx >= 0) {
         currentOptions[lastOpsiIdx] = currentOptions[lastOpsiIdx].replace(
           "</span>",
-          ` <br/>${line}</span>`
+          ` <br/>${processedLine}</span>`
         );
       } else if (currentQuestion) {
-        currentQuestion += " " + line;
+        currentQuestion += " " + processedLine;
       }
     }
   });
 
+  // Push soal terakhir
   if (currentQuestion && currentAnswer && currentOptions.length >= 2) {
     soalList.push({
       soal: currentQuestion.trim(),

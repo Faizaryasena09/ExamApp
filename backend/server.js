@@ -29,6 +29,7 @@ const checkRoutes = require("./routes/checkRoutes");
 const studentworklog = require("./routes/studentWorkLogRoutes");
 const examRoutes = require("./routes/examRoutes");
 const guruRoutes = require("./routes/guruRoutes");
+const uploadRoutes = require('./routes/uploadRoutes');
 
 app.use("/api/exam", examRoutes);
 app.use("/api/studentworklog", studentworklog);
@@ -44,8 +45,9 @@ app.use("/api/courses", courseRoutes);
 app.use("/api", dashboardRoutes);
 app.use("/api", resultRoutes);
 app.use("/api/subfolders", subfolderRoutes);
+app.use('/api', uploadRoutes);
 
-app.use("/uploads", express.static(path.join(__dirname, "public", "uploads")));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 const sessionController = require("./controllers/sessionController");
 sessionController.startAutoSessionChecker();

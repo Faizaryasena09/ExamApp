@@ -32,6 +32,10 @@ const ScoreCard = ({ score, totalQuestions }) => {
   );
 };
 
+function toAbsoluteImageSrc(html) {
+  return html.replace(/src="\/uploads/g, `src="http://localhost:5000/uploads`);
+}  
+
 const QuestionCard = ({ question, index }) => {
   const opsi = useMemo(() => {
     try {
@@ -45,7 +49,7 @@ const QuestionCard = ({ question, index }) => {
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 transition-shadow hover:shadow-md">
       <h2 className="text-lg font-semibold text-gray-800 mb-5 flex items-start">
   <span className="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-4 flex-shrink-0">{index + 1}</span>
-  <span dangerouslySetInnerHTML={{ __html: question.soal }} />
+  <span dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(question.soal) }} />
 </h2>
 
       <ul className="space-y-3">
@@ -83,7 +87,7 @@ const Option = ({ index, text, isCorrect, isSelected }) => {
 
   return (
     <li className={`p-4 rounded-lg border flex justify-between items-center transition-colors ${style}`}>
-      <span className="prose max-w-none text-sm" dangerouslySetInnerHTML={{ __html: text }} />
+      <span className="prose max-w-none text-sm" dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(text) }} />
 
       {icon && <span className="text-sm font-bold">{icon}</span>}
     </li>
