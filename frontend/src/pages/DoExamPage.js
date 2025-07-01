@@ -39,19 +39,23 @@ function DoExamPage() {
   const [submitCountdown, setSubmitCountdown] = useState(null);
   const [totalWaktu, setTotalWaktu] = useState(0);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [courseTitle, setCourseTitle] = useState("");
 
   useEffect(() => {
     const checkTokenRequirement = async () => {
       try {
         const courseRes = await api.get(`/courses/${courseId}`);
         const useToken = courseRes.data.useToken;
-  
+        const title = courseRes.data.title || "Tanpa Judul";
+    
+        setCourseTitle(title); // ✅ Simpan title di state
+    
         if (!useToken) {
           setSudahInputToken(true);
           setAuthChecked(true);
           return;
         }
-  
+    
         const tokenRes = await api.get(`/courses/${courseId}/tokenAuth?user=${userId}`);
         if (tokenRes.data.isAuthorized) {
           setSudahInputToken(true);
@@ -64,7 +68,7 @@ function DoExamPage() {
       } finally {
         setAuthChecked(true);
       }
-    };
+    };    
   
     checkTokenRequirement();
   }, [courseId, userId]);  
@@ -506,6 +510,17 @@ function DoExamPage() {
         console.warn("❌ Gagal hapus timer:", err.message);
       }
   
+      // ✅ Kirim status selesai ke backend
+      try {
+        await api.post("/exam/status", {
+          user_id: userId,
+          course_id: courseId,
+          status: `Tidak Sedang mengerjakan`
+        });
+      } catch (err) {
+        console.error("❌ Gagal update status selesai ujian:", err.message);
+      }
+  
       try {
         const res = await api.get(`/jawaban/show-result`, {
           params: { course_id: courseId }
@@ -665,17 +680,31 @@ function DoExamPage() {
               Kembali
             </button>
             <button
-  onClick={() => {
-    if (window.ReactNativeWebView) {
-      window.ReactNativeWebView.postMessage("LOCK");
+  onClick={async () => {
+    try {
+      // Kirim status Mengerjakan ke backend
+      await api.post("/exam/status", {
+        user_id: Cookies.get("user_id"),
+        course_id: courseId,
+        status: `Mengerjakan - ${courseTitle}`
+      });
+
+      // LOCK perangkat jika dari React Native WebView
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage("LOCK");
+      }
+
+      // Tutup modal mulai
+      setShowStartModal(false);
+    } catch (err) {
+      console.error("❌ Gagal memulai ujian:", err);
+      alert("Gagal memulai ujian. Coba lagi.");
     }
-    setShowStartModal(false);
   }}
   className="px-6 py-2 rounded-lg font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
 >
   Mulai Kerjakan
 </button>
-
           </div>
         </div>
       </div>

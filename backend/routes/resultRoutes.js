@@ -3,5 +3,6 @@ const router = express.Router();
 const resultController = require('../controllers/resultController');
 
 router.get('/courses/:courseId/user/:userId/hasil', resultController.getUserExamResult);
+router.get('/courses/:courseId/user/:userId/:attempt/jawaban-detail', resultController.getJawabanDetail);
 
 module.exports = router;

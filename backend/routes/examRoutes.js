@@ -1,12 +1,18 @@
 const express = require("express");
 const router = express.Router();
-const controller = require("../controllers/examController");
+const examController = require("../controllers/examController");
+const { streamSession } = require("../controllers/examSSE");
 
-router.get("/siswa", controller.getSiswaWithStatus);
-router.delete("/reset/:course_id", controller.clearJawaban);
-router.delete("/timer-delete", controller.deleteTimer);
-router.post("/lock", controller.lockLogin);
-router.post("/unlock", controller.unlockLogin);
-router.post("/add-timer", controller.addTimer);
+router.get("/siswa", examController.getSiswaWithStatus);
+router.delete("/reset/:course_id", examController.resetUjian);
+router.post("/logout-user", examController.logoutUser);
+router.post("/lock-user", examController.lockLogin);
+router.post("/unlock-user", examController.unlockLogin);
+router.post("/add-timer", examController.addTimer);
+router.post("/reset-kelas", examController.resetUjianByKelas);
+router.post("/reset-semua", examController.resetSemuaMengerjakan);
+router.post("/unlock-all", examController.unlockAllUsers);
+router.post("/status", examController.setStatusUjian);
+router.get("/session/stream", streamSession);
 
 module.exports = router;

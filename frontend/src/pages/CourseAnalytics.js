@@ -2,6 +2,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState, useMemo } from 'react';
 import MngNavbar from "../components/ManageNavbar";
 import api from '../api';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 import {
   FiUsers,
@@ -95,7 +97,12 @@ const StudentRow = ({ student, courseId }) => {
           </div>
           <div className="w-full md:w-1/6 text-left md:text-center text-gray-600 mb-2 md:mb-0">
               <span className="md:hidden font-semibold mr-2">Skor Terbaik: </span>
-              <span className="font-bold text-lg text-gray-800">{summary.bestScore}</span>
+              <span className="font-bold text-lg text-gray-800">
+                {Math.round(summary.progress)} <span className="text-sm text-gray-500">/ 100</span>
+              </span>
+              <p className="text-xs text-gray-500">
+                ({summary.bestScore} benar dari {student.attempts[0]?.total_dikerjakan || '-'} soal)
+              </p>
           </div>
           <div className="w-full md:flex-1 flex items-center gap-4">
               <div className="flex-grow">
@@ -151,6 +158,49 @@ const StudentRow = ({ student, courseId }) => {
     );
 };
 
+const exportToExcel = (groupedData, selectedKelas) => {
+  const workbook = XLSX.utils.book_new();
+  const group = groupedData.find(g => g.className === selectedKelas);
+  if (!group) return;
+
+  const soalCount = group.students[0]?.attempts[0]?.total_dikerjakan || 10;
+  const pointPerQuestion = 100 / soalCount;
+
+  const sheetData = [];
+  const soalHeaders = Array.from({ length: soalCount }, (_, i) => `Soal${i + 1}`);
+  const headers = ['Kelas', 'Nama', 'Skor', ...soalHeaders];
+
+  let totalSkor = 0;
+
+  group.students.forEach(student => {
+    const attempt = student.attempts[0];
+    const jawaban = attempt.detail_jawaban || [];
+
+    const skor = jawaban.reduce((acc, j) => acc + (j ? pointPerQuestion : 0), 0);
+    totalSkor += skor;
+
+    const row = [
+      student.kelas,
+      student.name,
+      skor.toFixed(1),
+      ...jawaban.map(j => j ? pointPerQuestion : 0)
+    ];
+    sheetData.push(row);
+  });
+
+  const avgSkor = totalSkor / group.students.length;
+  const avgRow = ["", "Rata-rata", avgSkor.toFixed(1), ...Array(soalCount).fill("")];
+  sheetData.push(avgRow);
+
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...sheetData]);
+  XLSX.utils.book_append_sheet(workbook, worksheet, selectedKelas);
+  const fileName = `Analytics_${selectedKelas}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+  const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  const dataBlob = new Blob([excelBuffer], { type: 'application/octet-stream' });
+  saveAs(dataBlob, fileName);
+};
+
 const AnalyticsPage = () => {
     const { id: courseId } = useParams();
     const navigate = useNavigate();
@@ -159,6 +209,8 @@ const AnalyticsPage = () => {
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedClass, setSelectedClass] = useState("");
+    const [showExportModal, setShowExportModal] = useState(false);
+const [kelasToExport, setKelasToExport] = useState("");
 
     const fetchAnalytics = async () => {
       try {
@@ -172,6 +224,16 @@ const AnalyticsPage = () => {
         if (loading) setLoading(false);
       }
     };
+
+    const loadJawabanDetail = async (courseId, userId, attemptNumber) => {
+      try {
+        const res = await api.get(`/courses/${courseId}/user/${userId}/${attemptNumber}/jawaban-detail`);
+        return res.data.detail_jawaban;
+      } catch (err) {
+        console.error(`❌ Gagal ambil detail jawaban untuk user ${userId}:`, err);
+        return [];
+      }
+    };    
 
     useEffect(() => {
       setLoading(true);
@@ -219,21 +281,36 @@ const AnalyticsPage = () => {
 
     const summaryStats = useMemo(() => {
       if (analytics.length === 0) {
-        return { totalUsers: 0, avgScore: 0, highestScore: 0, totalAttempts: 0 };
+        return { totalUsers: 0, avgScore: "0.0", highestScore: "0.0", totalAttempts: 0 };
       }
-      const totalUsers = Object.keys(analytics.reduce((acc, item) => ({...acc, [item.user_id]: true }), {})).length;
+    
+      const totalUsers = Object.keys(
+        analytics.reduce((acc, item) => ({ ...acc, [item.user_id]: true }), {})
+      ).length;
+    
       const totalAttempts = analytics.length;
-      const totalScore = analytics.reduce((sum, u) => sum + u.benar, 0);
-      const avgScore = totalAttempts > 0 ? totalScore / totalAttempts : 0;
-      const highestScore = Math.max(0, ...analytics.map(u => u.benar));
+    
+      let totalPersentase = 0;
+      let highestPersen = 0;
+    
+      analytics.forEach((u) => {
+        const total = u.total_dikerjakan || 1; // Hindari pembagian 0
+        const persen = (u.benar / total) * 100;
+        totalPersentase += persen;
+        if (persen > highestPersen) highestPersen = persen;
+      });
+    
+      const avgScore = (totalAttempts > 0 ? totalPersentase / totalAttempts : 0).toFixed(1);
+      const highestScore = highestPersen.toFixed(1);
+    
       return {
         totalUsers,
-        avgScore: avgScore.toFixed(1),
+        avgScore,
         highestScore,
-        totalAttempts
+        totalAttempts,
       };
     }, [analytics]);
-
+    
     const uniqueClasses = useMemo(() => {
       if (!analytics || analytics.length === 0) return [];
       const classSet = new Set(analytics.map(item => item.kelas));
@@ -260,29 +337,87 @@ const AnalyticsPage = () => {
                     <h3 className="text-xl font-semibold text-gray-700 mb-4">
                       Detail Performa Peserta
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="relative">
-                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          placeholder="Cari nama peserta..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <select
-                        value={selectedClass}
-                        onChange={(e) => setSelectedClass(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        {uniqueClasses.map((kelas, index) => (
-                          <option key={index} value={kelas}>
-                            {kelas === "" ? "Semua Kelas" : `Kelas: ${kelas}`}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div className="relative">
+    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+    <input
+      type="text"
+      placeholder="Cari nama peserta..."
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+    />
+  </div>
+  <select
+    value={selectedClass}
+    onChange={(e) => setSelectedClass(e.target.value)}
+    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+  >
+    {uniqueClasses.map((kelas, index) => (
+      <option key={index} value={kelas}>
+        {kelas === "" ? "Semua Kelas" : `Kelas: ${kelas}`}
+      </option>
+    ))}
+  </select>
+  <div className="flex justify-end mb-4">
+  <button
+    onClick={() => setShowExportModal(true)}
+    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow"
+  >
+    Export Excel
+  </button>
+</div>
+
+{showExportModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
+    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm">
+      <h2 className="text-lg font-semibold mb-4">Pilih Kelas untuk Ekspor</h2>
+      <select
+        value={kelasToExport}
+        onChange={(e) => setKelasToExport(e.target.value)}
+        className="w-full mb-4 p-2 border border-gray-300 rounded"
+      >
+        <option value="">-- Pilih Kelas --</option>
+        {groupedAndSortedData.map(group => (
+          <option key={group.className} value={group.className}>{group.className}</option>
+        ))}
+      </select>
+      <div className="flex justify-end gap-2">
+        <button
+          className="px-4 py-2 bg-gray-300 rounded"
+          onClick={() => setShowExportModal(false)}
+        >
+          Batal
+        </button>
+        <button
+  disabled={!kelasToExport}
+  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+  onClick={async () => {
+    const group = groupedAndSortedData.find(g => g.className === kelasToExport);
+    if (!group) return;
+
+    for (const student of group.students) {
+      const attempt = student.attempts[0];
+      if (attempt) {
+        const detail = await loadJawabanDetail(courseId, student.user_id, attempt.attemp);
+        attempt.detail_jawaban = detail;
+      }
+    }
+
+    exportToExcel(groupedAndSortedData, kelasToExport);
+    setShowExportModal(false);
+  }}
+>
+  Ekspor
+</button>
+
+      </div>
+    </div>
+  </div>
+)}
+
+</div>
+
                   </div>
                   {groupedAndSortedData.length > 0 ? (
                     <div>

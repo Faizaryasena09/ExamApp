@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api';
 
 const ScoreCard = ({ score, total }) => {
+  const persen = Math.round((score / total) * 100);
+
   const getMessage = () => {
-    const persen = (score / total) * 100;
     if (persen === 100) return "🎉 Sempurna! Kamu menjawab semua soal dengan benar!";
     if (persen >= 80) return "✨ Hebat! Kamu menjawab sebagian besar soal dengan benar.";
     if (persen >= 50) return "💪 Terus berlatih! Kamu sudah menjawab lebih dari setengahnya.";
@@ -12,11 +13,27 @@ const ScoreCard = ({ score, total }) => {
   };
 
   return (
-    <div className="bg-white p-8 rounded-2xl shadow-lg border text-center space-y-4">
+    <div className="bg-white p-8 rounded-2xl shadow-lg border text-center space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Skor Ujian</h2>
+
+      {/* 🎯 Tampilkan skor skala 100 */}
       <p className="text-5xl font-extrabold text-blue-600">
-        {score} <span className="text-3xl text-gray-500">/ {total}</span>
+        {persen} <span className="text-3xl text-gray-500">/ 100</span>
       </p>
+
+      {/* Optional: tambahkan info jumlah soal dan benar */}
+      <p className="text-sm text-gray-500">
+        ({score} dari {total} soal benar)
+      </p>
+
+      {/* Progress bar */}
+      <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+        <div
+          className="bg-blue-500 h-full transition-all duration-500"
+          style={{ width: `${persen}%` }}
+        ></div>
+      </div>
+
       <p className="text-gray-600 text-lg">{getMessage()}</p>
     </div>
   );

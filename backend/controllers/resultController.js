@@ -1,4 +1,5 @@
 const init = require('../models/database');
+const dbpromise = require('../models/database');
 
 exports.getUserExamResult = async (req, res) => {
   try {
@@ -30,5 +31,28 @@ exports.getUserExamResult = async (req, res) => {
   } catch (error) {
     console.error("❌ Error getUserExamResult:", error);
     res.status(500).json({ error: "Gagal mengambil hasil ujian." });
+  }
+};
+
+exports.getJawabanDetail = async (req, res) => {
+  const { courseId, userId, attempt } = req.params;
+  try {
+    const db = await dbpromise;
+
+    const [rows] = await db.execute(
+      `SELECT js.soal_id, js.jawaban AS jawaban_siswa, q.jawaban AS jawaban_benar
+       FROM jawaban_siswa js
+       JOIN questions q ON js.soal_id = q.id
+       WHERE js.course_id = ? AND js.user_id = ? AND js.attemp = ?
+       ORDER BY js.soal_id ASC`,
+      [courseId, userId, attempt]
+    );
+
+    const detail_jawaban = rows.map(row => row.jawaban_siswa === row.jawaban_benar);
+
+    res.json({ detail_jawaban });
+  } catch (err) {
+    console.error("❌ Gagal ambil jawaban detail:", err);
+    res.status(500).json({ error: 'Gagal ambil jawaban detail' });
   }
 };

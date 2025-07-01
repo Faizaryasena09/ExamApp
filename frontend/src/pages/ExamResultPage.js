@@ -4,16 +4,33 @@ import api from '../api';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
-const ScoreCard = ({ score, totalQuestions }) => (
-  <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 text-center">
-    <h3 className="text-xl font-semibold text-gray-600 mb-2">Skor Siswa</h3>
-    <p className="text-5xl font-bold text-blue-600">
-      {score}
-      <span className="text-3xl text-gray-400">/{totalQuestions}</span>
-    </p>
-    <p className="mt-3 text-gray-500">Jawaban Benar</p>
-  </div>
-);
+const ScoreCard = ({ score, totalQuestions }) => {
+  const persen = Math.round((score / totalQuestions) * 100);
+
+  return (
+    <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 text-center space-y-4">
+      <h3 className="text-xl font-semibold text-gray-600">Skor Siswa</h3>
+
+      {/* Skor dalam skala 100 */}
+      <p className="text-5xl font-extrabold text-blue-600">
+        {persen} <span className="text-3xl text-gray-400">/ 100</span>
+      </p>
+
+      {/* Jumlah benar dari total soal */}
+      <p className="text-sm text-gray-500">
+        ({score} dari {totalQuestions} soal benar)
+      </p>
+
+      {/* Progress Bar */}
+      <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden mt-3">
+        <div
+          className="bg-blue-500 h-full transition-all duration-500"
+          style={{ width: `${persen}%` }}
+        ></div>
+      </div>
+    </div>
+  );
+};
 
 const QuestionCard = ({ question, index }) => {
   const opsi = useMemo(() => {

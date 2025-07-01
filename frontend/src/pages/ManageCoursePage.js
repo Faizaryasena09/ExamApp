@@ -5,6 +5,8 @@ import Cookies from "js-cookie";
 import MngNavbar from "../components/ManageNavbar";
 import { toast } from "../utils/toast";
 
+window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+
 function ManageCoursePage() {
   const { id } = useParams();
   const role = Cookies.get("role");
@@ -79,12 +81,24 @@ function ManageCoursePage() {
 
   const fetchKelas = async () => {
     try {
-      const res = await api.get("/data/kelas");
-      setKelasList(res.data);
+      if (role === "guru") {
+        const namaGuru = Cookies.get("name");
+        const res = await api.get(`/guru-kelas/nama/${encodeURIComponent(namaGuru)}`);
+        // Bentukkan ke struktur array kelas yang sama seperti sebelumnya
+        const filtered = res.data.map((nama, idx) => ({
+          id: idx + 1,
+          nama_kelas: nama,
+        }));
+        setKelasList(filtered);
+      } else {
+        // admin: tampilkan semua kelas
+        const res = await api.get("/data/kelas");
+        setKelasList(res.data);
+      }
     } catch (err) {
       console.error("Gagal ambil kelas:", err);
     }
-  };
+  };  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -453,7 +467,12 @@ function ManageCoursePage() {
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-gray-800">📝 Daftar Soal ({soalList.length})</h3>
             <button
-              onClick={() => setSoalList((prev) => [...prev, { soal: "", opsi: ["", ""], jawaban: "" }])}
+              onClick={() => {
+                setSoalList((prev) => [...prev, { soal: "", opsi: ["", ""], jawaban: "" }]);
+                setTimeout(() => {
+                  window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+                }, 100);
+              }}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               ➕ Tambah Soal

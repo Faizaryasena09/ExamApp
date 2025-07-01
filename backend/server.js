@@ -28,6 +28,7 @@ const subfolderRoutes = require("./routes/subfolderRoutes");
 const checkRoutes = require("./routes/checkRoutes");
 const studentworklog = require("./routes/studentWorkLogRoutes");
 const examRoutes = require("./routes/examRoutes");
+const guruRoutes = require("./routes/guruRoutes");
 
 app.use("/api/exam", examRoutes);
 app.use("/api/studentworklog", studentworklog);
@@ -35,6 +36,7 @@ app.use("/api/check", checkRoutes);
 app.use("/api/answertrail", answerTrailRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/jawaban", answerRoutes);
+app.use("/api", guruRoutes);
 app.use("/api", userRoutes);
 app.use("/api/session", sessionRoutes);
 app.use("/api/data/kelas", kelasRoutes);

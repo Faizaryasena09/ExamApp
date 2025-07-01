@@ -20,6 +20,11 @@ exports.login = async (req, res) => {
 
     const user = rows[0];
 
+    // ✅ Cek apakah akun dikunci
+    if (user.login_locked === 1) {
+      return res.status(403).json({ message: "Akun dikunci oleh admin" });
+    }
+
     const token = jwt.sign(
       {
         name: user.name,
@@ -40,6 +45,7 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 exports.isLogin = async (req, res) => {
   const { name } = req.query;

@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
+import { toast } from "../utils/toast";
 
 export default function ManageExamPage() {
   const [siswa, setSiswa] = useState([]);
   const [loading, setLoading] = useState(true);
   const [kelasFilter, setKelasFilter] = useState("");
-  const [courseId, setCourseId] = useState(1); // Ganti sesuai useParams nanti
+  const [searchNama, setSearchNama] = useState("");
+  const [courseId, setCourseId] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [menit, setMenit] = useState(0);
@@ -13,26 +15,52 @@ export default function ManageExamPage() {
 
   useEffect(() => {
     fetchSiswa();
-  }, [kelasFilter]);
+    const interval = setInterval(fetchSiswa, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchSiswa = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/exam/siswa${kelasFilter ? `?kelas=${kelasFilter}` : ""}`);
+      const res = await api.get("/exam/siswa");
       setSiswa(res.data);
-    } catch (err) {
-      alert("❌ Gagal mengambil data siswa");
+    } catch {
+      toast.error("❌ Gagal mengambil data siswa");
     } finally {
       setLoading(false);
     }
   };
 
-  const resetJawaban = async (userId) => {
+  const resetUjian = async (userId) => {
     try {
       await api.delete(`/exam/reset/${courseId}`, { data: { user_id: userId } });
-      alert("✅ Jawaban siswa berhasil direset");
-    } catch (err) {
-      alert("❌ Gagal reset jawaban");
+      toast.success("✅ Ujian siswa berhasil direset");
+    } catch {
+      toast.error("❌ Gagal reset ujian");
+    }
+  };
+
+  const logoutUser = async (userId) => {
+    try {
+      await api.post("/exam/logout-user", { user_id: userId });
+      toast.success("✅ User berhasil logout");
+    } catch {
+      toast.error("❌ Gagal logout user");
+    }
+  };
+
+  const toggleKunciAkun = async (userId, terkunci) => {
+    try {
+      if (terkunci) {
+        await api.post("/exam/unlock-user", { user_id: userId });
+        toast.success("🔓 Akun berhasil dibuka");
+      } else {
+        await api.post("/exam/lock-user", { user_id: userId });
+        toast.success("🔒 Akun berhasil dikunci");
+      }
+      fetchSiswa();
+    } catch {
+      alert("❌ Gagal mengubah status akun");
     }
   };
 
@@ -55,73 +83,121 @@ export default function ManageExamPage() {
         course_id: courseId,
         detik: totalDetik,
       });
-      alert(`✅ Ditambahkan ${totalDetik} detik ke user`);
+      toast.success(`✅ Ditambahkan ${totalDetik} detik ke user`);
       setShowModal(false);
-    } catch (err) {
-      alert("❌ Gagal menambahkan waktu");
+    } catch {
+      toast.error("❌ Gagal menambahkan waktu");
     }
   };
 
+  const siswaFiltered = siswa.filter((s) => {
+    const cocokKelas = kelasFilter
+      ? s.kelas?.toLowerCase().includes(kelasFilter.toLowerCase())
+      : true;
+    const cocokNama = searchNama
+      ? s.name?.toLowerCase().includes(searchNama.toLowerCase())
+      : true;
+    return cocokKelas && cocokNama;
+  });
+
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-4 bg-gray-50 min-h-screen">
       <h1 className="text-xl font-semibold mb-4">🛠️ Manage Exam</h1>
 
-      <div className="mb-4">
-        <label className="text-sm font-medium mr-2">Filter kelas:</label>
-        <input
-          value={kelasFilter}
-          onChange={(e) => setKelasFilter(e.target.value)}
-          className="border px-2 py-1 rounded"
-        />
+      <div className="mb-4 flex flex-wrap gap-4">
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-1">Filter kelas:</label>
+          <input
+            value={kelasFilter}
+            onChange={(e) => setKelasFilter(e.target.value)}
+            className="border px-3 py-1 rounded-md"
+            placeholder="Contoh: 9A"
+          />
+        </div>
+        <div className="flex flex-col">
+          <label className="text-sm font-medium mb-1">Cari nama:</label>
+          <input
+            value={searchNama}
+            onChange={(e) => setSearchNama(e.target.value)}
+            className="border px-3 py-1 rounded-md"
+            placeholder="Nama siswa"
+          />
+        </div>
       </div>
 
       {loading ? (
-        <p>Loading siswa...</p>
+        <p className="text-gray-600">Loading siswa...</p>
       ) : (
-        <table className="w-full bg-white rounded shadow text-sm">
-          <thead className="bg-gray-100 text-left">
-            <tr>
-              <th className="p-2">Username</th>
-              <th className="p-2">Nama</th>
-              <th className="p-2">Kelas</th>
-              <th className="p-2">Status</th>
-              <th className="p-2">Status Ujian</th>
-              <th className="p-2">Update Terakhir</th>
-              <th className="p-2">Operasi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {siswa.map((s) => (
-              <tr key={s.id} className="border-b hover:bg-gray-50">
-                <td className="p-2">{s.username}</td>
-                <td className="p-2">{s.name}</td>
-                <td className="p-2">{s.kelas}</td>
-                <td className="p-2 capitalize">{s.status}</td>
-                <td className="p-2">{s.status_ujian || "-"}</td>
-                <td className="p-2">
-                  {s.last_update ? new Date(s.last_update).toLocaleString() : "-"}
-                </td>
-                <td className="p-2 space-x-2">
-                  <button
-                    onClick={() => resetJawaban(s.id)}
-                    className="px-2 py-1 bg-yellow-300 rounded"
-                  >
-                    Reset Jawaban
-                  </button>
-                  <button
-                    onClick={() => bukaModalTambahWaktu(s.id)}
-                    className="px-2 py-1 bg-blue-300 rounded"
-                  >
-                    Tambahan Waktu
-                  </button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="min-w-[700px] w-full bg-white rounded shadow text-sm">
+            <thead className="bg-gray-100 text-left">
+              <tr>
+                <th className="p-3">Nama</th>
+                <th className="p-3">Kelas</th>
+                <th className="p-3">Status Sesi</th>
+                <th className="p-3">Status Ujian</th>
+                <th className="p-3">Terkunci?</th>
+                <th className="p-3">Update Terakhir</th>
+                <th className="p-3">Operasi</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {siswaFiltered.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="text-center py-4 text-gray-500">
+                    Tidak ada siswa yang cocok dengan filter.
+                  </td>
+                </tr>
+              ) : (
+                siswaFiltered.map((s) => (
+                  <tr key={s.id} className="border-b hover:bg-gray-50">
+                    <td className="p-3">{s.name}</td>
+                    <td className="p-3">{s.kelas}</td>
+                    <td className="p-3 capitalize">{s.status}</td>
+                    <td className="p-3">{s.status_ujian || "-"}</td>
+                    <td className="p-3">{s.login_locked ? "🔒" : "❎"}</td>
+                    <td className="p-3">
+                      {s.last_update
+                        ? new Date(s.last_update).toLocaleString()
+                        : "-"}
+                    </td>
+                    <td className="p-3 flex flex-wrap gap-1">
+                      <button
+                        onClick={() => resetUjian(s.id)}
+                        className="px-2 py-1 bg-yellow-400 rounded text-xs"
+                      >
+                        Reset Ujian
+                      </button>
+                      <button
+                        onClick={() => bukaModalTambahWaktu(s.id)}
+                        className="px-2 py-1 bg-blue-500 text-white rounded text-xs"
+                      >
+                        Tambah Waktu
+                      </button>
+                      <button
+                        onClick={() => logoutUser(s.id)}
+                        className="px-2 py-1 bg-red-500 text-white rounded text-xs"
+                      >
+                        Logout
+                      </button>
+                      <button
+                        onClick={() => toggleKunciAkun(s.id, s.login_locked)}
+                        className={`px-2 py-1 text-white rounded text-xs ${
+                          s.login_locked ? "bg-green-600" : "bg-gray-700"
+                        }`}
+                      >
+                        {s.login_locked ? "Buka Kunci" : "Kunci Akun"}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {/* MODAL TAMBAH WAKTU */}
+      {/* Modal Tambah Waktu */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded shadow-md w-[90%] max-w-md">

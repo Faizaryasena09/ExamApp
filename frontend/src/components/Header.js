@@ -10,6 +10,8 @@ function Header({ onToggleSidebar }) {
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
+  const logoutFlagRef = useRef(false); // Flag untuk mencegah multiple logout
+
   useEffect(() => {
     const nameFromCookie = Cookies.get("name");
     if (nameFromCookie) setUserName(nameFromCookie);
@@ -25,20 +27,31 @@ function Header({ onToggleSidebar }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = async () => {
-    const name = Cookies.get("name");
-    if (name) {
-      try {
-        await api.post("/session", { name, status: "offline" });
-      } catch (err) {
-        console.error("Gagal update status logout:", err);
-      }
-    }
+  const performCleanup = () => {
+    // Hapus semua cookies sekaligus
     Cookies.remove("token");
     Cookies.remove("name");
     Cookies.remove("role");
     Cookies.remove("user_id");
-    navigate("/");
+    
+    // Redirect ke halaman login dengan replace
+    navigate("/", { replace: true });
+  };
+
+  const handleLogout = async () => {
+    if (logoutFlagRef.current) return;
+    logoutFlagRef.current = true;
+
+    try {
+      const name = Cookies.get("name");
+      if (name) {
+        await api.post("/session", { name, status: "offline" });
+      }
+    } catch (err) {
+      console.error("❌ Gagal update status logout:", err);
+    } finally {
+      performCleanup();
+    }
   };
 
   useEffect(() => {
@@ -46,65 +59,89 @@ function Header({ onToggleSidebar }) {
     if (!name) return;
   
     let idleTimeout = null;
-    let interval = null;
-    let isIdle = false;
+    let sse = null;
+    let intervalOnline = null; // 🔹 Tambahan
+    let isActive = true;
   
-    const setOffline = () => {
-      isIdle = true;
+    const cleanupResources = () => {
+      if (!isActive) return;
+      isActive = false;
+  
+      clearTimeout(idleTimeout);
+      clearInterval(intervalOnline); // 🔹 Tambahan
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      activityEvents.forEach(ev => window.removeEventListener(ev, resetIdleTimer));
+  
+      if (sse) {
+        sse.close();
+        sse = null;
+      }
     };
   
     const resetIdleTimer = () => {
-      if (document.visibilityState === "hidden") return;
-      isIdle = false;
+      if (!isActive || logoutFlagRef.current) return;
       clearTimeout(idleTimeout);
-      idleTimeout = setTimeout(setOffline, 10 * 60 * 1000); // ⏱️ 10 menit idle
+      idleTimeout = setTimeout(() => updateStatus("offline"), 10 * 60 * 1000);
     };
   
-    const sendStatusAndCheck = async () => {
+    const updateStatus = async (status) => {
+      if (!isActive || logoutFlagRef.current) return;
       try {
-        const status = isIdle ? "offline" : "online";
         await api.post("/session", { name, status });
-  
-        const res = await api.get("/auth/islogin", { params: { name } });
-        if (res.data.status === "offline") {
-          console.warn("🚪 Status offline terdeteksi, logout...");
-          handleLogout();
-        }
       } catch (err) {
-        console.error("❌ Gagal update status session:", err.message);
+        console.error("❌ Gagal update status:", err);
       }
     };
   
-    const events = ["mousemove", "keydown", "click", "scroll", "touchstart", "visibilitychange"];
-    events.forEach((event) => window.addEventListener(event, resetIdleTimer));
+    const handleBeforeUnload = () => {
+      if (!isActive || logoutFlagRef.current) return;
+      updateStatus("offline");
+    };
+  
+    const activityEvents = ["mousemove", "keydown", "click", "scroll", "touchstart"];
+    activityEvents.forEach(ev => window.addEventListener(ev, resetIdleTimer));
     resetIdleTimer();
   
-    interval = setInterval(sendStatusAndCheck, 20 * 60 * 1000); // 🔁 20 menit kirim status
+    const setupSSE = () => {
+      if (!isActive || logoutFlagRef.current) return;
   
-    // Gunakan `pagehide` untuk mobile
-    window.addEventListener("pagehide", () => {
-      const payload = new URLSearchParams();
-      payload.append("name", name);
-      payload.append("status", "offline");
-      navigator.sendBeacon("/api/session", payload);
-    });
+      sse = new EventSource(`${api.defaults.baseURL}/exam/session/stream`);
   
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden") {
-        isIdle = true;
-      }
-    });
+      sse.onmessage = (event) => {
+        if (!isActive || logoutFlagRef.current) return;
   
-    return () => {
-      clearInterval(interval);
-      clearTimeout(idleTimeout);
-      events.forEach((event) =>
-        window.removeEventListener(event, resetIdleTimer)
-      );
-      window.removeEventListener("pagehide", () => {});
-      document.removeEventListener("visibilitychange", () => {});
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "forceLogout" && data.username === name) {
+            console.log("🔴 Logout paksa diterima dari server");
+            cleanupResources();
+            handleLogout();
+          }
+        } catch (err) {
+          console.error("❌ Gagal parsing data SSE:", err);
+        }
+      };
+  
+      sse.onerror = (err) => {
+        console.warn("SSE error:", err);
+        if (sse) sse.close();
+  
+        if (isActive && !logoutFlagRef.current) {
+          setTimeout(setupSSE, 3000);
+        }
+      };
     };
-  }, []);  
+  
+    // ⏲️ Kirim status online setiap 10 menit (600.000 ms)
+    intervalOnline = setInterval(() => {
+      updateStatus("online");
+    }, 10 * 60 * 1000);
+  
+    setupSSE();
+    window.addEventListener("beforeunload", handleBeforeUnload);
+  
+    return cleanupResources;
+  }, [navigate]);  
 
   return (
     <header className="bg-slate-800 px-4 sm:px-6 py-2 flex justify-between items-center shadow-md border-b border-slate-700">

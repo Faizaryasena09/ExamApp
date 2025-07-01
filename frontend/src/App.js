@@ -24,6 +24,7 @@ import AnalyticsCourse from "./pages/CourseAnalytics";
 import AnswerSummaryPage from "./pages/AnswerSummaryPage";
 import StudentLogDetailPage from "./pages/StudentLogDetailPage";
 import ManageExamPage from "./pages/ManageExamPage";
+import ManageGuruPage from "./pages/ManageGuruPage";
 
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
@@ -55,11 +56,13 @@ function ExamResultAccessRoute({ element }) {
 
   useEffect(() => {
     const check = async () => {
-      if (role === "admin") {
+      // ✅ Admin dan Guru bisa lihat hasil siapa saja
+      if (role === "admin" || role === "guru") {
         setAllowed(true);
         return;
       }
 
+      // ❌ Siswa hanya boleh lihat hasil sendiri
       if (role === "siswa" && userId !== currentUserId) {
         setAllowed(false);
         return;
@@ -95,7 +98,8 @@ function CourseAccessRoute({ element, type = "general" }) {
 
   useEffect(() => {
     const check = async () => {
-      if (role === "admin") {
+      if (role === "admin" || role === "guru") {
+        // ✅ Admin dan Guru bebas akses
         setAllowed(true);
         return;
       }
@@ -210,6 +214,10 @@ function AppLayout() {
             <Route
               path="/usrmng"
               element={<RoleRoute allowedRoles={["admin"]} element={<UserManage />} />}
+            />
+            <Route
+              path="/tchmng"
+              element={<RoleRoute allowedRoles={["admin"]} element={<ManageGuruPage />} />}
             />
             <Route
               path="/classmanage"

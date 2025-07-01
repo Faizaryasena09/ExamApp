@@ -169,6 +169,24 @@ async function initDatabase() {
       )
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS guru_kelas (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        guru_id INT NOT NULL,
+        kelas VARCHAR(50) NOT NULL,
+        UNIQUE KEY (guru_id, kelas)
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS status_ujian (
+        user_id INT,
+        course_id INT,
+        status VARCHAR(30) DEFAULT 'belum mengerjakan',
+        PRIMARY KEY (user_id, course_id)
+      )
+    `);
+
     const [rows] = await pool.query("SELECT * FROM users WHERE username = 'admin'");
     if (rows.length === 0) {
       await pool.query(`

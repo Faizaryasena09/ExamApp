@@ -72,6 +72,7 @@ function CoursesPage() {
       const url = isSiswa && kelasSiswa ? `/courses?kelas=${kelasSiswa}` : "/courses";
       const res = await api.get(url);
       setCourses(res.data);
+      console.log("📦 Course Sample:", res.data[0]);
       await fetchStatusMap(res.data);
     } catch (err) {
         console.error("❌ Gagal ambil courses & status:", err);
@@ -414,10 +415,19 @@ function CoursesPage() {
                           <div key={course.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
                             <div className="h-32 bg-indigo-50 flex items-center justify-center"> <FiBookOpen className="text-4xl text-indigo-300" /> </div>
                             <div className="p-4 flex flex-col flex-grow">
-                              <p className="text-xs font-semibold text-indigo-600 uppercase"> {Array.isArray(course.kelas) ? course.kelas.join(", ") : course.kelas} </p>
+                            {role !== "siswa" && (
+                              <p className="text-xs font-semibold text-indigo-600 uppercase">
+                                {Array.isArray(course.kelas) ? course.kelas.join(", ") : course.kelas}
+                              </p>
+                            )}
                               <h3 className="text-lg font-bold text-slate-800 mt-1 truncate group-hover:text-indigo-600 transition-colors"> {course.nama} </h3>
                               <p className="text-xs text-slate-500 mt-2"> {new Date(course.tanggal_mulai).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} </p>
                               <p className="text-xs text-slate-500"> Jam: {new Date(course.tanggal_mulai).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} </p>
+                              {course.pengajar && (
+                                <p className="text-xs text-slate-500 mt-2 italic">
+                                  Oleh: {course.pengajar}
+                                </p>
+                              )}
                               <div className="mt-4 flex-grow"> <p className="text-sm text-slate-600 line-clamp-2">{course.deskripsi}</p> </div>
                             </div>
                             <div className="p-4 bg-slate-50/70 border-t border-slate-200 mt-auto">

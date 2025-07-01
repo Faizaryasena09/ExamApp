@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { FiHome, FiUsers, FiBookOpen, FiX, FiFileText, FiSettings } from "react-icons/fi";
+import { FiHome, FiUsers, FiBookOpen, FiX, FiFileText, FiSettings, FiUserCheck } from "react-icons/fi";
 
 // Fungsi bantu ambil cookie
 function getCookie(name) {
@@ -83,6 +83,17 @@ function Sidebar({ isOpen, onClose }) {
                   >
                     <FiUsers className="mr-3 text-lg" />
                     <span>Manajemen User</span>
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink
+                    to="/tchmng"
+                    onClick={onClose}
+                    style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+                    className="flex items-center px-4 py-2.5 rounded-lg hover:bg-slate-700 hover:text-white transition-colors duration-200"
+                  >
+                    <FiUserCheck className="mr-3 text-lg" />
+                    <span>Manajemen Guru</span>
                   </NavLink>
                 </li>
                 <li>
