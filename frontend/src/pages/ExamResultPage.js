@@ -9,7 +9,7 @@ const ScoreCard = ({ score, totalQuestions }) => {
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 text-center space-y-4">
-      <h3 className="text-xl font-semibold text-gray-600">Skor Siswa</h3>
+      <h3 className="text-xl font-semibold text-gray-600">Nilai Siswa</h3>
 
       {/* Skor dalam skala 100 */}
       <p className="text-5xl font-extrabold text-blue-600">

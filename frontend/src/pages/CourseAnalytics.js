@@ -11,7 +11,8 @@ import {
   FiAlertCircle,
   FiTrendingUp,
   FiChevronDown,
-  FiSearch
+  FiSearch,
+  FiTrendingDown
 } from 'react-icons/fi';
 
 const StatCard = ({ icon, title, value, color }) => (
@@ -281,7 +282,7 @@ const [kelasToExport, setKelasToExport] = useState("");
 
     const summaryStats = useMemo(() => {
       if (analytics.length === 0) {
-        return { totalUsers: 0, avgScore: "0.0", highestScore: "0.0", totalAttempts: 0 };
+        return { totalUsers: 0, highestScore: "0.0", lowestScore: "0.0", totalAttempts: 0 };
       }
     
       const totalUsers = Object.keys(
@@ -292,21 +293,25 @@ const [kelasToExport, setKelasToExport] = useState("");
     
       let totalPersentase = 0;
       let highestPersen = 0;
+      let lowestPersen = 100;
     
       analytics.forEach((u) => {
         const total = u.total_dikerjakan || 1; // Hindari pembagian 0
         const persen = (u.benar / total) * 100;
         totalPersentase += persen;
         if (persen > highestPersen) highestPersen = persen;
+        if (persen < lowestPersen) lowestPersen = persen;
       });
     
       const avgScore = (totalAttempts > 0 ? totalPersentase / totalAttempts : 0).toFixed(1);
       const highestScore = highestPersen.toFixed(1);
+      const lowestScore = lowestPersen.toFixed(1);
     
       return {
         totalUsers,
         avgScore,
         highestScore,
+        lowestScore,
         totalAttempts,
       };
     }, [analytics]);
@@ -329,8 +334,8 @@ const [kelasToExport, setKelasToExport] = useState("");
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                   <StatCard icon={<FiUsers size={22} />} title="Total Peserta" value={summaryStats.totalUsers} color="blue" />
-                  <StatCard icon={<FiTarget size={22} />} title="Rata-rata Skor per Percobaan" value={summaryStats.avgScore} color="yellow" />
-                  <StatCard icon={<FiTrendingUp size={22} />} title="Skor Tertinggi" value={summaryStats.highestScore} color="green" />
+                  <StatCard icon={<FiTrendingDown size={22} />} title="NIlai Terendah" value={summaryStats.lowestScore} color="yellow" />
+                  <StatCard icon={<FiTrendingUp size={22} />} title="Nilai Tertinggi" value={summaryStats.highestScore} color="green" />
                 </div>
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                   <div className="p-6 border-b border-gray-200">

@@ -1,16 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import api from "../api";
 import Cookies from "js-cookie";
 import MngNavbar from "../components/ManageNavbar";
 import { toast } from "../utils/toast";
 import { uploadImageToServer } from "../utils/uploadImageToServer";
+import JoditEditor from "jodit-react";
+import { FiEye } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 
 window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
 
 function ManageCoursePage() {
   const { id } = useParams();
   const role = Cookies.get("role");
+  const navigate = useNavigate();
+  const { id: courseId } = useParams();
   const [kelasList, setKelasList] = useState([]);
 
   const [form, setForm] = useState({
@@ -220,9 +225,28 @@ function ManageCoursePage() {
     return html.includes("<img");
   }
 
-  function toAbsoluteImageSrc(html) {
-    return html.replace(/src="\/uploads/g, `src="http://localhost:5000/uploads`);
-  }  
+  const toAbsoluteImageSrc = (html) => {
+    const baseURL = "http://localhost:5000"; // Ganti ini kalau di production
+    return html.replace(/src="(?!http)(\/uploads[^"]*)"/g, `src="${baseURL}$1"`);
+  };
+  
+  
+
+  const handleSoalChange = (index, htmlContent) => {
+    const updated = [...soalList];
+    updated[index].soal = htmlContent;
+    setSoalList(updated);
+  };
+
+  const handleOpsiChange = (index, opsiIdx, htmlContent) => {
+    const updated = [...soalList];
+    updated[index].opsi[opsiIdx] = htmlContent;
+    setSoalList(updated);
+  };
+
+  const editorSoalRef = useRef(null);
+  const labelHuruf = (i) => String.fromCharCode(65 + i);
+  const editorOpsiRef = useRef(null);
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -486,190 +510,155 @@ function ManageCoursePage() {
           {soalList.length > 0 && (
             <div className="space-y-6">
               {soalList.map((item, index) => {
-  const labelHuruf = (i) => String.fromCharCode(65 + i);
-
   return (
     <div
       key={index}
-      className="p-5 border border-gray-200 rounded-lg bg-white shadow-sm transition-shadow hover:shadow-md mb-4"
+      className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-6 transition-all duration-300 hover:shadow-lg hover:border-blue-300"
     >
-      {/* === Header === */}
-      <div className="flex justify-between items-center mb-4">
-        <span className="font-bold text-gray-700">Soal #{index + 1}</span>
+      {/* === Header Soal === */}
+      <div className="flex justify-between items-center p-4 bg-slate-50 border-b border-slate-200">
+        <h3 className="font-bold text-lg text-slate-800">
+          Soal #{index + 1}
+        </h3>
         <button
           onClick={() => setSoalList(soalList.filter((_, i) => i !== index))}
-          className="text-gray-400 hover:text-red-600 transition-colors text-sm font-medium"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-500 hover:bg-red-100 hover:text-red-700 transition-all"
         >
-          ❌ Hapus
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+          Hapus Soal
         </button>
       </div>
 
-      {/* === Soal === */}
-      <div className="mb-4">
-        <textarea
-          value={(() => {
-            const div = document.createElement("div");
-            div.innerHTML = item.soal || "";
-            return div.textContent?.trim() || "";
-          })()}
-          onChange={(e) => {
-            const updated = [...soalList];
-            const html = item.soal || "";
-            const div = document.createElement("div");
-            div.innerHTML = html;
-            const img = div.querySelector("img");
-            const imgHTML = img ? img.outerHTML + "<br/>" : "";
-            updated[index].soal = `${imgHTML}<span class="inline-option">${e.target.value}</span>`;
-            setSoalList(updated);
-          }}
-          rows={4}
-          className="w-full border border-gray-300 rounded-md p-3 mb-2 shadow-sm focus:ring-blue-500 focus:border-blue-500"
-          placeholder="Tulis soal di sini..."
-        />
-
-        {/* Gambar soal (jika ada) */}
-        {item.soal?.includes("<img") && (
-          <div className="mb-2">
-            <div
-              dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(item.soal) }}
-            />
-            <button
-              onClick={() => {
+      <div className="p-5 md:p-6">
+        {/* === Konten Soal === */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-slate-600 mb-2">
+            Pertanyaan
+          </label>
+          <div className="prose max-w-none">
+            <JoditEditor
+              ref={editorSoalRef}
+              value={toAbsoluteImageSrc(item.soal)}
+              config={{
+                readonly: false,
+                height: 300,
+                toolbar: true,
+                toolbarAdaptive: false,
+                toolbarSticky: false,
+                buttons: [ 'bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'image', '|', 'undo', 'redo' ],
+                enter: 'P',
+                tabIndex: 1,
+                allowTabNavigation: true,
+                placeholder: 'Tuliskan pertanyaan di sini...'
+              }}
+              onBlur={(newContent) => {
                 const updated = [...soalList];
-                const div = document.createElement("div");
-                div.innerHTML = item.soal;
-                div.querySelector("img")?.remove();
-                updated[index].soal = div.innerHTML;
+                updated[index].soal = newContent;
                 setSoalList(updated);
               }}
-              className="text-xs text-red-500 hover:text-red-700 mt-1"
-            >
-              ❌ Hapus Gambar Soal
-            </button>
+            />
           </div>
-        )}
+          <label htmlFor={`soal-img-upload-${index}`} className="mt-3 inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 cursor-pointer font-medium">
+             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-image-plus"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><line x1="16" x2="22" y1="5" y2="5"/><line x1="19" x2="19" y1="2" y2="8"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            Sisipkan Gambar
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            id={`soal-img-upload-${index}`}
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              try {
+                const imgPath = await uploadImageToServer(file);
+                const updated = [...soalList];
+                updated[index].soal = `<img src="${imgPath}" class="max-h-60 mb-2 rounded-md"><br/>` + (item.soal || '');
+                setSoalList(updated);
+              } catch {
+                alert("❌ Gagal upload gambar soal.");
+              }
+            }}
+          />
+        </div>
 
-        {/* Upload Gambar Soal */}
-        <input
-          type="file"
-          accept="image/*"
-          onChange={async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            try {
-              const imgPath = await uploadImageToServer(file);
-              const updated = [...soalList];
-              const div = document.createElement("div");
-              div.innerHTML = updated[index].soal || "";
-              const text = div.textContent?.trim() || "";
-              updated[index].soal = `<img src="${imgPath}" class="max-h-60 mb-2"><br/><span class="inline-option">${text}</span>`;
-              setSoalList(updated);
-            } catch {
-              alert("❌ Gagal upload gambar soal.");
-            }
-          }}
-          className="text-sm text-gray-600"
-        />
-      </div>
+        {/* === OPSI JAWABAN === */}
+        <div>
+          <label className="block text-base font-semibold text-slate-700 mb-3">
+            Pilihan Jawaban
+          </label>
+          <div className="space-y-4">
+            {item.opsi.map((opsi, opsiIdx) => {
+              const huruf = labelHuruf(opsiIdx);
+              const isChecked = item.jawaban === huruf;
 
-      {/* === OPSI === */}
-      <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-600 mb-2">
-          Pilihan Jawaban:
-        </label>
-
-        <div className="space-y-3">
-          {item.opsi.map((opsi, opsiIdx) => {
-            const huruf = labelHuruf(opsiIdx);
-            const div = document.createElement("div");
-            div.innerHTML = opsi;
-            const img = div.querySelector("img");
-            const imgHTML = img ? img.outerHTML + "<br/>" : "";
-            const text = div.textContent?.replace(`${huruf}.`, "").trim() || "";
-
-            return (
-              <div key={opsiIdx} className="flex items-start gap-3">
-                <div className="pt-2 font-mono text-sm text-gray-500 min-w-[1.5rem]">
-                  {huruf}.
-                </div>
-
-                <div className="flex-1 flex flex-col gap-2">
-                  <textarea
-                    className="w-full border rounded p-2 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                    value={text}
-                    onChange={(e) => {
-                      const updated = [...soalList];
-                      updated[index].opsi[opsiIdx] =
-                        `<span class="inline-option">${huruf}. <br/>${imgHTML}${e.target.value}</span>`;
-                      setSoalList(updated);
-                    }}
-                    rows={2}
-                    placeholder="Tulis pilihan..."
-                  />
-
-                  {/* Preview gambar opsi (jika ada) */}
-                  {img && (
-                    <div>
-                      <div
-                        dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(img.outerHTML) }}
-                      />
-                      <button
-                        onClick={() => {
-                          const updated = [...soalList];
-                          const div = document.createElement("div");
-                          div.innerHTML = opsi;
-                          div.querySelector("img")?.remove();
-                          updated[index].opsi[opsiIdx] = div.innerHTML;
-                          setSoalList(updated);
-                        }}
-                        className="text-xs text-red-500 hover:text-red-700"
-                      >
-                        ❌ Hapus Gambar Opsi
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Upload gambar opsi */}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={async (e) => {
-                      const file = e.target.files[0];
-                      if (!file) return;
-                      try {
-                        const imgPath = await uploadImageToServer(file);
-                        const updated = [...soalList];
-                        updated[index].opsi[opsiIdx] =
-                          `<span class="inline-option">${huruf}. <br/><img src="${imgPath}" class="max-h-28 mb-2"><br/>${text}</span>`;
-                        setSoalList(updated);
-                      } catch {
-                        alert("❌ Gagal upload gambar opsi.");
-                      }
-                    }}
-                    className="text-sm text-gray-600"
-                  />
-                </div>
-
-                {/* Tombol benar dan hapus */}
-                <div className="flex flex-col items-center gap-2 ml-2">
-                  <label className="flex items-center text-sm text-gray-600 whitespace-nowrap">
-                    <input
-                      type="radio"
-                      name={`jawaban-${index}`}
-                      value={huruf}
-                      checked={item.jawaban === huruf}
+              return (
+                <div key={opsiIdx} className={`flex items-start gap-4 p-4 rounded-lg border transition-all ${ isChecked ? 'bg-green-50 border-green-400 shadow-sm' : 'bg-slate-50 border-slate-200' }`}>
+                  <label htmlFor={`jawaban-${index}-${opsiIdx}`} className="flex-shrink-0 cursor-pointer">
+                    <input type="radio" id={`jawaban-${index}-${opsiIdx}`} name={`jawaban-${index}`} value={huruf} checked={isChecked}
                       onChange={(e) => {
                         const updated = [...soalList];
                         updated[index].jawaban = e.target.value;
                         setSoalList(updated);
                       }}
-                      className="h-4 w-4 text-green-600 border-gray-300 focus:ring-green-500"
+                      className="hidden peer"
                     />
-                    <span className="ml-1">Benar</span>
+                    <div className="w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-slate-300 font-bold text-slate-500 peer-checked:bg-green-600 peer-checked:border-green-600 peer-checked:text-white transition-all">
+                      {huruf}
+                    </div>
                   </label>
 
+                  <div className="flex-1">
+                     <div className="prose max-w-none">
+                        <JoditEditor
+                          ref={editorOpsiRef}
+                          value={toAbsoluteImageSrc(opsi)}
+                          config={{
+                            readonly: false,
+                            height: 100,
+                            toolbar: true,
+                            toolbarAdaptive: false,
+                            toolbarSticky: false,
+                            buttons: [ 'bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'image', '|', 'undo', 'redo' ],
+                            enter: 'P',
+                            tabIndex: 1,
+                            allowTabNavigation: true,
+                            placeholder: 'Tuliskan pilihan jawaban...'
+                          }}
+                          onBlur={(newContent) => {
+                            const updated = [...soalList];
+                            updated[index].opsi[opsiIdx] = newContent;
+                            setSoalList(updated);
+                          }}
+                        />
+                    </div>
+                    {/* === Input Gambar untuk OPSI (BARU) === */}
+                    <label htmlFor={`opsi-img-upload-${index}-${opsiIdx}`} className="mt-2 inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 cursor-pointer font-medium">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-image-plus"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><line x1="16" x2="22" y1="5" y2="5"/><line x1="19" x2="19" y1="2" y2="8"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                      Sisipkan Gambar
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id={`opsi-img-upload-${index}-${opsiIdx}`}
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        try {
+                          const imgPath = await uploadImageToServer(file);
+                          const updated = [...soalList];
+                          updated[index].opsi[opsiIdx] = `<img src="${imgPath}" class="max-h-28 mb-2 rounded-md"><br/>` + (item.opsi[opsiIdx] || '');
+                          setSoalList(updated);
+                        } catch {
+                          alert("❌ Gagal upload gambar opsi.");
+                        }
+                      }}
+                    />
+                  </div>
+
                   <button
-                    className="text-xs text-red-500 hover:text-red-700"
+                    className="flex-shrink-0 text-slate-400 hover:text-red-600 transition-colors"
                     onClick={() => {
                       const updated = [...soalList];
                       updated[index].opsi.splice(opsiIdx, 1);
@@ -678,49 +667,58 @@ function ManageCoursePage() {
                       }
                       setSoalList(updated);
                     }}
-                    title="Hapus opsi"
+                    title="Hapus opsi ini"
                   >
-                    ❌
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x-circle"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>
                   </button>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Tambah Pilihan */}
-        <div className="mt-3">
-          <button
-            onClick={() => {
-              const updated = [...soalList];
-              updated[index].opsi.push(`<span class="inline-option"></span>`);
-              setSoalList(updated);
-            }}
-            className="text-sm text-blue-600 hover:text-blue-800"
-          >
-            ➕ Tambah Pilihan
-          </button>
-        </div>
-
-        {(item.opsi.length < 2 || !item.jawaban) && (
-          <div className="text-xs text-red-600 mt-2 p-2 bg-red-50 rounded-md">
-            ⚠️ Soal harus memiliki minimal 2 pilihan dan 1 jawaban benar.
+              );
+            })}
           </div>
-        )}
+
+          {/* Tombol Tambah Opsi & Notifikasi Error */}
+          <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+             <button
+                onClick={() => {
+                  const updated = [...soalList];
+                  updated[index].opsi.push("");
+                  setSoalList(updated);
+                }}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 hover:text-blue-800 transition-all"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                Tambah Pilihan
+              </button>
+
+            {(item.opsi.length < 2 || !item.jawaban) && (
+              <div className="text-xs text-red-700 p-2 bg-red-100 rounded-lg flex items-center gap-2">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-alert-triangle"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+                <span>Soal harus memiliki min. 2 pilihan & 1 jawaban.</span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
 })}
 
+<div className="flex justify-end gap-4 mt-8">
+  <button
+    onClick={handleSimpanSoal}
+    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+  >
+    💾 Simpan Semua Soal
+  </button>
 
-              <div className="text-right border-t pt-6 mt-8">
-                <button
-                  onClick={handleSimpanSoal}
-                  className="inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                >
-                  💾 Simpan Semua Soal ({soalList.length})
-                </button>
-              </div>
+  <button
+  onClick={() => navigate(`/courses/${courseId}/preview`)}
+  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition border border-gray-300"
+>
+  <FiEye />
+  Preview Soal
+</button>
+</div>
             </div>
           )}
         </div>

@@ -25,6 +25,7 @@ import AnswerSummaryPage from "./pages/AnswerSummaryPage";
 import StudentLogDetailPage from "./pages/StudentLogDetailPage";
 import ManageExamPage from "./pages/ManageExamPage";
 import ManageGuruPage from "./pages/ManageGuruPage";
+import PreviewPage from "./pages/PreviewPage";
 
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
@@ -171,6 +172,7 @@ function AppLayout() {
             <Route path="/home" element={<PrivateRoute element={<HomePage />} />} />
             <Route path="/courses" element={<PrivateRoute element={<CoursesPage />} />} />
             <Route path="/courses/:id/do" element={<PrivateRoute element={<DoExamPage />} />} />
+            <Route path="/courses/:id/preview" element={<PrivateRoute element={<PreviewPage />} />} />
             <Route path="/courses/:courseId/log/:userId/:attemp" element={<StudentLogDetailPage />} />
 
             <Route
