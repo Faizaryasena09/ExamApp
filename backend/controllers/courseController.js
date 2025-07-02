@@ -34,7 +34,7 @@ function shuffleArray(array) {
         (nama, pengajar_id, pengajar, kelas, tanggal_mulai, tanggal_selesai, waktu, deskripsi,
           maxPercobaan, tampilkanHasil, useToken, tokenValue, tokenCreatedAt, 
           acakSoal, acakJawaban, minWaktuSubmit,
-          logPengerjaan, analisisJawaban)   -- ✅ Tambahkan ini
+          logPengerjaan, analisisJawaban)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           nama,
@@ -488,6 +488,33 @@ if (!userId || isNaN(userId)) {
       return res.status(500).json({ success: false, message: "Gagal simpan jawaban." });
     }
   };  
+
+  function saveBase64Image(base64Str) {
+    const matches = base64Str.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (!matches) return null;
+  
+    const ext = matches[1].split("/")[1];
+    const buffer = Buffer.from(matches[2], "base64");
+    const filename = `${Date.now()}-${uuidv4()}.${ext}`;
+    const filepath = path.join(__dirname, "../uploads", filename);
+  
+    fs.writeFileSync(filepath, buffer);
+    return `/uploads/${filename}`;
+  }
+  
+  function replaceBase64Images(html) {
+    return html.replace(/<img[^>]+src=["'](data:image\/[^"']+)["'][^>]*>/g, (match, base64) => {
+      const newSrc = saveBase64Image(base64);
+      if (newSrc) {
+        return match.replace(base64, newSrc);
+      }
+      return match;
+    });
+  }
+  
+  function cleanOptionsArray(opsiArray) {
+    return opsiArray.map((opsi) => replaceBase64Images(opsi));
+  }
   
   exports.saveOrUpdateQuestions = async (req, res) => {
     const course_id = req.params.id;
@@ -507,8 +534,8 @@ if (!userId || isNaN(userId)) {
       const existingIds = existingSoal.map((s) => s.id);
   
       const incomingIds = soal.filter(s => s.id).map(s => parseInt(s.id));
-  
       const toDelete = existingIds.filter(id => !incomingIds.includes(id));
+  
       if (toDelete.length > 0) {
         await db.query(
           "DELETE FROM questions WHERE id IN (?) AND course_id = ?",
@@ -517,18 +544,21 @@ if (!userId || isNaN(userId)) {
       }
   
       for (const item of soal) {
-        const opsi = acakJawaban ? shuffleArray(item.opsi) : item.opsi;
+        // 💡 Replace base64 image with uploaded file path
+        const soalCleaned = replaceBase64Images(item.soal);
+        const opsiCleaned = cleanOptionsArray(item.opsi);
+        const opsiFinal = acakJawaban ? shuffleArray(opsiCleaned) : opsiCleaned;
         const soalId = parseInt(item.id);
   
         if (!isNaN(soalId)) {
           await db.query(
             "UPDATE questions SET soal = ?, opsi = ?, jawaban = ? WHERE id = ? AND course_id = ?",
-            [item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase(), soalId, course_id]
+            [soalCleaned, JSON.stringify(opsiFinal), item.jawaban.toUpperCase(), soalId, course_id]
           );
         } else {
           await db.query(
             "INSERT INTO questions (course_id, soal, opsi, jawaban) VALUES (?, ?, ?, ?)",
-            [course_id, item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase()]
+            [course_id, soalCleaned, JSON.stringify(opsiFinal), item.jawaban.toUpperCase()]
           );
         }
       }
@@ -538,7 +568,7 @@ if (!userId || isNaN(userId)) {
       console.error("❌ Gagal simpan soal:", err);
       res.status(500).json({ error: "Gagal simpan soal" });
     }
-  };  
+  };
   
   exports.getQuestions = async (req, res) => {
     const course_id = req.params.id;

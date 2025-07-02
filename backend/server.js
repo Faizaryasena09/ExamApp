@@ -53,4 +53,10 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 const sessionController = require("./controllers/sessionController");
 sessionController.startAutoSessionChecker();
 
+const cleanUploads = require("./utils/cleanUploads");
+cleanUploads();
+setInterval(() => {
+  cleanUploads();
+}, 24 * 60 * 60 * 1000);
+
 app.listen(PORT, () => console.log(`Server berjalan pada port ${PORT}`));
