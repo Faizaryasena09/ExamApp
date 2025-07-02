@@ -98,6 +98,17 @@ function Sidebar({ isOpen, onClose }) {
                 </li>
                 <li>
                   <NavLink
+                    to="/webmng"
+                    onClick={onClose}
+                    style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+                    className="flex items-center px-4 py-2.5 rounded-lg hover:bg-slate-700 hover:text-white transition-colors duration-200"
+                  >
+                    <FiSettings className="mr-3 text-lg" />
+                    <span>Manajemen Web</span>
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink
                     to="/examcontrol"
                     onClick={onClose}
                     style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}

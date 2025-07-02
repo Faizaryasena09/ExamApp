@@ -7,10 +7,12 @@ import api from "../api";
 function Header({ onToggleSidebar }) {
   const [isDropdownOpen, setDropdownOpen] = useState(false);
   const [userName, setUserName] = useState("User");
+  const [siteTitle, setSiteTitle] = useState("ExamApp");
+  const [siteLogo, setSiteLogo] = useState("");
+
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
-
-  const logoutFlagRef = useRef(false); // Flag untuk mencegah multiple logout
+  const logoutFlagRef = useRef(false);
 
   useEffect(() => {
     const nameFromCookie = Cookies.get("name");
@@ -28,13 +30,10 @@ function Header({ onToggleSidebar }) {
   }, []);
 
   const performCleanup = () => {
-    // Hapus semua cookies sekaligus
     Cookies.remove("token");
     Cookies.remove("name");
     Cookies.remove("role");
     Cookies.remove("user_id");
-    
-    // Redirect ke halaman login dengan replace
     navigate("/", { replace: true });
   };
 
@@ -57,33 +56,32 @@ function Header({ onToggleSidebar }) {
   useEffect(() => {
     const name = Cookies.get("name");
     if (!name) return;
-  
+
     let idleTimeout = null;
     let sse = null;
-    let intervalOnline = null; // 🔹 Tambahan
+    let intervalOnline = null;
     let isActive = true;
-  
+
     const cleanupResources = () => {
       if (!isActive) return;
       isActive = false;
-  
+
       clearTimeout(idleTimeout);
-      clearInterval(intervalOnline); // 🔹 Tambahan
+      clearInterval(intervalOnline);
       window.removeEventListener("beforeunload", handleBeforeUnload);
       activityEvents.forEach(ev => window.removeEventListener(ev, resetIdleTimer));
-  
       if (sse) {
         sse.close();
         sse = null;
       }
     };
-  
+
     const resetIdleTimer = () => {
       if (!isActive || logoutFlagRef.current) return;
       clearTimeout(idleTimeout);
       idleTimeout = setTimeout(() => updateStatus("offline"), 10 * 60 * 1000);
     };
-  
+
     const updateStatus = async (status) => {
       if (!isActive || logoutFlagRef.current) return;
       try {
@@ -92,24 +90,24 @@ function Header({ onToggleSidebar }) {
         console.error("❌ Gagal update status:", err);
       }
     };
-  
+
     const handleBeforeUnload = () => {
       if (!isActive || logoutFlagRef.current) return;
       updateStatus("offline");
     };
-  
+
     const activityEvents = ["mousemove", "keydown", "click", "scroll", "touchstart"];
     activityEvents.forEach(ev => window.addEventListener(ev, resetIdleTimer));
     resetIdleTimer();
-  
+
     const setupSSE = () => {
       if (!isActive || logoutFlagRef.current) return;
-  
+
       sse = new EventSource(`${api.defaults.baseURL}/exam/session/stream`);
-  
+
       sse.onmessage = (event) => {
         if (!isActive || logoutFlagRef.current) return;
-  
+
         try {
           const data = JSON.parse(event.data);
           if (data.type === "forceLogout" && data.username === name) {
@@ -121,27 +119,45 @@ function Header({ onToggleSidebar }) {
           console.error("❌ Gagal parsing data SSE:", err);
         }
       };
-  
+
       sse.onerror = (err) => {
         console.warn("SSE error:", err);
         if (sse) sse.close();
-  
+
         if (isActive && !logoutFlagRef.current) {
           setTimeout(setupSSE, 3000);
         }
       };
     };
-  
-    // ⏲️ Kirim status online setiap 10 menit (600.000 ms)
+
     intervalOnline = setInterval(() => {
       updateStatus("online");
     }, 10 * 60 * 1000);
-  
+
     setupSSE();
     window.addEventListener("beforeunload", handleBeforeUnload);
-  
+
     return cleanupResources;
-  }, [navigate]);  
+  }, [navigate]);
+
+  // Ambil pengaturan situs dari backend
+  useEffect(() => {
+    api.get("/web-settings")
+      .then((res) => {
+        setSiteTitle(res.data.judul || "ExamApp");
+        setSiteLogo(toAbsoluteImageSrc(res.data.logo));
+      })
+      .catch((err) => {
+        console.warn("❌ Gagal ambil pengaturan web:", err);
+      });
+  }, []);
+
+  const toAbsoluteImageSrc = (path) => {
+    if (!path) return "";
+    let baseURL = api.defaults.baseURL || "http://localhost:5000";
+    if (baseURL.endsWith("/api")) baseURL = baseURL.slice(0, -4);
+    return path.startsWith("http") ? path : `${baseURL}${path.startsWith("/") ? "" : "/"}${path}`;
+  };
 
   return (
     <header className="bg-slate-800 px-4 sm:px-6 py-2 flex justify-between items-center shadow-md border-b border-slate-700">
@@ -152,7 +168,16 @@ function Header({ onToggleSidebar }) {
         >
           ☰
         </button>
-        <h1 className="text-xl font-semibold text-white">ExamApp</h1>
+        <div className="flex items-center gap-2">
+          {siteLogo && (
+            <img
+              src={siteLogo}
+              alt="Logo"
+              className="h-8 w-8 object-contain rounded-sm bg-white"
+            />
+          )}
+          <h1 className="text-xl font-semibold text-white">{siteTitle}</h1>
+        </div>
       </div>
       <div ref={dropdownRef} className="relative">
         <div
@@ -166,18 +191,14 @@ function Header({ onToggleSidebar }) {
             {userName.charAt(0).toUpperCase()}
           </div>
           <FiChevronDown
-            className={`ml-2 h-5 w-5 text-slate-400 transition-transform ${
-              isDropdownOpen ? "rotate-180" : ""
-            }`}
+            className={`ml-2 h-5 w-5 text-slate-400 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`}
           />
         </div>
 
         <div
-          className={`absolute right-0 mt-3 w-48 bg-white rounded-md shadow-lg py-1 z-20
-                     transition-all duration-150 ease-in-out
-                     ${isDropdownOpen
-                       ? "opacity-100 scale-100"
-                       : "opacity-0 scale-95 pointer-events-none"}`}
+          className={`absolute right-0 mt-3 w-48 bg-white rounded-md shadow-lg py-1 z-20 transition-all duration-150 ease-in-out ${
+            isDropdownOpen ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
+          }`}
         >
           <div className="px-4 py-2 text-sm text-gray-700 border-b">
             <p className="font-semibold">Masuk sebagai</p>

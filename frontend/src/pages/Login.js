@@ -1,15 +1,37 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import Cookies from "js-cookie";
-import { FiUser, FiLock, FiEye, FiEyeOff, FiLogIn } from "react-icons/fi";
+import { FiUser, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
 
 function LoginPage() {
   const [form, setForm] = useState({ username: "", password: "" });
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [siteTitle, setSiteTitle] = useState("Selamat Datang");
+  const [siteLogo, setSiteLogo] = useState("");
+
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Ambil pengaturan situs (judul + logo)
+    api.get("/web-settings")
+      .then(res => {
+        setSiteTitle(res.data.judul || "Selamat Datang");
+        setSiteLogo(toAbsoluteImageSrc(res.data.logo));
+      })
+      .catch(err => {
+        console.warn("❌ Gagal ambil pengaturan situs:", err);
+      });
+  }, []);
+
+  const toAbsoluteImageSrc = (path) => {
+    if (!path) return "";
+    let baseURL = api.defaults.baseURL || "http://localhost:5000";
+    if (baseURL.endsWith("/api")) baseURL = baseURL.slice(0, -4);
+    return path.startsWith("http") ? path : `${baseURL}${path.startsWith("/") ? "" : "/"}${path}`;
+  };
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -71,14 +93,22 @@ function LoginPage() {
     <div className="min-h-screen flex flex-col justify-center items-center bg-slate-100 p-4">
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-4">
-          <div className="bg-indigo-600 p-3 rounded-full">
-            <FiLogIn className="w-8 h-8 text-white" />
-          </div>
+          {siteLogo ? (
+            <img
+              src={siteLogo}
+              alt="Logo Situs"
+              className="h-16 w-16 object-contain rounded-full"
+            />
+          ) : (
+            <div className="bg-indigo-600 p-3 rounded-full">
+              <FiUser className="w-8 h-8 text-white" />
+            </div>
+          )}
         </div>
-        
+
         <div className="bg-white shadow-xl rounded-2xl p-6 sm:p-8">
           <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold text-slate-800">Selamat Datang</h1>
+            <h1 className="text-3xl font-bold text-slate-800">{siteTitle}</h1>
             <p className="text-slate-500 mt-1">Silakan masuk ke akun Anda</p>
           </div>
 
@@ -104,7 +134,7 @@ function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password"  className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
                 Password
               </label>
               <div className="relative">
@@ -126,19 +156,17 @@ function LoginPage() {
                   className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-700"
                   aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
                 >
-                  {showPassword ? (
-                    <FiEyeOff className="h-5 w-5" />
-                  ) : (
-                    <FiEye className="h-5 w-5" />
-                  )}
+                  {showPassword ? <FiEyeOff className="h-5 w-5" /> : <FiEye className="h-5 w-5" />}
                 </button>
               </div>
             </div>
-            
+
             {message && (
-              <p className={`text-center text-sm font-medium ${
-                  message.includes('✅') ? 'text-green-600' : 'text-red-600'
-              }`}>
+              <p
+                className={`text-center text-sm font-medium ${
+                  message.includes("✅") ? "text-green-600" : "text-red-600"
+                }`}
+              >
                 {message}
               </p>
             )}
@@ -151,9 +179,25 @@ function LoginPage() {
               >
                 {isLoading ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    <svg
+                      className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
                     </svg>
                     Memproses...
                   </>

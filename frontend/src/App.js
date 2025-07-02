@@ -26,7 +26,7 @@ import StudentLogDetailPage from "./pages/StudentLogDetailPage";
 import ManageExamPage from "./pages/ManageExamPage";
 import ManageGuruPage from "./pages/ManageGuruPage";
 import PreviewPage from "./pages/PreviewPage";
-
+import WebSettingsPage from "./pages/WebSettingsPage";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 
@@ -224,6 +224,10 @@ function AppLayout() {
             <Route
               path="/classmanage"
               element={<RoleRoute allowedRoles={["admin"]} element={<KelasManagement />} />}
+            />
+            <Route
+              path="/webmng"
+              element={<RoleRoute allowedRoles={["admin"]} element={<WebSettingsPage />} />}
             />
             <Route path="/courses/:courseId/:userId/:attemp/summary" element={<AnswerSummaryPage />} />
           </Routes>

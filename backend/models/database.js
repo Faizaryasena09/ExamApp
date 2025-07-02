@@ -179,6 +179,14 @@ async function initDatabase() {
     `);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS web_settings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        judul VARCHAR(255),
+        logo VARCHAR(255)
+      )
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS status_ujian (
         user_id INT,
         course_id INT,

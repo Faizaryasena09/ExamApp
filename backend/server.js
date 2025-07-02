@@ -30,6 +30,7 @@ const studentworklog = require("./routes/studentWorkLogRoutes");
 const examRoutes = require("./routes/examRoutes");
 const guruRoutes = require("./routes/guruRoutes");
 const uploadRoutes = require('./routes/uploadRoutes');
+const webMngRoutes = require("./routes/webMngRoutes");
 
 app.use("/api/exam", examRoutes);
 app.use("/api/studentworklog", studentworklog);
@@ -44,6 +45,7 @@ app.use("/api/data/kelas", kelasRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api", dashboardRoutes);
 app.use("/api", resultRoutes);
+app.use("/api", webMngRoutes);
 app.use("/api/subfolders", subfolderRoutes);
 app.use('/api', uploadRoutes);
 
