@@ -512,9 +512,24 @@ if (!userId || isNaN(userId)) {
     });
   }
   
-  function cleanOptionsArray(opsiArray) {
-    return opsiArray.map((opsi) => replaceBase64Images(opsi));
-  }
+  function cleanOptionsArray(rawOpsi) {
+    let opsi = [];
+  
+    if (!Array.isArray(rawOpsi) || rawOpsi.length === 0) {
+      return ["A. ", "B. ", "C. ", "D. "];
+    }
+  
+    opsi = rawOpsi.map((item, i) => {
+      const label = String.fromCharCode(65 + i);
+      const isi = typeof item === "string" ? item.trim() : "";
+      if (!isi) return `${label}. `;
+  
+      const cleanedIsi = replaceBase64Images(isi.replace(/^[A-Z]\.\s*/, ""));
+      return `${label}. ${cleanedIsi}`;
+    });
+  
+    return opsi;
+  }  
   
   exports.saveOrUpdateQuestions = async (req, res) => {
     const course_id = req.params.id;

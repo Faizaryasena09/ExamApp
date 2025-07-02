@@ -758,7 +758,8 @@ function DoExamPage() {
                       className="text-gray-700 prose max-w-none"
                       dangerouslySetInnerHTML={{
                         __html: toAbsoluteImageSrc(
-                          opsi.replace(/^<span[^>]*>[A-D]\.\s*<br\/?>/i, '')
+                          opsi.replace(/^(\s*<span[^>]*>)?[A-Da-d]\.\s*(<\/span>)?/i, '')
+
                         ),
                       }}
                     />
