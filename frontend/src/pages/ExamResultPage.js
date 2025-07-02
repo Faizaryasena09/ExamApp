@@ -30,8 +30,11 @@ const ScoreCard = ({ score, totalQuestions }) => {
 };
 
 function toAbsoluteImageSrc(html) {
-  return html.replace(/src="\/uploads/g, `src="http://localhost:5000/uploads`);
-}  
+  const rawBaseURL = api.defaults.baseURL || "http://localhost:5000";
+  const baseURL = rawBaseURL.replace(/\/api\/?$/, "");
+
+  return html.replace(/src="\/uploads/g, `src="${baseURL}/uploads`);
+}
 
 const QuestionCard = ({ question, index }) => {
   const opsi = useMemo(() => {

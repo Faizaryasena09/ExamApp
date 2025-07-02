@@ -3,9 +3,11 @@ import { useParams } from "react-router-dom";
 import api from "../api";
 
 function toAbsoluteImageSrc(html) {
-    return html.replace(/src=["']?(\/uploads[^"']*)["']?/g, 'src="http://localhost:5000$1"');
-  }
-  
+  const rawBaseURL = api.defaults.baseURL || "http://localhost:5000";
+  const baseURL = rawBaseURL.replace(/\/api\/?$/, "");
+
+  return html.replace(/src="\/uploads/g, `src="${baseURL}/uploads`);
+}
 
 const shuffleArray = (array) => {
   const shuffled = [...array];

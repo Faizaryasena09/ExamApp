@@ -223,10 +223,12 @@ function ManageCoursePage() {
     return html.includes("<img");
   }
 
-  const toAbsoluteImageSrc = (html) => {
-    const baseURL = "http://localhost:5000";
-    return html.replace(/src="(?!http)(\/uploads[^"]*)"/g, `src="${baseURL}$1"`);
-  };
+  function toAbsoluteImageSrc(html) {
+    const rawBaseURL = api.defaults.baseURL || "http://localhost:5000";
+    const baseURL = rawBaseURL.replace(/\/api\/?$/, "");
+  
+    return html.replace(/src="\/uploads/g, `src="${baseURL}/uploads`);
+  }
   
   const handleSoalChange = (index, htmlContent) => {
     const updated = [...soalList];
