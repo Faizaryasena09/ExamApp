@@ -4,26 +4,32 @@ const dbPromise = require("../models/database");
 
 async function cleanUnusedUploads() {
   const uploadDir = path.join(__dirname, "../uploads");
-  if (!fs.existsSync(uploadDir)) {
-    console.warn("⚠️ Folder /uploads tidak ditemukan");
-    return;
-  }
+  if (!fs.existsSync(uploadDir)) return;
 
   const filesInUpload = fs.readdirSync(uploadDir);
   const connection = await dbPromise;
 
-  const [rows] = await connection.query("SELECT soal, opsi FROM questions");
+  const [questions] = await connection.query("SELECT soal, opsi FROM questions");
+  const [settings] = await connection.query("SELECT logo FROM web_settings");
 
   const usedImages = new Set();
 
-  rows.forEach(row => {
+  // Logo situs
+  if (settings && settings[0]?.logo) {
+    const logo = settings[0].logo;
+    const logoMatch = logo.match(/\/uploads\/([^"]+)/);
+    if (logoMatch) {
+      usedImages.add(logoMatch[1]);
+    }
+  }
+
+  // Gambar dari soal dan opsi
+  questions.forEach(row => {
     const soal = row.soal || "";
     let opsiList = [];
     try {
       opsiList = JSON.parse(row.opsi || "[]");
-    } catch (err) {
-      console.warn("❗ Opsi tidak bisa di-parse:", row.opsi);
-    }
+    } catch (err) {}
 
     const htmlList = [soal, ...opsiList];
     htmlList.forEach(html => {
@@ -45,6 +51,10 @@ async function cleanUnusedUploads() {
       deleted.push(file);
     }
   });
+
+  if (deleted.length > 0) {
+    console.log("🧹 Upload cleaner: file dihapus:", deleted.join(", "));
+  }
 }
 
 module.exports = cleanUnusedUploads;
