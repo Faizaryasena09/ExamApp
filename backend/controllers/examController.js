@@ -126,7 +126,6 @@ exports.addTimer = async (req, res) => {
         VALUES (?, ?, ?)
         ON DUPLICATE KEY UPDATE waktu_tersisa = waktu_tersisa + ?
       `, [id, course_id, detik, detik]);
-      console.log(`⏱️ Tambah ${detik}s ke user_id: ${id}, course_id: ${course_id}`);
     };
 
     if (user_id) {
@@ -145,7 +144,6 @@ exports.addTimer = async (req, res) => {
 
     // ✅ Kirim SSE agar client reload
     broadcastTimerUpdate();
-    console.log("📡 Broadcast timer update ke semua client");
 
     res.json({ message: "✅ Waktu berhasil ditambahkan." });
 

@@ -1,6 +1,10 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { FiHome, FiUsers, FiBookOpen, FiX, FiFileText, FiSettings, FiUserCheck } from "react-icons/fi";
+import {
+  FiHome, FiUsers, FiBookOpen, FiX,
+  FiFileText, FiSettings, FiUserCheck
+} from "react-icons/fi";
+import api from "../api";
 
 function getCookie(name) {
   const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
@@ -8,15 +12,29 @@ function getCookie(name) {
 }
 
 function Sidebar({ isOpen, onClose }) {
+  const [siteTitle, setSiteTitle] = useState("ExamApp"); // ✅ Gunakan di sini
+  const role = getCookie("role");
+
+  useEffect(() => {
+    api.get("/web-settings")
+      .then(res => {
+        if (res.data?.judul) {
+          setSiteTitle(res.data.judul);
+        }
+      })
+      .catch(err => {
+        console.warn("❌ Gagal ambil nama situs:", err);
+      });
+  }, []);
+
   const activeLinkStyle = {
     backgroundColor: "#334155",
     color: "#f8fafc",
   };
 
-  const role = getCookie("role");
-
   return (
     <>
+      {/* Overlay */}
       <div
         className={`fixed inset-0 bg-black bg-opacity-60 z-40 transition-opacity md:hidden ${
           isOpen ? "block" : "hidden"
@@ -24,14 +42,16 @@ function Sidebar({ isOpen, onClose }) {
         onClick={onClose}
       ></div>
 
+      {/* Sidebar */}
       <aside
         className={`fixed top-0 left-0 h-full w-64 bg-slate-900 text-slate-300 z-50 
                    transition-transform duration-300 ease-in-out
                    ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
+        {/* Header */}
         <div className="flex items-center justify-between p-4 py-5 border-b border-slate-700">
           <div className="flex items-center">
-            <h2 className="text-xl font-bold text-slate-100">ExamApp</h2>
+            <h2 className="text-xl font-bold text-slate-100">{siteTitle}</h2> {/* ✅ Diganti */}
           </div>
           <button
             className="text-slate-400 text-2xl hover:text-white md:hidden"
@@ -42,6 +62,7 @@ function Sidebar({ isOpen, onClose }) {
           </button>
         </div>
 
+        {/* Menu */}
         <nav className="p-4">
           <ul className="space-y-2">
             <li>
@@ -130,8 +151,7 @@ function Sidebar({ isOpen, onClose }) {
           </ul>
         </nav>
 
-        <div className="absolute bottom-0 left-0 w-full p-4 border-t border-slate-700">
-        </div>
+        <div className="absolute bottom-0 left-0 w-full p-4 border-t border-slate-700" />
       </aside>
     </>
   );

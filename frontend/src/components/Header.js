@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiLogOut, FiChevronDown } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight, FiRefreshCw } from "react-icons/fi";
 import Cookies from "js-cookie";
 import api from "../api";
 
@@ -112,13 +113,11 @@ function Header({ onToggleSidebar }) {
           const data = JSON.parse(event.data);
       
           if (data.type === "forceLogout" && data.username === name) {
-            console.log("🔴 Logout paksa diterima dari server");
             cleanupResources();
             handleLogout();
           }
       
           if (data.type === "timer-updated") {
-            console.log("⏱️ Timer updated via SSE, reload halaman...");
             window.location.reload();
           }
         } catch (err) {
@@ -166,24 +165,49 @@ function Header({ onToggleSidebar }) {
 
   return (
     <header className="bg-slate-800 px-4 sm:px-6 py-2 flex justify-between items-center shadow-md border-b border-slate-700">
-      <div className="flex items-center gap-4">
-        <button
-          onClick={onToggleSidebar}
-          className="bg-slate-700 text-slate-200 rounded-sm p-2 text-2xl hover:bg-slate-600 transition-colors"
-        >
-          ☰
-        </button>
-        <div className="flex items-center gap-2">
-          {siteLogo && (
-            <img
-              src={siteLogo}
-              alt="Logo"
-              className="h-8 w-8 object-contain rounded-sm bg-white"
-            />
-          )}
-          <h1 className="text-xl font-semibold text-white">{siteTitle}</h1>
-        </div>
-      </div>
+      <div className="flex items-center gap-3">
+    <button
+      onClick={onToggleSidebar}
+      className="bg-slate-700 text-slate-200 rounded-sm p-2 text-2xl hover:bg-slate-600 transition-colors"
+    >
+      ☰
+    </button>
+    <div className="flex items-center gap-2">
+      {siteLogo && (
+        <img
+          src={siteLogo}
+          alt="Logo"
+          className="h-8 w-8 object-contain rounded-sm bg-white"
+        />
+      )}
+      <h1 className="text-xl font-semibold text-white">{siteTitle}</h1>
+    </div>
+  </div>
+
+  {/* Tengah: Navigasi */}
+  <div className="flex justify-start sm:justify-center gap-2">
+    <button
+      onClick={() => window.history.back()}
+      className="bg-slate-700 text-white p-2 rounded hover:bg-slate-600"
+      title="Kembali"
+    >
+      <FiArrowLeft />
+    </button>
+    <button
+      onClick={() => window.history.forward()}
+      className="bg-slate-700 text-white p-2 rounded hover:bg-slate-600"
+      title="Maju"
+    >
+      <FiArrowRight />
+    </button>
+    <button
+      onClick={() => window.location.reload()}
+      className="bg-slate-700 text-white p-2 rounded hover:bg-slate-600"
+      title="Muat Ulang"
+    >
+      <FiRefreshCw />
+    </button>
+  </div>
       <div ref={dropdownRef} className="relative">
         <div
           className="flex items-center cursor-pointer p-1.5 rounded-lg hover:bg-slate-700 transition-colors"

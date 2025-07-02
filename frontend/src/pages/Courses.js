@@ -72,7 +72,6 @@ function CoursesPage() {
       const url = isSiswa && kelasSiswa ? `/courses?kelas=${kelasSiswa}` : "/courses";
       const res = await api.get(url);
       setCourses(res.data);
-      console.log("📦 Course Sample:", res.data[0]);
       await fetchStatusMap(res.data);
     } catch (err) {
         console.error("❌ Gagal ambil courses & status:", err);

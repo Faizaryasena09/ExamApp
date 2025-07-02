@@ -138,7 +138,6 @@ function DoExamPage() {
         }
   
         let waktuDetik = null;
-        console.log("🔍 before fetchTimer:", { userId, courseId });
   
         try {
           const waktuRes = await api.get(`/answertrail/timer-get`, {
@@ -147,10 +146,8 @@ function DoExamPage() {
               course_id: courseId
             }
           });
-          console.log("🔍 after fetchTimer:", waktuRes.data)
   
           waktuDetik = waktuRes.data.waktu_tersisa;
-          console.log("🕒 Waktu tersisa dari DB:", waktuDetik);
         } catch (err) {
           console.warn("❗ Timer belum tersedia, pakai waktu default:", err.message);
         }
@@ -239,7 +236,6 @@ function DoExamPage() {
     try {
       const saved = localStorage.getItem(`timer-${userId}-${id}`);
       if (saved && !isNaN(saved)) {
-        console.log("📦 Timer dari localStorage:", saved);
         setWaktuSisa(parseInt(saved));
         waktuRef.current = parseInt(saved);
       }
@@ -263,14 +259,12 @@ function DoExamPage() {
   
         if (waktuDB !== null && !isNaN(parseInt(waktuDB))) {
           waktuAktif = parseInt(waktuDB);
-          console.log("🕒 Ambil waktu dari DB:", waktuAktif);
         } else {
           await api.post(`/answertrail/timer-save`, {
             user_id: userId,
             course_id: id,
             waktu_tersisa: waktuAktif,
           });
-          console.log("🆕 Buat record timer pertama:", waktuAktif);
         }
       } catch (err) {
         console.warn("❗ Timer belum tersedia, pakai waktu default:", err.message);
@@ -285,8 +279,6 @@ function DoExamPage() {
   
       const soalRes = await api.get(`/courses/${id}/questions`);
       const rawSoal = soalRes.data;
-  
-      console.log("📥 Soal Mentah dari Server:", rawSoal);
   
       const soalFinal = (acakSoalFromServer ? shuffleArray(rawSoal) : rawSoal).map((soal, index) => {
         const opsiOriginal = typeof soal.opsi === "string" ? JSON.parse(soal.opsi) : soal.opsi;
@@ -321,12 +313,6 @@ function DoExamPage() {
           const idxAsli = opsiOriginal.findIndex(o => o === opsi);
           return String.fromCharCode(65 + idxAsli);
         });
-  
-        console.log(`🔍 Soal #${index + 1}:`, soal.soal);
-        console.log(`📦 Opsi Original:`, opsiOriginal);
-        console.log(`🔀 Opsi Final:`, opsiFinal);
-        console.log(`🧼 Opsi Cleaned:`, opsiCleaned);
-        console.log(`🧭 Mapping ke huruf asli:`, opsiMapping);
   
         return {
           ...soal,
@@ -418,7 +404,6 @@ function DoExamPage() {
   
       if (timerData && !isNaN(timerData)) {
         waktu_tersisa = parseInt(timerData, 10);
-        console.log("⏱️ waktu_tersisa yang dikirim ke backend:", waktu_tersisa);
       } else {
         console.warn("⚠️ Timer tidak ditemukan atau tidak valid");
       }
@@ -472,7 +457,6 @@ function DoExamPage() {
         course_id: courseId,
         waktu_tersisa: detikSisa
       });
-      console.log("🟢 Timer tersimpan:", detikSisa);
     } catch (err) {
       console.error("❌ Gagal simpan waktu:", err.message);
     }

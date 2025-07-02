@@ -53,4 +53,4 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 const sessionController = require("./controllers/sessionController");
 sessionController.startAutoSessionChecker();
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server berjalan pada port ${PORT}`));

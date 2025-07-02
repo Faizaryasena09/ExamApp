@@ -202,7 +202,6 @@ function ManageCoursePage() {
 
   const handleSimpanSoal = async () => {
     try {
-      console.log("📤 Soal yang dikirim ke backend:");
       soalList.forEach((s, i) => {
       });
   

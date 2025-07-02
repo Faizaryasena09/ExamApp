@@ -1,10 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const courseController = require("../controllers/courseController");
-
 const multer = require("multer");
-const upload = multer({ dest: "uploads/" })
+const upload = multer({ dest: "uploads/" }); // ⬅ simpan file sementara ke uploads/
 
+// Daftar route
 router.post("/", courseController.createCourse);
 router.get("/", courseController.getCourses);
 router.get("/:id", courseController.getCourseById);
@@ -12,7 +12,10 @@ router.put("/:id", courseController.updateCourse);
 router.delete("/:id", courseController.deleteCourse);
 router.post("/:id/questions/import", courseController.simpanSoal);
 router.get("/:id/questions/get", courseController.ambilSoal);
+
+// ✅ Pastikan uploadSoalDocx adalah fungsi
 router.post("/:id/upload-soal", upload.single("file"), courseController.uploadSoalDocx);
+
 router.get("/:id/status", courseController.getCourseStatus);
 router.post("/:id/validate-token", courseController.validateCourseToken);
 router.post("/:id/submit", courseController.submitUjian);

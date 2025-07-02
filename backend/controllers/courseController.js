@@ -293,8 +293,6 @@ exports.simpanSoal = async (req, res) => {
       const opsi = acakJawaban ? shuffleArray(item.opsi) : item.opsi;
       const soalId = parseInt(item.id);
 
-      console.log("🧾 Soal ID FE:", item.id, "| Soal:", item.soal);
-
       if (!isNaN(soalId)) {
         const [existing] = await db.query(
           "SELECT id FROM questions WHERE id = ? AND course_id = ?",
@@ -302,20 +300,17 @@ exports.simpanSoal = async (req, res) => {
         );
 
         if (existing.length > 0) {
-          console.log("🔁 UPDATE soal:", soalId);
           await db.query(
             "UPDATE questions SET soal = ?, opsi = ?, jawaban = ? WHERE id = ? AND course_id = ?",
             [item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase(), soalId, course_id]
           );
         } else {
-          console.log("➕ INSERT soal dengan ID:", soalId);
           await db.query(
             "INSERT INTO questions (id, course_id, soal, opsi, jawaban) VALUES (?, ?, ?, ?, ?)",
             [soalId, course_id, item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase()]
           );
         }
       } else {
-        console.log("✨ INSERT soal baru (auto id)");
         await db.query(
           "INSERT INTO questions (course_id, soal, opsi, jawaban) VALUES (?, ?, ?, ?)",
           [course_id, item.soal, JSON.stringify(opsi), item.jawaban.toUpperCase()]
@@ -466,7 +461,6 @@ if (!userId || isNaN(userId)) {
     const parsedUserId = parseInt(user_id);
   
     if (isNaN(parsedUserId) || !Array.isArray(jawaban)) {
-      console.log("❌ Data tidak valid:", { user_id, jawaban });
       return res.status(400).json({ success: false, message: "Data tidak valid." });
     }
   
@@ -736,6 +730,7 @@ exports.checkTokenAuth = async (req, res) => {
   }
 };
 
+
 exports.toggleVisibility = async (req, res) => {
   const db = await dbPromise;
   const courseId = req.params.id;
@@ -757,7 +752,27 @@ function saveBase64ImageToUploads(base64Data, ext = "png") {
   return `/uploads/${fileName}`;
 }
 
+// 👉 Fungsi utama
 function parseSoalFromHtml(html) {
+  const isPlainTextFormat = !html.includes("<") && html.includes("ANS:");
+  return isPlainTextFormat ? parseFromPlainText(html) : parseFromHTML(html);
+}
+
+// 👉 Fungsi tambahan: untuk file .docx
+async function parseSoalFromDocx(filepath) {
+  try {
+    const buffer = fs.readFileSync(filepath);
+    const result = await mammoth.convertToHtml({ buffer });
+    const html = result.value;
+    return parseSoalFromHtml(html);
+  } catch (err) {
+    console.error("❌ Gagal parsing DOCX:", err.message);
+    return [];
+  }
+}
+
+// 👉 Untuk format Word yang hasilnya HTML
+function parseFromHTML(html) {
   const $ = cheerio.load(html);
   const lines = [];
 
@@ -772,10 +787,7 @@ function parseSoalFromHtml(html) {
   let currentAnswer = null;
 
   const cleanHtml = (html) =>
-    html
-      .replace(/<\/?(html|head|body)>/gi, "")
-      .replace(/\s{2,}/g, " ")
-      .trim();
+    html.replace(/<\/?(html|head|body)>/gi, "").replace(/\s{2,}/g, " ").trim();
 
   lines.forEach((line) => {
     const $line = cheerio.load(line, { decodeEntities: false });
@@ -804,18 +816,12 @@ function parseSoalFromHtml(html) {
       currentQuestion = processedLine.replace(/^\d+\.\s*/, "");
       currentOptions = [];
       currentAnswer = null;
-    }
-
-    else if (/^[A-Da-d]\./.test(plain)) {
+    } else if (/^[A-Da-d]\./.test(plain)) {
       currentOptions.push(`<span class="inline-option">${processedLine}</span>`);
-    }
-
-    else if (/^ANS:/i.test(plain)) {
+    } else if (/^ANS:/i.test(plain)) {
       const match = plain.match(/^ANS:\s*([A-Da-d])/);
       if (match) currentAnswer = match[1].toUpperCase();
-    }
-
-    else {
+    } else {
       const isImage = processedLine.includes("<img");
       const lastOpsiIdx = currentOptions.length - 1;
 
@@ -836,6 +842,54 @@ function parseSoalFromHtml(html) {
       opsi: currentOptions,
       jawaban: currentAnswer,
     });
+  }
+
+  return soalList;
+}
+
+// 👉 Untuk format plain (hasil copy-paste atau template docx yang kamu pakai)
+function parseFromPlainText(text) {
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  const soalList = [];
+  let currentQuestion = "";
+  let currentOptions = [];
+  let currentAnswer = null;
+  let isParsingOptions = false;
+
+  for (const line of lines) {
+    if (/^ANS:\s*[A-Da-d]/.test(line)) {
+      const match = line.match(/^ANS:\s*([A-Da-d])/);
+      currentAnswer = match?.[1]?.toUpperCase() || null;
+
+      if (currentQuestion && currentOptions.length >= 2 && currentAnswer) {
+        soalList.push({
+          soal: currentQuestion.trim(),
+          opsi: currentOptions.map((opt) => `<span class="inline-option">${opt}</span>`),
+          jawaban: currentAnswer,
+        });
+      }
+
+      currentQuestion = "";
+      currentOptions = [];
+      currentAnswer = null;
+      isParsingOptions = false;
+      continue;
+    }
+
+    if (
+      currentQuestion === "" ||
+      currentQuestion.endsWith("...") ||
+      currentQuestion.endsWith("?")
+    ) {
+      currentQuestion += (currentQuestion ? " " : "") + line;
+      isParsingOptions = true;
+    } else if (isParsingOptions) {
+      currentOptions.push(line);
+    }
   }
 
   return soalList;
