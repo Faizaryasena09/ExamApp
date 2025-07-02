@@ -171,8 +171,8 @@ function ManageCoursePage() {
 
   const handleUploadSoal = async (e) => {
     const file = e.target.files[0];
-    if (!file || !file.name.endsWith(".docx")) {
-      return alert("Hanya file .docx yang didukung!");
+    if (!file || !file.name.endsWith(".pdf")) {
+      return alert("Hanya file .pdf yang didukung!");
     }
   
     const form = new FormData();
@@ -184,21 +184,15 @@ function ManageCoursePage() {
           "Content-Type": "multipart/form-data",
         },
       });
+  
       setSoalList((prev) => [...prev, ...res.data.soal]);
       alert(`✅ Berhasil membaca ${res.data.soal.length} soal`);
     } catch (err) {
       console.error("❌ Gagal upload:", err);
       alert("Gagal membaca file soal dari server");
     }
-  };  
-
-  const handleDragEnd = (result) => {
-    if (!result.destination) return;
-    const updated = Array.from(soalList);
-    const [removed] = updated.splice(result.source.index, 1);
-    updated.splice(result.destination.index, 0, removed);
-    setSoalList(updated);
   };
+  
 
   const handleSimpanSoal = async () => {
     try {
@@ -483,11 +477,20 @@ function ManageCoursePage() {
           <p className="text-sm text-gray-500 mb-6">Upload soal dari file Word atau tambahkan soal secara manual.</p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center border rounded-lg p-4 mb-8 bg-gray-50">
-              <div>
-                  <label htmlFor="upload-soal" className="block text-sm font-medium text-gray-600 mb-2">📤 Upload Soal (.docx)</label>
-                  <input id="upload-soal" type="file" accept=".docx" onChange={handleUploadSoal} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-              </div>
-          </div>
+  <div>
+    <label htmlFor="upload-soal" className="block text-sm font-medium text-gray-600 mb-2">
+      📤 Upload Soal (.pdf)
+    </label>
+    <input
+      id="upload-soal"
+      type="file"
+      accept=".pdf"
+      onChange={handleUploadSoal}
+      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+    />
+  </div>
+</div>
+
           
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-gray-800">📝 Daftar Soal ({soalList.length})</h3>

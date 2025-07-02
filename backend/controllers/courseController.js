@@ -7,6 +7,8 @@ const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const cheerio = require("cheerio");
 
+const pdf = require("pdf-parse");
+
 function shuffleArray(array) {
     return array
       .map((item) => ({ item, sort: Math.random() }))
@@ -346,25 +348,6 @@ exports.ambilSoal = async (req, res) => {
     res.status(500).json({ error: "Gagal mengambil soal" });
   }
 };
-
-exports.uploadSoalDocx = async (req, res) => {
-  const filePath = req.file.path;
-
-  try {
-    const result = await mammoth.convertToHtml({ path: filePath });
-    const html = result.value;
-    
-    const soalList = parseSoalFromHtml(html);
-
-    fs.unlinkSync(filePath);
-
-    res.json({ soal: soalList });
-  } catch (err) {
-    console.error("❌ Gagal parsing Word dengan gambar:", err);
-    res.status(500).json({ error: "Gagal membaca file Word" });
-  }
-};
-
   
   exports.getCourseStatus = async (req, res) => {
     const courseId = req.params.id;
@@ -752,123 +735,28 @@ function saveBase64ImageToUploads(base64Data, ext = "png") {
   return `/uploads/${fileName}`;
 }
 
-// 👉 Fungsi utama
-function parseSoalFromHtml(html) {
-  const isPlainTextFormat = !html.includes("<") && html.includes("ANS:");
-  return isPlainTextFormat ? parseFromPlainText(html) : parseFromHTML(html);
-}
-
-// 👉 Fungsi tambahan: untuk file .docx
-async function parseSoalFromDocx(filepath) {
-  try {
-    const buffer = fs.readFileSync(filepath);
-    const result = await mammoth.convertToHtml({ buffer });
-    const html = result.value;
-    return parseSoalFromHtml(html);
-  } catch (err) {
-    console.error("❌ Gagal parsing DOCX:", err.message);
-    return [];
-  }
-}
-
-// 👉 Untuk format Word yang hasilnya HTML
-function parseFromHTML(html) {
-  const $ = cheerio.load(html);
-  const lines = [];
-
-  $("p").each((_, el) => {
-    const content = $(el).html()?.trim();
-    if (content) lines.push(content);
-  });
-
-  const soalList = [];
-  let currentQuestion = "";
-  let currentOptions = [];
-  let currentAnswer = null;
-
-  const cleanHtml = (html) =>
-    html.replace(/<\/?(html|head|body)>/gi, "").replace(/\s{2,}/g, " ").trim();
-
-  lines.forEach((line) => {
-    const $line = cheerio.load(line, { decodeEntities: false });
-    const plain = $line.text().trim();
-
-    $line("img").each((_, imgEl) => {
-      const src = $line(imgEl).attr("src");
-      if (src?.startsWith("data:image")) {
-        const ext = src.split(";")[0].split("/")[1] || "png";
-        const newPath = saveBase64ImageToUploads(src, ext);
-        $line(imgEl).attr("src", newPath);
-        $line(imgEl).addClass("max-h-28 mb-2");
-      }
-    });
-
-    const processedLine = cleanHtml($line.root().html());
-
-    if (/^\d+\./.test(plain)) {
-      if (currentQuestion && currentAnswer && currentOptions.length >= 2) {
-        soalList.push({
-          soal: currentQuestion.trim(),
-          opsi: currentOptions,
-          jawaban: currentAnswer,
-        });
-      }
-      currentQuestion = processedLine.replace(/^\d+\.\s*/, "");
-      currentOptions = [];
-      currentAnswer = null;
-    } else if (/^[A-Da-d]\./.test(plain)) {
-      currentOptions.push(`<span class="inline-option">${processedLine}</span>`);
-    } else if (/^ANS:/i.test(plain)) {
-      const match = plain.match(/^ANS:\s*([A-Da-d])/);
-      if (match) currentAnswer = match[1].toUpperCase();
-    } else {
-      const isImage = processedLine.includes("<img");
-      const lastOpsiIdx = currentOptions.length - 1;
-
-      if (isImage && lastOpsiIdx >= 0) {
-        currentOptions[lastOpsiIdx] = currentOptions[lastOpsiIdx].replace(
-          "</span>",
-          ` <br/>${processedLine}</span>`
-        );
-      } else if (currentQuestion) {
-        currentQuestion += " " + processedLine;
-      }
-    }
-  });
-
-  if (currentQuestion && currentAnswer && currentOptions.length >= 2) {
-    soalList.push({
-      soal: currentQuestion.trim(),
-      opsi: currentOptions,
-      jawaban: currentAnswer,
-    });
-  }
-
-  return soalList;
-}
-
-// 👉 Untuk format plain (hasil copy-paste atau template docx yang kamu pakai)
-function parseFromPlainText(text) {
+// ✅ Parser soal dari hasil teks PDF
+function parseSoalFromPlainPdf(text) {
   const lines = text
     .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
 
   const soalList = [];
   let currentQuestion = "";
   let currentOptions = [];
   let currentAnswer = null;
-  let isParsingOptions = false;
 
-  for (const line of lines) {
-    if (/^ANS:\s*[A-Da-d]/.test(line)) {
-      const match = line.match(/^ANS:\s*([A-Da-d])/);
-      currentAnswer = match?.[1]?.toUpperCase() || null;
+  for (let line of lines) {
+    // ✔️ Jawaban: ANS: A
+    if (/^ANS[:：]?\s*([A-Da-d])/.test(line)) {
+      const match = line.match(/^ANS[:：]?\s*([A-Da-d])/);
+      currentAnswer = match?.[1]?.toUpperCase();
 
       if (currentQuestion && currentOptions.length >= 2 && currentAnswer) {
         soalList.push({
           soal: currentQuestion.trim(),
-          opsi: currentOptions.map((opt) => `<span class="inline-option">${opt}</span>`),
+          opsi: currentOptions.map(opt => `<span class="inline-option">${opt}</span>`),
           jawaban: currentAnswer,
         });
       }
@@ -876,21 +764,56 @@ function parseFromPlainText(text) {
       currentQuestion = "";
       currentOptions = [];
       currentAnswer = null;
-      isParsingOptions = false;
-      continue;
     }
 
-    if (
-      currentQuestion === "" ||
-      currentQuestion.endsWith("...") ||
-      currentQuestion.endsWith("?")
-    ) {
-      currentQuestion += (currentQuestion ? " " : "") + line;
-      isParsingOptions = true;
-    } else if (isParsingOptions) {
+    // ✔️ Opsi: A. / B) / C)
+    else if (/^[A-Da-d][\.\)]/.test(line)) {
       currentOptions.push(line);
+    }
+
+    // ✔️ Soal baru: 1. atau 2)
+    else if (/^\d+[\.\)]/.test(line)) {
+      if (currentQuestion && currentOptions.length >= 2 && currentAnswer) {
+        soalList.push({
+          soal: currentQuestion.trim(),
+          opsi: currentOptions.map(opt => `<span class="inline-option">${opt}</span>`),
+          jawaban: currentAnswer,
+        });
+      }
+
+      currentQuestion = line.replace(/^\d+[\.\)]\s*/, "");
+      currentOptions = [];
+      currentAnswer = null;
+    }
+
+    // ✔️ Tambahan baris ke soal atau opsi
+    else {
+      if (currentOptions.length > 0) {
+        const last = currentOptions.length - 1;
+        currentOptions[last] += " " + line;
+      } else {
+        currentQuestion += " " + line;
+      }
     }
   }
 
   return soalList;
 }
+
+// ✅ Endpoint upload PDF untuk soal
+exports.uploadSoalPdf = async (req, res) => {
+  const filePath = req.file.path;
+
+  try {
+    const buffer = fs.readFileSync(filePath);
+    const data = await pdf(buffer);
+
+    const soalList = parseSoalFromPlainPdf(data.text);
+    fs.unlinkSync(filePath);
+
+    res.json({ soal: soalList });
+  } catch (err) {
+    console.error("❌ Gagal parsing PDF:", err.message);
+    res.status(500).json({ error: "Gagal membaca file PDF" });
+  }
+};
