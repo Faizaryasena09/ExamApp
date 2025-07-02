@@ -82,7 +82,6 @@ exports.moveCourse = async (req, res) => {
     const folderName = req.params.name;
   
     try {
-      // Cari ID subfolder berdasarkan nama
       const [folderRows] = await db.query("SELECT id FROM subfolders WHERE name = ?", [folderName]);
   
       if (folderRows.length === 0) {
@@ -91,10 +90,8 @@ exports.moveCourse = async (req, res) => {
   
       const subfolderId = folderRows[0].id;
   
-      // Kosongkan subfolder_id di tabel courses
       await db.query("UPDATE courses SET subfolder_id = NULL WHERE subfolder_id = ?", [subfolderId]);
   
-      // Hapus subfolder dari tabel subfolders
       await db.query("DELETE FROM subfolders WHERE id = ?", [subfolderId]);
   
       res.status(200).json({ message: "✅ Folder berhasil dihapus." });

@@ -16,17 +16,14 @@ const ScoreCard = ({ score, total }) => {
     <div className="bg-white p-8 rounded-2xl shadow-lg border text-center space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Skor Ujian</h2>
 
-      {/* 🎯 Tampilkan skor skala 100 */}
       <p className="text-5xl font-extrabold text-blue-600">
         {persen} <span className="text-3xl text-gray-500">/ 100</span>
       </p>
 
-      {/* Optional: tambahkan info jumlah soal dan benar */}
       <p className="text-sm text-gray-500">
         ({score} dari {total} soal benar)
       </p>
 
-      {/* Progress bar */}
       <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
         <div
           className="bg-blue-500 h-full transition-all duration-500"

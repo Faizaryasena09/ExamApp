@@ -1,6 +1,5 @@
 const dbPromise = require("../models/database");
 
-// Ambil semua user yang role-nya 'guru'
 exports.getAllGuru = async (req, res) => {
     try {
       const db = await require("../models/database");
@@ -13,12 +12,11 @@ exports.getAllGuru = async (req, res) => {
   };
   
 
-// Ambil semua nama kelas dari tabel kelas
 exports.getAllKelas = async (req, res) => {
     try {
       const db = await dbPromise;
       const [rows] = await db.query("SELECT nama_kelas FROM kelas ORDER BY nama_kelas ASC");
-      const kelasList = rows.map(row => row.nama_kelas); // mapping dari nama_kelas, bukan nama
+      const kelasList = rows.map(row => row.nama_kelas);
       res.json(kelasList);
     } catch (err) {
       console.error("Gagal ambil data kelas:", err);
@@ -26,7 +24,6 @@ exports.getAllKelas = async (req, res) => {
     }
   };  
 
-// Ambil data relasi guru <-> kelas
 exports.getGuruKelas = async (req, res) => {
   try {
     const db = await dbPromise;
@@ -38,7 +35,6 @@ exports.getGuruKelas = async (req, res) => {
   }
 };
 
-// Set (simpan) data kelas yang diajar oleh guru
 exports.setGuruKelas = async (req, res) => {
   const { guruId, kelasList } = req.body;
 
@@ -49,10 +45,8 @@ exports.setGuruKelas = async (req, res) => {
   try {
     const db = await dbPromise;
 
-    // Hapus data lama
     await db.query("DELETE FROM guru_kelas WHERE guru_id = ?", [guruId]);
 
-    // Insert data baru
     const inserts = kelasList.map(kelas =>
       db.query("INSERT INTO guru_kelas (guru_id, kelas) VALUES (?, ?)", [guruId, kelas])
     );

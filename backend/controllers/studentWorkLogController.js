@@ -63,7 +63,6 @@ exports.getLogDetail = async (req, res) => {
     const { courseId, userId, attemp } = req.params;
   
     try {
-      // Ambil log pengerjaan
       const [logs] = await db.query(`
         SELECT soal_id, jawaban, waktu
         FROM student_work_log
@@ -71,13 +70,11 @@ exports.getLogDetail = async (req, res) => {
         ORDER BY waktu ASC
       `, [courseId, userId, attemp]);
   
-      // Ambil nama user berdasarkan ID numerik
       const [userResult] = await db.query(
         `SELECT name FROM users WHERE id = ? LIMIT 1`,
         [userId]
       );
   
-      // Ambil nama course
       const [courseResult] = await db.query(
         `SELECT nama FROM courses WHERE id = ? LIMIT 1`,
         [courseId]

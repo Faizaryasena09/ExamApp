@@ -1,7 +1,6 @@
 const db = require("../models/database");
 const { broadcastLogout } = require("./examSSE");
 
-// 🔄 Ambil semua siswa + status
 exports.getSiswaWithStatus = async (req, res) => {
   try {
     const conn = await db;
@@ -27,7 +26,6 @@ exports.getSiswaWithStatus = async (req, res) => {
   }
 };
 
-// 🔁 Reset ujian 1 siswa
 exports.resetUjian = async (req, res) => {
   const course_id = req.params.course_id;
   const { user_id } = req.body;
@@ -54,7 +52,7 @@ exports.resetUjian = async (req, res) => {
       ON DUPLICATE KEY UPDATE status = 'offline', last_update = NOW()
     `, [username]);
 
-    broadcastLogout(username); // 🔊 SSE logout
+    broadcastLogout(username);
     res.json({ message: "✅ Ujian berhasil direset dan diset offline." });
 
   } catch (err) {
@@ -63,7 +61,6 @@ exports.resetUjian = async (req, res) => {
   }
 };
 
-// 🚪 Logout paksa (1 siswa)
 exports.logoutUser = async (req, res) => {
   const { user_id } = req.body;
 
@@ -80,7 +77,7 @@ exports.logoutUser = async (req, res) => {
       ON DUPLICATE KEY UPDATE status = 'offline', last_update = NOW()
     `, [username]);
 
-    broadcastLogout(username); // 🔊 SSE logout
+    broadcastLogout(username);
     res.json({ message: "✅ User berhasil logout dan status diset offline." });
 
   } catch (err) {
@@ -89,7 +86,6 @@ exports.logoutUser = async (req, res) => {
   }
 };
 
-// 🔒 Kunci akun siswa
 exports.lockLogin = async (req, res) => {
   const { user_id } = req.body;
   try {
@@ -102,7 +98,6 @@ exports.lockLogin = async (req, res) => {
   }
 };
 
-// 🔓 Unlock akun siswa
 exports.unlockLogin = async (req, res) => {
   const { user_id } = req.body;
   try {
@@ -115,7 +110,6 @@ exports.unlockLogin = async (req, res) => {
   }
 };
 
-// ⏱️ Tambah waktu ujian
 exports.addTimer = async (req, res) => {
   const { user_id, course_id, detik, kelas } = req.body;
   if (!course_id || !detik) return res.status(400).json({ message: "Data tidak lengkap" });
@@ -147,7 +141,6 @@ exports.addTimer = async (req, res) => {
   }
 };
 
-// 🔁 Reset semua siswa dalam 1 kelas
 exports.resetUjianByKelas = async (req, res) => {
   const { kelas, course_id } = req.body;
   if (!kelas || !course_id) return res.status(400).json({ message: "Kelas dan course_id wajib" });
@@ -170,7 +163,7 @@ exports.resetUjianByKelas = async (req, res) => {
         ON DUPLICATE KEY UPDATE status = 'offline', last_update = NOW()
       `, [s.username]);
 
-      broadcastLogout(s.username); // 🔊 SSE logout untuk masing-masing siswa
+      broadcastLogout(s.username);
     }
 
     res.json({ message: "✅ Semua siswa di kelas berhasil direset" });
@@ -180,7 +173,6 @@ exports.resetUjianByKelas = async (req, res) => {
   }
 };
 
-// 🔁 Reset semua siswa yang sudah mengerjakan
 exports.resetSemuaMengerjakan = async (req, res) => {
   const { course_id } = req.body;
   if (!course_id) return res.status(400).json({ message: "course_id wajib" });
@@ -216,7 +208,6 @@ exports.resetSemuaMengerjakan = async (req, res) => {
   }
 };
 
-// 🔓 Unlock semua siswa
 exports.unlockAllUsers = async (req, res) => {
   try {
     const conn = await db;
@@ -238,10 +229,8 @@ exports.setStatusUjian = async (req, res) => {
   try {
     const conn = await db;
 
-    // 🧹 Hapus semua status user sebelumnya (tidak peduli course_id)
     await conn.query(`DELETE FROM status_ujian WHERE user_id = ?`, [user_id]);
 
-    // ✅ Masukkan status yang baru
     await conn.query(`
       INSERT INTO status_ujian (user_id, course_id, status)
       VALUES (?, ?, ?)
@@ -249,7 +238,6 @@ exports.setStatusUjian = async (req, res) => {
 
     res.json({ message: "✅ Status ujian berhasil diganti", status });
 
-    // ⏰ Ambil waktu mulai dari tabel courses
     const [rows] = await conn.query(
       `SELECT STR_TO_DATE(tanggal_mulai, '%Y-%m-%dT%H:%i') AS waktu_mulai
        FROM courses
@@ -284,7 +272,7 @@ exports.setStatusUjian = async (req, res) => {
         } catch (err2) {
           console.error("❌ Gagal update status otomatis:", err2.message);
         }
-      }, 10 * 60 * 1000); // 10 menit
+      }, 10 * 60 * 1000);
     }
 
   } catch (err) {

@@ -2,7 +2,6 @@ import api from "../api";
 import { toast } from "../utils/toast";
 import { useEffect, useState } from "react";
 
-// Komponen Ikon sederhana untuk UI
 const TrashIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -84,7 +83,6 @@ const WebSettingsPage = () => {
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8 font-sans">
       <div className="space-y-10">
-        {/* --- Card Pengaturan Website --- */}
         <div className="bg-white p-6 shadow-md rounded-lg border border-gray-200">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">Pengaturan Website</h2>
           <div className="space-y-6">
@@ -128,7 +126,6 @@ const WebSettingsPage = () => {
           </div>
         </div>
 
-        {/* --- Card Manajemen Database --- */}
         <div className="bg-white p-6 shadow-md rounded-lg border border-gray-200">
           <h3 className="text-xl font-bold text-gray-800 mb-4">Manajemen Database</h3>
           <div className="space-y-3 mb-6">
@@ -153,7 +150,6 @@ const WebSettingsPage = () => {
            </div>
         </div>
 
-        {/* --- Card Tindakan Server --- */}
         <div className="bg-white p-6 shadow-md rounded-lg border border-gray-200">
           <h3 className="text-xl font-bold text-gray-800 mb-4">Tindakan Server</h3>
            <p className="text-sm text-gray-600 mb-4">Gunakan tombol di bawah ini untuk memulai ulang server aplikasi.</p>

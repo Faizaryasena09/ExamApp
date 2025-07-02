@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { toast } from "../utils/toast"; // Pastikan path ini benar
+import { toast } from "../utils/toast";
 import api from "../api";
 
-// Komponen untuk menampilkan kerangka saat data masih dimuat
 const SkeletonLoader = () => (
   <div className="mb-8 border border-gray-200 p-6 rounded-lg shadow-md bg-white animate-pulse">
     <div className="h-6 bg-gray-300 rounded w-1/3 mb-4"></div>
@@ -21,9 +20,9 @@ const SkeletonLoader = () => (
 const ManageGuruPage = () => {
   const [guruList, setGuruList] = useState([]);
   const [kelasList, setKelasList] = useState([]);
-  const [pengajaran, setPengajaran] = useState({}); // guruId: [kelas]
+  const [pengajaran, setPengajaran] = useState({});
   const [loading, setLoading] = useState(true);
-  const [savingStates, setSavingStates] = useState({}); // Lacak status 'menyimpan' untuk tiap guru
+  const [savingStates, setSavingStates] = useState({});
 
   useEffect(() => {
     async function fetchData() {
@@ -68,7 +67,7 @@ const ManageGuruPage = () => {
   };
 
   const handleSimpan = async (guruId) => {
-    setSavingStates((prev) => ({ ...prev, [guruId]: true })); // Mulai menyimpan
+    setSavingStates((prev) => ({ ...prev, [guruId]: true }));
     try {
       await api.post("/guru-kelas", {
         guruId,
@@ -79,7 +78,7 @@ const ManageGuruPage = () => {
       console.error("❌ Gagal menyimpan:", err);
       toast.error("Gagal menyimpan perubahan.");
     } finally {
-      setSavingStates((prev) => ({ ...prev, [guruId]: false })); // Selesai menyimpan
+      setSavingStates((prev) => ({ ...prev, [guruId]: false }));
     }
   };
 
@@ -91,7 +90,6 @@ const ManageGuruPage = () => {
         </h1>
 
         {loading ? (
-          // Tampilkan beberapa skeleton loader
           <>
             <SkeletonLoader />
             <SkeletonLoader />
@@ -133,7 +131,7 @@ const ManageGuruPage = () => {
                   <div className="flex justify-end pt-4 border-t border-gray-200">
                     <button
                       onClick={() => handleSimpan(guru.id)}
-                      disabled={savingStates[guru.id]} // Nonaktifkan tombol saat menyimpan
+                      disabled={savingStates[guru.id]}
                       className={`px-6 py-2 font-semibold text-white rounded-md transition-all duration-200 ease-in-out
                         ${
                           savingStates[guru.id]

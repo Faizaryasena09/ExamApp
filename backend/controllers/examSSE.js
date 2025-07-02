@@ -1,4 +1,3 @@
-// controllers/examSSE.js
 let clients = [];
 
 exports.streamSession = (req, res) => {

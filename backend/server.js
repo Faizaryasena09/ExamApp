@@ -14,7 +14,6 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-// === ROUTES ===
 const authRoutes = require("./routes/authRoutes");
 const sessionRoutes = require("./routes/sessionRoutes");
 const userRoutes = require("./routes/userRoutes");

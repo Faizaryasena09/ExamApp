@@ -15,7 +15,6 @@ function LoginPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Ambil pengaturan situs (judul + logo)
     api.get("/web-settings")
       .then(res => {
         setSiteTitle(res.data.judul || "Selamat Datang");

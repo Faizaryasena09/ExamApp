@@ -3,7 +3,6 @@ const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
 
-// Fungsi untuk memastikan folder uploads ada
 const ensureUploadDir = () => {
   const dir = path.join(__dirname, "../public/uploads");
   if (!fs.existsSync(dir)) {
@@ -39,7 +38,6 @@ exports.getSettings = async (req, res) => {
       if (existing.length > 0) {
         const current = existing[0];
   
-        // Hapus logo lama jika diganti
         if (logoPath && current.logo && current.logo.startsWith("/uploads/")) {
           const oldPath = path.join(__dirname, "..", current.logo);
           if (fs.existsSync(oldPath)) {
@@ -66,7 +64,6 @@ exports.getSettings = async (req, res) => {
     }
   };
 
-// Tampilkan semua tabel
 exports.getAllTables = async (req, res) => {
   try {
     const db = await dbPromise;
@@ -79,7 +76,6 @@ exports.getAllTables = async (req, res) => {
   }
 };
 
-// Hapus satu tabel
 exports.deleteTable = async (req, res) => {
   try {
     const db = await dbPromise;
@@ -92,7 +88,6 @@ exports.deleteTable = async (req, res) => {
   }
 };
 
-// Reset semua tabel
 exports.resetDatabase = async (req, res) => {
   try {
     const db = await dbPromise;
@@ -110,7 +105,6 @@ exports.resetDatabase = async (req, res) => {
   }
 };
 
-// Restart server via PM2
 exports.restartServer = (req, res) => {
   exec("pm2 restart all", (error, stdout, stderr) => {
     if (error) {

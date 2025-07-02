@@ -757,7 +757,6 @@ function saveBase64ImageToUploads(base64Data, ext = "png") {
   return `/uploads/${fileName}`;
 }
 
-// Parse soal dari HTML Word
 function parseSoalFromHtml(html) {
   const $ = cheerio.load(html);
   const lines = [];
@@ -774,7 +773,7 @@ function parseSoalFromHtml(html) {
 
   const cleanHtml = (html) =>
     html
-      .replace(/<\/?(html|head|body)>/gi, "") // hapus tag aneh
+      .replace(/<\/?(html|head|body)>/gi, "")
       .replace(/\s{2,}/g, " ")
       .trim();
 
@@ -782,7 +781,6 @@ function parseSoalFromHtml(html) {
     const $line = cheerio.load(line, { decodeEntities: false });
     const plain = $line.text().trim();
 
-    // Proses semua gambar dalam baris ini
     $line("img").each((_, imgEl) => {
       const src = $line(imgEl).attr("src");
       if (src?.startsWith("data:image")) {
@@ -832,7 +830,6 @@ function parseSoalFromHtml(html) {
     }
   });
 
-  // Push soal terakhir
   if (currentQuestion && currentAnswer && currentOptions.length >= 2) {
     soalList.push({
       soal: currentQuestion.trim(),

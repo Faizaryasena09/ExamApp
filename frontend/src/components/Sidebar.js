@@ -2,7 +2,6 @@ import React from "react";
 import { NavLink } from "react-router-dom";
 import { FiHome, FiUsers, FiBookOpen, FiX, FiFileText, FiSettings, FiUserCheck } from "react-icons/fi";
 
-// Fungsi bantu ambil cookie
 function getCookie(name) {
   const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
   return match ? decodeURIComponent(match[2]) : null;
@@ -18,7 +17,6 @@ function Sidebar({ isOpen, onClose }) {
 
   return (
     <>
-      {/* Overlay */}
       <div
         className={`fixed inset-0 bg-black bg-opacity-60 z-40 transition-opacity md:hidden ${
           isOpen ? "block" : "hidden"
@@ -26,13 +24,11 @@ function Sidebar({ isOpen, onClose }) {
         onClick={onClose}
       ></div>
 
-      {/* Sidebar */}
       <aside
         className={`fixed top-0 left-0 h-full w-64 bg-slate-900 text-slate-300 z-50 
                    transition-transform duration-300 ease-in-out
                    ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        {/* Header */}
         <div className="flex items-center justify-between p-4 py-5 border-b border-slate-700">
           <div className="flex items-center">
             <h2 className="text-xl font-bold text-slate-100">ExamApp</h2>
@@ -46,7 +42,6 @@ function Sidebar({ isOpen, onClose }) {
           </button>
         </div>
 
-        {/* Menu */}
         <nav className="p-4">
           <ul className="space-y-2">
             <li>

@@ -132,15 +132,14 @@ const StudentRow = ({ student, courseId }) => {
                       </div>
                     </div>
                     <button
-  onClick={(e) => {
-    e.stopPropagation();
-    navigate(`/courses/${courseId}/log/${attempt.user_id}/${attempt.attemp}`);
-  }}
-  className="mt-2 sm:mt-0 px-3 py-1 text-sm text-blue-600 border border-blue-600 hover:bg-blue-50 rounded-md transition-all"
->
-  Lihat Log
-</button>
-
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/courses/${courseId}/log/${attempt.user_id}/${attempt.attemp}`);
+                      }}
+                      className="mt-2 sm:mt-0 px-3 py-1 text-sm text-blue-600 border border-blue-600 hover:bg-blue-50 rounded-md transition-all"
+                    >
+                      Lihat Log
+                    </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -296,7 +295,7 @@ const [kelasToExport, setKelasToExport] = useState("");
       let lowestPersen = 100;
     
       analytics.forEach((u) => {
-        const total = u.total_dikerjakan || 1; // Hindari pembagian 0
+        const total = u.total_dikerjakan || 1;
         const persen = (u.benar / total) * 100;
         totalPersentase += persen;
         if (persen > highestPersen) highestPersen = persen;

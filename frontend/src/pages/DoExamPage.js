@@ -48,7 +48,7 @@ function DoExamPage() {
         const useToken = courseRes.data.useToken;
         const title = courseRes.data.title || "Tanpa Judul";
     
-        setCourseTitle(title); // ✅ Simpan title di state
+        setCourseTitle(title);
     
         if (!useToken) {
           setSudahInputToken(true);
@@ -302,7 +302,7 @@ function DoExamPage() {
               firstNode &&
               firstNode.nodeType === 1 &&
               firstNode.childNodes.length === 1 &&
-              firstNode.firstChild.nodeType === 3 // TEXT_NODE
+              firstNode.firstChild.nodeType === 3
             ) {
               const rawText = firstNode.textContent;
               if (/^[A-Da-d]\.\s*/.test(rawText)) {
@@ -514,7 +514,6 @@ function DoExamPage() {
         console.warn("❌ Gagal hapus timer:", err.message);
       }
   
-      // ✅ Kirim status selesai ke backend
       try {
         await api.post("/exam/status", {
           user_id: userId,
@@ -686,19 +685,16 @@ function DoExamPage() {
             <button
   onClick={async () => {
     try {
-      // Kirim status Mengerjakan ke backend
       await api.post("/exam/status", {
         user_id: Cookies.get("user_id"),
         course_id: courseId,
         status: `Mengerjakan - ${courseTitle}`
       });
 
-      // LOCK perangkat jika dari React Native WebView
       if (window.ReactNativeWebView) {
         window.ReactNativeWebView.postMessage("LOCK");
       }
 
-      // Tutup modal mulai
       setShowStartModal(false);
     } catch (err) {
       console.error("❌ Gagal memulai ujian:", err);

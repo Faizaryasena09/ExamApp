@@ -57,13 +57,11 @@ function ExamResultAccessRoute({ element }) {
 
   useEffect(() => {
     const check = async () => {
-      // ✅ Admin dan Guru bisa lihat hasil siapa saja
       if (role === "admin" || role === "guru") {
         setAllowed(true);
         return;
       }
 
-      // ❌ Siswa hanya boleh lihat hasil sendiri
       if (role === "siswa" && userId !== currentUserId) {
         setAllowed(false);
         return;
@@ -100,7 +98,6 @@ function CourseAccessRoute({ element, type = "general" }) {
   useEffect(() => {
     const check = async () => {
       if (role === "admin" || role === "guru") {
-        // ✅ Admin dan Guru bebas akses
         setAllowed(true);
         return;
       }

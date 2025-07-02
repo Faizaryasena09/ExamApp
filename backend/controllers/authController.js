@@ -20,7 +20,6 @@ exports.login = async (req, res) => {
 
     const user = rows[0];
 
-    // ✅ Cek apakah akun dikunci
     if (user.login_locked === 1) {
       return res.status(403).json({ message: "Akun dikunci oleh admin" });
     }
@@ -55,7 +54,7 @@ exports.isLogin = async (req, res) => {
   }
 
   try {
-    const connection = await db; // ✅ tunggu koneksi
+    const connection = await db;
     const [rows] = await connection.execute(
       "SELECT * FROM session_status WHERE name = ?",
       [name]

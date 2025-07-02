@@ -140,7 +140,6 @@ function Header({ onToggleSidebar }) {
     return cleanupResources;
   }, [navigate]);
 
-  // Ambil pengaturan situs dari backend
   useEffect(() => {
     api.get("/web-settings")
       .then((res) => {

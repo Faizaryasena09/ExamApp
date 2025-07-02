@@ -11,7 +11,7 @@ export async function uploadImageToServer(file) {
       },
     });
 
-    return response.data.path; // contoh: "/uploads/1751361907824-161564.png"
+    return response.data.path;
   } catch (error) {
     console.error("Gagal upload gambar ke server:", error);
     throw error;

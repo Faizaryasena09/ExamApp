@@ -59,7 +59,6 @@ exports.clear = async (req, res) => {
   }
 };
 
-// Simpan waktu tersisa ke jawaban_trail (opsional digunakan untuk log trail)
 exports.saveWaktuSisa = async (req, res) => {
   const db = await dbPromise;
   const { user_id, course_id, attemp, waktu_tersisa } = req.body;

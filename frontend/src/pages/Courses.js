@@ -141,7 +141,7 @@ function CoursesPage() {
       try {
         await api.post(`/courses/${id}/duplicate`);
         toast.success("✅ Course berhasil diduplikat");
-        fetchInitialData(); // Refresh semua data
+        fetchInitialData();
       } catch (err) {
         console.error("❌ Gagal duplikat course:", err);
         toast.error("Gagal menduplikat course.");
