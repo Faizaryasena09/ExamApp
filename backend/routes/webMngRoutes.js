@@ -3,6 +3,8 @@ const router = express.Router();
 const webMngController = require("../controllers/webMngController");
 const multer = require("multer");
 const path = require("path");
+const authMiddleware = require("../middlewares/authMiddleware");
+const onlyRole = require("../middlewares/onlyRole");
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -26,10 +28,10 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({ storage, fileFilter });
 
 router.get("/web-settings", webMngController.getSettings);
-router.put("/web-settings", upload.single("logo"), webMngController.updateSettings);
-router.get("/db/tables", webMngController.getAllTables);
-router.delete("/db/:tableName", webMngController.deleteTable);
-router.post("/db/reset", webMngController.resetDatabase);
-router.post("/restart-server", webMngController.restartServer);
+router.put("/web-settings", onlyRole("admin"), upload.single("logo"), authMiddleware, webMngController.updateSettings);
+router.get("/db/tables", onlyRole("admin"), authMiddleware, webMngController.getAllTables);
+router.delete("/db/:tableName", onlyRole("admin"), authMiddleware, webMngController.deleteTable);
+router.post("/db/reset", onlyRole("admin"), authMiddleware, webMngController.resetDatabase);
+router.post("/restart-server", onlyRole("admin"), authMiddleware, webMngController.restartServer);
 
 module.exports = router;

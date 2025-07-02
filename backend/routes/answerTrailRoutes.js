@@ -1,6 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const controller = require("../controllers/answerTrailController");
+const authMiddleware = require("../middlewares/authMiddleware");
+const onlyRole = require("../middlewares/onlyRole");
+
+router.use(authMiddleware);
 
 router.get("/timer-get", controller.getTimer);
 router.delete("/timer-delete", controller.deleteTimer);

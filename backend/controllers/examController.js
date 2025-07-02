@@ -32,27 +32,34 @@ exports.resetUjian = async (req, res) => {
 
   try {
     const conn = await db;
+
+    // Ambil username dari user_id (untuk query ke DB)
     const [rows] = await conn.query("SELECT username FROM users WHERE id = ?", [user_id]);
     if (rows.length === 0) return res.status(404).json({ message: "User tidak ditemukan" });
 
     const username = rows[0].username;
 
+    // Hapus jawaban ujian & timer
     await conn.query("DELETE FROM jawaban_trail WHERE course_id = ? AND user_id = ?", [course_id, user_id]);
     await conn.query("DELETE FROM answertrail_timer WHERE course_id = ? AND user_id = ?", [course_id, user_id]);
 
+    // Update status ujian ke "Tidak Sedang Mengerjakan"
     await conn.query(`
       INSERT INTO status_ujian (user_id, course_id, status)
       VALUES (?, ?, 'Tidak Sedang Mengerjakan')
       ON DUPLICATE KEY UPDATE status = 'Tidak Sedang Mengerjakan'
     `, [user_id, course_id]);
 
+    // 🧠 YANG INI: Pake `name` (username) seperti semula!
     await conn.query(`
       INSERT INTO session_status (name, status, last_update)
       VALUES (?, 'offline', NOW())
       ON DUPLICATE KEY UPDATE status = 'offline', last_update = NOW()
     `, [username]);
 
-    broadcastLogout(username);
+    // 🔊 Broadcast ke SSE tetap pakai user_id!
+    broadcastLogout(user_id);
+
     res.json({ message: "✅ Ujian berhasil direset dan diset offline." });
 
   } catch (err) {
@@ -66,18 +73,22 @@ exports.logoutUser = async (req, res) => {
 
   try {
     const conn = await db;
+
     const [rows] = await conn.query("SELECT username FROM users WHERE id = ?", [user_id]);
     if (rows.length === 0) return res.status(404).json({ message: "User tidak ditemukan" });
 
     const username = rows[0].username;
 
+    // 🧠 Ini tetap pakai name juga ya
     await conn.query(`
       INSERT INTO session_status (name, status, last_update)
       VALUES (?, 'offline', NOW())
       ON DUPLICATE KEY UPDATE status = 'offline', last_update = NOW()
     `, [username]);
 
-    broadcastLogout(username);
+    // 🔊 Broadcast ke SSE tetap pakai user_id
+    broadcastLogout(user_id);
+
     res.json({ message: "✅ User berhasil logout dan status diset offline." });
 
   } catch (err) {
@@ -85,6 +96,7 @@ exports.logoutUser = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 exports.lockLogin = async (req, res) => {
   const { user_id } = req.body;

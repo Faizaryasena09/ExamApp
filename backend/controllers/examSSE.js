@@ -13,12 +13,13 @@ exports.streamSession = (req, res) => {
   });
 };
 
-exports.broadcastLogout = (username) => {
-  const payload = JSON.stringify({ type: "forceLogout", username });
+// 🔁 Broadcast Logout berdasarkan user_id
+exports.broadcastLogout = (user_id) => {
+  const payload = JSON.stringify({ type: "forceLogout", user_id });
   clients.forEach(res => res.write(`data: ${payload}\n\n`));
 };
 
-// ✅ Tambahan: Broadcast waktu diperbarui
+// ✅ Broadcast Timer Update (tidak perlu diubah karena general)
 exports.broadcastTimerUpdate = () => {
   const payload = JSON.stringify({ type: "timer-updated" });
   clients.forEach(res => res.write(`data: ${payload}\n\n`));

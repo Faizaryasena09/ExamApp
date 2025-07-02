@@ -111,8 +111,9 @@ function Header({ onToggleSidebar }) {
       
         try {
           const data = JSON.parse(event.data);
+          const userId = Cookies.get("user_id");
       
-          if (data.type === "forceLogout" && data.username === name) {
+          if (data.type === "forceLogout" && data.user_id == userId) {
             cleanupResources();
             handleLogout();
           }
@@ -123,7 +124,7 @@ function Header({ onToggleSidebar }) {
         } catch (err) {
           console.error("❌ Gagal parsing data SSE:", err);
         }
-      };      
+      };        
 
       sse.onerror = (err) => {
         console.warn("SSE error:", err);

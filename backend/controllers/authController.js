@@ -1,7 +1,7 @@
 const db = require("../models/database");
 const jwt = require("jsonwebtoken");
 
-const JWT_SECRET = "rahasia_super_aman";
+const JWT_SECRET = "rahasia_jangan_dibocorin";
 
 exports.login = async (req, res) => {
   const { username, password } = req.body;
@@ -9,21 +9,47 @@ exports.login = async (req, res) => {
   try {
     const connection = await db;
 
-    const [rows] = await connection.execute(
+    // 1. Cek user
+    const [users] = await connection.execute(
       "SELECT * FROM users WHERE username = ? AND password = SHA2(?, 256)",
       [username, password]
     );
 
-    if (rows.length === 0) {
+    if (users.length === 0) {
       return res.status(401).json({ message: "Username atau password salah" });
     }
 
-    const user = rows[0];
+    const user = users[0];
 
+    // 2. Cek jika akun dikunci
     if (user.login_locked === 1) {
       return res.status(403).json({ message: "Akun dikunci oleh admin" });
     }
 
+    // 3. Cek status sesi (gunakan name!)
+    const [sessions] = await connection.execute(
+      "SELECT status FROM session_status WHERE name = ?",
+      [user.name]
+    );
+
+    const isOnline = sessions.length > 0 && sessions[0].status === "online";
+    if (isOnline) {
+      return res.status(403).json({
+        message: "Tidak bisa login, akun sedang aktif di perangkat lain.",
+      });
+    }
+
+    // 4. Simpan status online (insert/update)
+    await connection.execute(
+      `
+      INSERT INTO session_status (name, status, last_update)
+      VALUES (?, 'online', NOW())
+      ON DUPLICATE KEY UPDATE status = 'online', last_update = NOW()
+      `,
+      [user.name]
+    );
+
+    // 5. Buat token
     const token = jwt.sign(
       {
         name: user.name,
@@ -40,11 +66,10 @@ exports.login = async (req, res) => {
       token: token,
     });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Login error:", err.message);
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 exports.isLogin = async (req, res) => {
   const { name } = req.query;
