@@ -129,9 +129,6 @@ function HomePage() {
               <div className="mt-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
                 <p className="font-semibold text-gray-800">{recentExam.title}</p>
                 <div className="text-sm text-gray-500 mt-2 flex items-center gap-4">
-                  <span>Skor: <span className="font-medium text-gray-700">{recentExam.score}</span></span>
-                  <span>|</span>
-                  <span>Dikerjakan pada: <span className="font-medium text-gray-700">{formattedRecentDate || recentExam.date}</span></span>
                 </div>
               </div>
             ) : (
