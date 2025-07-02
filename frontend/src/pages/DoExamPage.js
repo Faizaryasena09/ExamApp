@@ -536,10 +536,10 @@ function DoExamPage() {
         const tampilkanHasil = res.data?.tampilkan_hasil;
         const analisisJawaban = res.data?.analisis_jawaban;
   
-        if (tampilkanHasil) {
-          navigate(`/courses/${courseId}/${userId}/${attemptId}/summary`);
-        } else if (analisisJawaban) {
+        if (analisisJawaban) {
           navigate(`/courses/${courseId}/${userId}/${attemptId}/hasil`);
+        } else if (tampilkanHasil) {
+          navigate(`/courses/${courseId}/${userId}/${attemptId}/summary`);
         } else {
           navigate(`/`);
         }
