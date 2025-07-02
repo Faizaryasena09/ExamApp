@@ -17,3 +17,9 @@ exports.broadcastLogout = (username) => {
   const payload = JSON.stringify({ type: "forceLogout", username });
   clients.forEach(res => res.write(`data: ${payload}\n\n`));
 };
+
+// ✅ Tambahan: Broadcast waktu diperbarui
+exports.broadcastTimerUpdate = () => {
+  const payload = JSON.stringify({ type: "timer-updated" });
+  clients.forEach(res => res.write(`data: ${payload}\n\n`));
+};

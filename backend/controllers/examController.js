@@ -1,5 +1,5 @@
 const db = require("../models/database");
-const { broadcastLogout } = require("./examSSE");
+const { broadcastLogout, broadcastTimerUpdate } = require("./examSSE");
 
 exports.getSiswaWithStatus = async (req, res) => {
   try {
@@ -112,32 +112,48 @@ exports.unlockLogin = async (req, res) => {
 
 exports.addTimer = async (req, res) => {
   const { user_id, course_id, detik, kelas } = req.body;
-  if (!course_id || !detik) return res.status(400).json({ message: "Data tidak lengkap" });
+
+  if (!course_id || !detik) {
+    return res.status(400).json({ message: "Data tidak lengkap" });
+  }
 
   try {
     const conn = await db;
+
     const tambahWaktu = async (id) => {
       await conn.query(`
         INSERT INTO answertrail_timer (user_id, course_id, waktu_tersisa)
         VALUES (?, ?, ?)
         ON DUPLICATE KEY UPDATE waktu_tersisa = waktu_tersisa + ?
       `, [id, course_id, detik, detik]);
+      console.log(`⏱️ Tambah ${detik}s ke user_id: ${id}, course_id: ${course_id}`);
     };
 
     if (user_id) {
       await tambahWaktu(user_id);
     } else if (kelas) {
       const [siswa] = await conn.query("SELECT id FROM users WHERE role = 'siswa' AND kelas = ?", [kelas]);
-      for (const s of siswa) await tambahWaktu(s.id);
+      for (const s of siswa) {
+        await tambahWaktu(s.id);
+      }
     } else {
       const [semua] = await conn.query("SELECT id FROM users WHERE role = 'siswa'");
-      for (const s of semua) await tambahWaktu(s.id);
+      for (const s of semua) {
+        await tambahWaktu(s.id);
+      }
     }
 
+    // ✅ Kirim SSE agar client reload
+    broadcastTimerUpdate();
+    console.log("📡 Broadcast timer update ke semua client");
+
     res.json({ message: "✅ Waktu berhasil ditambahkan." });
+
   } catch (err) {
     console.error("❌ Gagal menambah waktu:", err.message);
-    res.status(500).json({ message: "Server error" });
+    if (!res.headersSent) {
+      res.status(500).json({ message: "Server error" });
+    }
   }
 };
 

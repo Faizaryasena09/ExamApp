@@ -107,18 +107,24 @@ function Header({ onToggleSidebar }) {
 
       sse.onmessage = (event) => {
         if (!isActive || logoutFlagRef.current) return;
-
+      
         try {
           const data = JSON.parse(event.data);
+      
           if (data.type === "forceLogout" && data.username === name) {
             console.log("🔴 Logout paksa diterima dari server");
             cleanupResources();
             handleLogout();
           }
+      
+          if (data.type === "timer-updated") {
+            console.log("⏱️ Timer updated via SSE, reload halaman...");
+            window.location.reload();
+          }
         } catch (err) {
           console.error("❌ Gagal parsing data SSE:", err);
         }
-      };
+      };      
 
       sse.onerror = (err) => {
         console.warn("SSE error:", err);
