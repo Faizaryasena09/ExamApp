@@ -866,110 +866,206 @@ exports.uploadSoalPdf = async (req, res) => {
 
 exports.uploadSoalZip = async (req, res) => {
   const zipFile = req.file;
+  const course_id = req.params.id;
 
+  // Validate input
   if (!zipFile) {
-    return res.status(400).json({ error: "File ZIP tidak ditemukan." });
+    return res.status(400).json({ error: "ZIP file is required" });
+  }
+  if (!course_id || isNaN(course_id)) {
+    return res.status(400).json({ error: "Valid course ID is required" });
   }
 
-  const tempDir = path.join(__dirname, "../uploads/temp", uuidv4());
+  // Create temporary directory
+  const tempDir = path.join(__dirname, '../uploads/temp', uuidv4());
   fs.mkdirSync(tempDir, { recursive: true });
 
   try {
-    // 1. Extract ZIP
+    // 1. Extract ZIP file
     await fs.createReadStream(zipFile.path)
       .pipe(unzipper.Extract({ path: tempDir }))
       .promise();
 
-    // 2. Cari file HTML
+    // 2. Find HTML file
     const files = fs.readdirSync(tempDir);
-    const htmlFile = files.find(f => f.endsWith(".html"));
-    if (!htmlFile) throw new Error("File HTML tidak ditemukan dalam ZIP.");
+    const htmlFile = files.find(f => f.toLowerCase().endsWith('.html'));
+    if (!htmlFile) {
+      throw new Error("No HTML file found in ZIP archive");
+    }
 
+    // 3. Process HTML content
     const htmlPath = path.join(tempDir, htmlFile);
-    const html = fs.readFileSync(htmlPath, "utf-8");
-    const $ = cheerio.load(html);
+    const htmlContent = fs.readFileSync(htmlPath, 'utf-8');
+    const $ = cheerio.load(htmlContent);
 
-    const soalList = [];
-    let currentSoal = null;
+    const questions = [];
+    let currentQuestion = null;
+    const imgDir = path.join(__dirname, '../uploads/images');
+    fs.mkdirSync(imgDir, { recursive: true });
 
-    const imgDir = path.join(__dirname, "../uploads/images");
-    if (!fs.existsSync(imgDir)) fs.mkdirSync(imgDir, { recursive: true });
+    // 4. Parse questions and options
+    $('p').each((_, element) => {
+      const text = $(element).text().trim();
+      const images = $(element).find('img');
 
-    $("p").each((_, el) => {
-      const text = $(el).text().trim();
-      const img = $(el).find("img");
-
-      // Soal
-      const soalMatch = text.match(/^\d+\.\s*(.+)/);
-      if (soalMatch) {
-        if (currentSoal) soalList.push(currentSoal);
-        currentSoal = {
-          soal: soalMatch[1],
-          opsi: {},
-          jawaban: null,
-          images: [],
+      // Question detection
+      const questionMatch = text.match(/^\d+\.\s*(.+)/);
+      if (questionMatch) {
+        if (currentQuestion) questions.push(currentQuestion);
+        
+        // Start with basic question text in span
+        let questionContent = `<span class="inline-question">${questionMatch[1]}`;
+        
+        // Process images in question
+        const questionImages = [];
+        images.each((_, img) => {
+          const src = $(img).attr('src');
+          if (src && !src.startsWith('http')) {
+            const imagePath = path.join(tempDir, src);
+            if (fs.existsSync(imagePath)) {
+              const ext = path.extname(src);
+              const filename = `${uuidv4()}${ext}`;
+              const destPath = path.join(imgDir, filename);
+              fs.copyFileSync(imagePath, destPath);
+              questionImages.push(`<img src="/uploads/images/${filename}" />`);
+            }
+          }
+        });
+        
+        // Close the span after adding images
+        questionContent += questionImages.join('') + '</span>';
+        
+        currentQuestion = {
+          soal: questionContent,
+          opsi: [],
+          jawaban: null
         };
         return;
       }
 
-      // Opsi teks
-      const opsiMatch = text.match(/^([A-D])\.\s*(.+)/);
-      if (opsiMatch && currentSoal) {
-        currentSoal.opsi[opsiMatch[1]] = opsiMatch[2];
-        return;
-      }
-
-      // Opsi gambar: misal <p>A. <img src="..."></p>
-      const opsiGambarMatch = text.match(/^([A-D])\.\s*$/);
-      if (opsiGambarMatch && img.length > 0 && currentSoal) {
-        const label = opsiGambarMatch[1];
-        const src = $(img[0]).attr("src");
-        if (src && !src.startsWith("http")) {
-          const fullImagePath = path.join(tempDir, src);
-          if (fs.existsSync(fullImagePath)) {
-            const ext = path.extname(src);
-            const imgBuffer = fs.readFileSync(fullImagePath);
-            const filename = `${uuidv4()}${ext}`;
-            const savePath = path.join(imgDir, filename);
-            fs.writeFileSync(savePath, imgBuffer);
-            const publicUrl = `/uploads/images/${filename}`;
-            currentSoal.opsi[label] = { type: "image", url: publicUrl };
-          }
-        }
-        return;
-      }
-
-      // Jawaban
-      const jawabanMatch = text.match(/^ANS:\s*([A-D])/i);
-      if (jawabanMatch && currentSoal) {
-        currentSoal.jawaban = jawabanMatch[1].toUpperCase();
-        return;
-      }
-
-      // Gambar tambahan untuk soal
-      if (img.length > 0 && currentSoal) {
-        img.each((_, image) => {
-          const src = $(image).attr("src");
-          if (!src || src.startsWith("http")) return;
-          const fullImagePath = path.join(tempDir, src);
-          if (fs.existsSync(fullImagePath)) {
-            const ext = path.extname(src);
-            const imgBuffer = fs.readFileSync(fullImagePath);
-            const filename = `${uuidv4()}${ext}`;
-            const savePath = path.join(imgDir, filename);
-            fs.writeFileSync(savePath, imgBuffer);
-            currentSoal.images.push(`/uploads/images/${filename}`);
+      // Option detection
+      const optionMatch = text.match(/^([A-D])[.)]\s*(.+)/);
+      if (optionMatch && currentQuestion) {
+        const [_, letter, optionText] = optionMatch;
+        
+        // Check if option has images
+        let optionContent = `<span class="inline-option">${letter}. ${optionText}`;
+        const optionImages = [];
+        
+        images.each((_, img) => {
+          const src = $(img).attr('src');
+          if (src && !src.startsWith('http')) {
+            const imagePath = path.join(tempDir, src);
+            if (fs.existsSync(imagePath)) {
+              const ext = path.extname(src);
+              const filename = `${uuidv4()}${ext}`;
+              const destPath = path.join(imgDir, filename);
+              fs.copyFileSync(imagePath, destPath);
+              optionImages.push(`<img src="/uploads/images/${filename}" />`);
+            }
           }
         });
+        
+        optionContent += optionImages.join('') + '</span>';
+        currentQuestion.opsi.push(optionContent);
+        return;
+      }
+
+      // Image-only options
+      const imageOptionMatch = text.match(/^([A-D])[.)]\s*$/);
+      if (imageOptionMatch && images.length > 0 && currentQuestion) {
+        const letter = imageOptionMatch[1];
+        let optionContent = `<span class="inline-option">${letter}. `;
+        
+        images.each((_, img) => {
+          const src = $(img).attr('src');
+          if (src && !src.startsWith('http')) {
+            const imagePath = path.join(tempDir, src);
+            if (fs.existsSync(imagePath)) {
+              const ext = path.extname(src);
+              const filename = `${uuidv4()}${ext}`;
+              const destPath = path.join(imgDir, filename);
+              fs.copyFileSync(imagePath, destPath);
+              optionContent += `<img src="/uploads/images/${filename}" />`;
+            }
+          }
+        });
+        
+        optionContent += '</span>';
+        currentQuestion.opsi.push(optionContent);
+        return;
+      }
+
+      // Answer detection
+      const answerMatch = text.match(/^ANS:\s*([A-D])/i);
+      if (answerMatch && currentQuestion) {
+        currentQuestion.jawaban = answerMatch[1].toUpperCase();
       }
     });
 
-    if (currentSoal) soalList.push(currentSoal);
+    // Add the last question if exists
+    if (currentQuestion) questions.push(currentQuestion);
 
-    // Tidak hapus file sesuai permintaan
-    res.json({ soal: soalList });
-  } catch (err) {
-    console.error("❌ Gagal proses ZIP:", err.message);
-    res.status(500).json({ error: "Gagal memproses file ZIP." });
+    // 5. Store in database
+    const pool = await dbPromise;
+    await pool.query('START TRANSACTION');
+
+    try {
+      // Clear existing questions for this course
+      await pool.query('DELETE FROM questions WHERE course_id = ?', [course_id]);
+
+      // Insert new questions
+      for (const q of questions) {
+        await pool.query(
+          `INSERT INTO questions 
+          (course_id, soal, opsi, jawaban, created_at) 
+          VALUES (?, ?, ?, ?, NOW())`,
+          [
+            course_id,
+            q.soal,
+            JSON.stringify(q.opsi),
+            q.jawaban
+          ]
+        );
+      }
+
+      await pool.query('COMMIT');
+
+      // Cleanup
+      fs.rmSync(tempDir, { recursive: true, force: true });
+      fs.unlinkSync(zipFile.path);
+
+      res.status(201).json({
+        success: true,
+        message: `Successfully uploaded ${questions.length} questions`,
+        data: {
+          course_id: parseInt(course_id),
+          questions: questions.map(q => ({
+            soal: q.soal,
+            opsi: q.opsi,
+            jawaban: q.jawaban
+          }))
+        }
+      });
+
+    } catch (dbError) {
+      await pool.query('ROLLBACK');
+      throw dbError;
+    }
+
+  } catch (error) {
+    console.error('Error processing questions:', error);
+    
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    if (zipFile?.path) {
+      fs.unlinkSync(zipFile.path);
+    }
+
+    res.status(500).json({
+      error: "Failed to process questions",
+      details: error.message
+    });
   }
 };
