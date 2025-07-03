@@ -1,14 +1,23 @@
+require("dotenv").config();
 const mysql = require("mysql2/promise");
+const fs = require("fs");
+const path = require("path");
 
-const DB_NAME = "senexamapp";
+const DB_NAME = process.env.DB_NAME || "defaultdb";
 
 const serverPool = mysql.createPool({
-  host: "localhost",
-  user: "root",
-  password: "1234",
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: DB_NAME,
+  port: parseInt(process.env.DB_PORT),
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  ssl: {
+    ca: fs.readFileSync(path.join(__dirname, "..", process.env.DB_CA_PATH)),
+    rejectUnauthorized: true,
+  },
 });
 
 async function initDatabase() {
@@ -17,13 +26,18 @@ async function initDatabase() {
     console.log("✅ Database dicek/dibuat");
 
     const pool = mysql.createPool({
-      host: "localhost",
-      user: "root",
-      password: "1234",
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
       database: DB_NAME,
+      port: parseInt(process.env.DB_PORT),
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,
+      ssl: {
+        ca: fs.readFileSync(path.join(__dirname, "..", process.env.DB_CA_PATH)),
+        rejectUnauthorized: true,
+      },
     });
 
     await pool.query(`

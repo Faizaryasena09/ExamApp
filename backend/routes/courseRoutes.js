@@ -26,7 +26,7 @@ router.post(
   "/:id/upload-soal",
   upload.single("file"),
   onlyRole(["admin", "guru"]),
-  courseController.uploadSoalPdf // ✅ Ganti dari uploadSoalDocx ke uploadSoalPdf
+  courseController.uploadSoalZip // ✅ Ganti dari uploadSoalDocx ke uploadSoalPdf
 );
 
 // --- Ujian & Token

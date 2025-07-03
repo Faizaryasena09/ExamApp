@@ -6,7 +6,7 @@ async function cleanUnusedUploads() {
   const uploadDir = path.join(__dirname, "../uploads");
   if (!fs.existsSync(uploadDir)) return;
 
-  const filesInUpload = fs.readdirSync(uploadDir);
+  const itemsInUpload = fs.readdirSync(uploadDir);
   const connection = await dbPromise;
 
   const [questions] = await connection.query("SELECT soal, opsi FROM questions");
@@ -14,7 +14,7 @@ async function cleanUnusedUploads() {
 
   const usedImages = new Set();
 
-  // Logo situs
+  // Tambah logo yang digunakan
   if (settings && settings[0]?.logo) {
     const logo = settings[0].logo;
     const logoMatch = logo.match(/\/uploads\/([^"]+)/);
@@ -23,7 +23,7 @@ async function cleanUnusedUploads() {
     }
   }
 
-  // Gambar dari soal dan opsi
+  // Tambah gambar dari soal dan opsi
   questions.forEach(row => {
     const soal = row.soal || "";
     let opsiList = [];
@@ -44,16 +44,25 @@ async function cleanUnusedUploads() {
   });
 
   const deleted = [];
-  filesInUpload.forEach(file => {
-    if (!usedImages.has(file)) {
-      const filePath = path.join(uploadDir, file);
-      fs.unlinkSync(filePath);
-      deleted.push(file);
+
+  itemsInUpload.forEach(item => {
+    const itemPath = path.join(uploadDir, item);
+    const isDirectory = fs.statSync(itemPath).isDirectory();
+
+    if (isDirectory) {
+      fs.rmSync(itemPath, { recursive: true, force: true });
+      deleted.push(`${item}/`);
+      return;
+    }
+
+    if (!usedImages.has(item)) {
+      fs.unlinkSync(itemPath);
+      deleted.push(item);
     }
   });
 
   if (deleted.length > 0) {
-    console.log("🧹 Upload cleaner: file dihapus:", deleted.join(", "));
+    console.log("🧹 Upload cleaner: item dihapus:", deleted.join(", "));
   }
 }
 

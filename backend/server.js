@@ -3,9 +3,10 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const path = require("path");
+const morgan = require("morgan");
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
 
 app.use(cors({
   origin: "http://localhost:3000",
@@ -13,6 +14,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(cookieParser());
+app.use(morgan("dev"));
 
 const authRoutes = require("./routes/authRoutes");
 const sessionRoutes = require("./routes/sessionRoutes");
@@ -49,6 +51,7 @@ app.use("/api/subfolders", subfolderRoutes);
 app.use('/api', uploadRoutes);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 
 const sessionController = require("./controllers/sessionController");
 sessionController.startAutoSessionChecker();

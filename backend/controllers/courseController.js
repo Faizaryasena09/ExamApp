@@ -6,6 +6,7 @@ const db = require('../models/database');
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const cheerio = require("cheerio");
+const unzipper = require("unzipper");
 
 const pdf = require("pdf-parse");
 
@@ -860,5 +861,115 @@ exports.uploadSoalPdf = async (req, res) => {
   } catch (err) {
     console.error("❌ Gagal parsing PDF:", err.message);
     res.status(500).json({ error: "Gagal membaca file PDF" });
+  }
+};
+
+exports.uploadSoalZip = async (req, res) => {
+  const zipFile = req.file;
+
+  if (!zipFile) {
+    return res.status(400).json({ error: "File ZIP tidak ditemukan." });
+  }
+
+  const tempDir = path.join(__dirname, "../uploads/temp", uuidv4());
+  fs.mkdirSync(tempDir, { recursive: true });
+
+  try {
+    // 1. Extract ZIP
+    await fs.createReadStream(zipFile.path)
+      .pipe(unzipper.Extract({ path: tempDir }))
+      .promise();
+
+    // 2. Cari file HTML
+    const files = fs.readdirSync(tempDir);
+    const htmlFile = files.find(f => f.endsWith(".html"));
+    if (!htmlFile) throw new Error("File HTML tidak ditemukan dalam ZIP.");
+
+    const htmlPath = path.join(tempDir, htmlFile);
+    const html = fs.readFileSync(htmlPath, "utf-8");
+    const $ = cheerio.load(html);
+
+    const soalList = [];
+    let currentSoal = null;
+
+    const imgDir = path.join(__dirname, "../uploads/images");
+    if (!fs.existsSync(imgDir)) fs.mkdirSync(imgDir, { recursive: true });
+
+    $("p").each((_, el) => {
+      const text = $(el).text().trim();
+      const img = $(el).find("img");
+
+      // Soal
+      const soalMatch = text.match(/^\d+\.\s*(.+)/);
+      if (soalMatch) {
+        if (currentSoal) soalList.push(currentSoal);
+        currentSoal = {
+          soal: soalMatch[1],
+          opsi: {},
+          jawaban: null,
+          images: [],
+        };
+        return;
+      }
+
+      // Opsi teks
+      const opsiMatch = text.match(/^([A-D])\.\s*(.+)/);
+      if (opsiMatch && currentSoal) {
+        currentSoal.opsi[opsiMatch[1]] = opsiMatch[2];
+        return;
+      }
+
+      // Opsi gambar: misal <p>A. <img src="..."></p>
+      const opsiGambarMatch = text.match(/^([A-D])\.\s*$/);
+      if (opsiGambarMatch && img.length > 0 && currentSoal) {
+        const label = opsiGambarMatch[1];
+        const src = $(img[0]).attr("src");
+        if (src && !src.startsWith("http")) {
+          const fullImagePath = path.join(tempDir, src);
+          if (fs.existsSync(fullImagePath)) {
+            const ext = path.extname(src);
+            const imgBuffer = fs.readFileSync(fullImagePath);
+            const filename = `${uuidv4()}${ext}`;
+            const savePath = path.join(imgDir, filename);
+            fs.writeFileSync(savePath, imgBuffer);
+            const publicUrl = `/uploads/images/${filename}`;
+            currentSoal.opsi[label] = { type: "image", url: publicUrl };
+          }
+        }
+        return;
+      }
+
+      // Jawaban
+      const jawabanMatch = text.match(/^ANS:\s*([A-D])/i);
+      if (jawabanMatch && currentSoal) {
+        currentSoal.jawaban = jawabanMatch[1].toUpperCase();
+        return;
+      }
+
+      // Gambar tambahan untuk soal
+      if (img.length > 0 && currentSoal) {
+        img.each((_, image) => {
+          const src = $(image).attr("src");
+          if (!src || src.startsWith("http")) return;
+          const fullImagePath = path.join(tempDir, src);
+          if (fs.existsSync(fullImagePath)) {
+            const ext = path.extname(src);
+            const imgBuffer = fs.readFileSync(fullImagePath);
+            const filename = `${uuidv4()}${ext}`;
+            const savePath = path.join(imgDir, filename);
+            fs.writeFileSync(savePath, imgBuffer);
+            currentSoal.images.push(`/uploads/images/${filename}`);
+          }
+        });
+      }
+    });
+
+    if (currentSoal) soalList.push(currentSoal);
+
+    // Tidak hapus file sesuai permintaan
+    res.json({ soal: soalList });
+  } catch (err) {
+    console.error("❌ Gagal proses ZIP:", err.message);
+    res.status(500).json({ error: "Gagal memproses file ZIP." });
   }
 };
