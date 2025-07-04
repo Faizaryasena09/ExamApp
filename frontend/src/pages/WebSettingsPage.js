@@ -70,12 +70,15 @@ const WebSettingsPage = () => {
   
   const toAbsoluteImageSrc = (path) => {
     if (!path) return "";
-    let baseURL = api.defaults.baseURL || "http://localhost:5000";
-    if (baseURL.endsWith("/api")) {
-      baseURL = baseURL.slice(0, -4);
+  
+    const baseURL = api.defaults.baseURL;
+  
+    if (path.startsWith("http")) {
+      return path;
     }
-    if (path.startsWith("http")) return path;
-    return `${baseURL}${path.startsWith("/") ? "" : "/"}${path}`;
+  
+    const fullURL = `${baseURL}${path.startsWith("/") ? "" : "/"}${path}`;
+    return fullURL;
   };
 
   const logoPreviewSrc = logoFile ? URL.createObjectURL(logoFile) : toAbsoluteImageSrc(logoFromServer);

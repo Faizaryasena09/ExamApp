@@ -171,8 +171,8 @@ function ManageCoursePage() {
 
   const handleUploadSoal = async (e) => {
     const file = e.target.files[0];
-    if (!file || !file.name.endsWith(".pdf")) {
-      return alert("Hanya file .pdf yang didukung!");
+    if (!file || !file.name.endsWith(".zip")) {
+      return alert("Hanya file .zip yang didukung!");
     }
   
     const form = new FormData();
@@ -185,8 +185,13 @@ function ManageCoursePage() {
         },
       });
   
-      setSoalList((prev) => [...prev, ...res.data.soal]);
-      alert(`✅ Berhasil membaca ${res.data.soal.length} soal`);
+      if (res.data.success) {
+        const soal = res.data.soal;
+        setSoalList((prev) => [...prev, ...soal]);
+        alert(`✅ Berhasil membaca ${soal.length} soal`);
+      } else {
+        alert("❌ Gagal membaca soal: " + (res.data.message || "Respons tidak valid"));
+      }
     } catch (err) {
       console.error("❌ Gagal upload:", err);
       alert("Gagal membaca file soal dari server");
@@ -217,11 +222,15 @@ function ManageCoursePage() {
   }
 
   function toAbsoluteImageSrc(html) {
-    const rawBaseURL = api.defaults.baseURL || "http://localhost:5000";
-    const baseURL = rawBaseURL.replace(/\/api\/?$/, "");
+    const rawBaseURL = api.defaults.baseURL || "http://localhost:5000/api";
   
+    // Pastikan baseURL tidak berakhiran /
+    const baseURL = rawBaseURL.replace(/\/$/, "");
+  
+    // Ubah src="/uploads/... → src="http://localhost:5000/api/uploads/..."
     return html.replace(/src="\/uploads/g, `src="${baseURL}/uploads`);
   }
+  
   
   const handleSoalChange = (index, htmlContent) => {
     const updated = [...soalList];
@@ -484,7 +493,7 @@ function ManageCoursePage() {
     <input
       id="upload-soal"
       type="file"
-      accept=".pdf"
+      accept=".zip"
       onChange={handleUploadSoal}
       className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
     />

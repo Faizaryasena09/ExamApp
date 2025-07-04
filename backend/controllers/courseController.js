@@ -6,8 +6,8 @@ const db = require('../models/database');
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const cheerio = require("cheerio");
-
 const pdf = require("pdf-parse");
+const unzipper = require("unzipper");
 
 function shuffleArray(array) {
     return array
@@ -772,93 +772,159 @@ exports.toggleVisibility = async (req, res) => {
   }
 };
   
-function saveBase64ImageToUploads(base64Data, ext = "png") {
-  const base64 = base64Data.split(";base64,").pop();
-  const fileName = `${Date.now()}-${Math.floor(Math.random() * 1e6)}.${ext}`;
-  const filePath = path.join(__dirname, "../uploads", fileName);
-  fs.writeFileSync(filePath, base64, { encoding: "base64" });
-  return `/uploads/${fileName}`;
+const uploadsDir = path.join(__dirname, "../uploads");
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+
+// 🔧 Hilangkan style inline
+function removeStyles(html) {
+  return html.replace(/\s*style="[^"]*"/g, "");
 }
 
-// ✅ Parser soal dari hasil teks PDF
-function parseSoalFromPlainPdf(text) {
-  const lines = text
-    .split("\n")
-    .map(line => line.trim())
-    .filter(line => line.length > 0);
+// 🔧 Ganti src gambar ke path absolut berdasarkan imageMap
+function fixImageSrc(html, imageMap) {
+  return html.replace(/<img[^>]+src="([^"]+)"[^>]*>/g, (tag, src) => {
+    const oldName = path.basename(src);
+    const newSrc = imageMap[oldName] || src;
+    return tag.replace(src, newSrc);
+  });
+}
 
+function parseSoalFromHtml(html, imageMap) {
+  const $ = cheerio.load(html);
   const soalList = [];
-  let currentQuestion = "";
-  let currentOptions = [];
-  let currentAnswer = null;
 
-  for (let line of lines) {
-    // ✔️ Jawaban: ANS: A
-    if (/^ANS[:：]?\s*([A-Da-d])/.test(line)) {
-      const match = line.match(/^ANS[:：]?\s*([A-Da-d])/);
-      currentAnswer = match?.[1]?.toUpperCase();
+  // Ganti semua <img src> ke path absolut dan hilangkan style
+  $("img").each((_, el) => {
+    const oldSrc = $(el).attr("src");
+    const fileName = path.basename(oldSrc);
+    const absoluteUrl = `${imageMap[fileName]}`; // tanpa /api di depan
+    if (imageMap[fileName]) {
+      $(el).attr("src", absoluteUrl);
+    }
+    $(el).removeAttr("style");
+  });
 
-      if (currentQuestion && currentOptions.length >= 2 && currentAnswer) {
+  $("*").removeAttr("style"); // hapus style seluruhnya (optional)
+
+  // Ambil semua elemen (termasuk <img>) dalam <body>
+  const bodyHtml = $("body").html();
+  const lines = bodyHtml
+    .split(/<p[^>]*>|<\/p>|<br\s*\/?>/i)
+    .map(line => line.trim())
+    .filter(line => line && !/^(&nbsp;|<br\s*\/?>)?$/i.test(line));
+
+  let currentSoal = null;
+  let currentOpsi = [];
+  let currentJawaban = null;
+
+  for (const raw of lines) {
+    const textOnly = cheerio.load(raw).text().trim();
+
+    if (/^\d+\s*[\.\)]/.test(textOnly)) {
+      if (currentSoal && currentOpsi.length >= 2 && currentJawaban) {
         soalList.push({
-          soal: currentQuestion.trim(),
-          opsi: currentOptions.map(opt => `<span class="inline-option">${opt}</span>`),
-          jawaban: currentAnswer,
+          soal: currentSoal,
+          opsi: currentOpsi,
+          jawaban: currentJawaban,
         });
       }
 
-      currentQuestion = "";
-      currentOptions = [];
-      currentAnswer = null;
+      currentSoal = raw.replace(/^\d+\s*[\.\)]\s*/, "").trim();
+      currentOpsi = [];
+      currentJawaban = null;
     }
 
-    // ✔️ Opsi: A. / B) / C)
-    else if (/^[A-Da-d][\.\)]/.test(line)) {
-      currentOptions.push(line);
+    else if (/^[A-Da-d]\s*[\.\)]/.test(textOnly)) {
+      currentOpsi.push(`<span class="inline-option">${raw}</span>`);
     }
 
-    // ✔️ Soal baru: 1. atau 2)
-    else if (/^\d+[\.\)]/.test(line)) {
-      if (currentQuestion && currentOptions.length >= 2 && currentAnswer) {
-        soalList.push({
-          soal: currentQuestion.trim(),
-          opsi: currentOptions.map(opt => `<span class="inline-option">${opt}</span>`),
-          jawaban: currentAnswer,
-        });
-      }
-
-      currentQuestion = line.replace(/^\d+[\.\)]\s*/, "");
-      currentOptions = [];
-      currentAnswer = null;
+    else if (/^ANS[:：]?\s*([A-Da-d])/.test(textOnly)) {
+      const match = textOnly.match(/^ANS[:：]?\s*([A-Da-d])/);
+      currentJawaban = match?.[1]?.toUpperCase();
     }
 
-    // ✔️ Tambahan baris ke soal atau opsi
     else {
-      if (currentOptions.length > 0) {
-        const last = currentOptions.length - 1;
-        currentOptions[last] += " " + line;
-      } else {
-        currentQuestion += " " + line;
+      if (currentOpsi.length > 0) {
+        currentOpsi[currentOpsi.length - 1] += " " + raw;
+      } else if (currentSoal) {
+        currentSoal += " " + raw;
       }
     }
+  }
+
+  if (currentSoal && currentOpsi.length >= 2 && currentJawaban) {
+    soalList.push({
+      soal: currentSoal,
+      opsi: currentOpsi,
+      jawaban: currentJawaban,
+    });
   }
 
   return soalList;
 }
 
-// ✅ Endpoint upload PDF untuk soal
-exports.uploadSoalPdf = async (req, res) => {
-  const filePath = req.file.path;
+
+
+// ✅ Endpoint upload ZIP soal Word HTML Filtered
+exports.uploadSoalZip = async (req, res) => {
+  const zipFile = req.file;
+  const tempDir = path.join(__dirname, "../temp", uuidv4());
 
   try {
-    const buffer = fs.readFileSync(filePath);
-    const data = await pdf(buffer);
+    await fs.promises.mkdir(tempDir, { recursive: true });
 
-    const soalList = parseSoalFromPlainPdf(data.text);
-    fs.unlinkSync(filePath);
+    // Ekstrak .zip
+    await fs.createReadStream(zipFile.path)
+      .pipe(unzipper.Extract({ path: tempDir }))
+      .promise();
 
-    res.json({ soal: soalList });
+    const files = fs.readdirSync(tempDir);
+    const htmlFile = files.find(f => f.endsWith(".htm") || f.endsWith(".html"));
+    if (!htmlFile) throw new Error("File HTML tidak ditemukan di dalam ZIP");
+
+    const htmlPath = path.join(tempDir, htmlFile);
+    const htmlContent = fs.readFileSync(htmlPath, "utf-8");
+
+    // ✅ Mapping nama gambar lama → baru
+    const imageMap = {};
+    const subdirs = fs.readdirSync(tempDir, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => path.join(tempDir, d.name));
+
+    for (const folder of subdirs) {
+      const imageFiles = fs.readdirSync(folder);
+      for (const file of imageFiles) {
+        if (/\.(png|jpe?g|gif|bmp|webp)$/i.test(file)) {
+          const ext = path.extname(file);
+          const newName = `${uuidv4()}${ext}`;
+          const src = path.join(folder, file);
+          const dest = path.join(uploadsDir, newName);
+
+          fs.copyFileSync(src, dest);
+          fs.unlinkSync(src); // hapus temp lama
+
+          imageMap[file] = `/uploads/${newName}`;
+        }
+      }
+    }
+
+    const soalList = parseSoalFromHtml(htmlContent, imageMap);
+
+    // Hapus sisa file
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.unlinkSync(zipFile.path);
+
+    console.log("✅ Soal yang berhasil diparse dan dikirim:", JSON.stringify(soalList, null, 2));
+
+    res.status(200).json({
+      success: true,
+      soal: soalList,
+    });
   } catch (err) {
-    console.error("❌ Gagal parsing PDF:", err.message);
-    res.status(500).json({ error: "Gagal membaca file PDF" });
+    console.error("❌ Gagal upload soal ZIP:", err);
+    res.status(500).json({
+      success: false,
+      message: "Gagal memproses file ZIP",
+    });
   }
 };

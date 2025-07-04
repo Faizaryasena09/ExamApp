@@ -432,8 +432,7 @@ function DoExamPage() {
   };
 
   function toAbsoluteImageSrc(html) {
-    const rawBaseURL = api.defaults.baseURL || "http://localhost:5000";
-    const baseURL = rawBaseURL.replace(/\/api\/?$/, "");
+    const baseURL = api.defaults.baseURL || "http://localhost:5000/api";
   
     return html.replace(/src="\/uploads/g, `src="${baseURL}/uploads`);
   }
@@ -516,6 +515,7 @@ function DoExamPage() {
           params: { course_id: courseId }
         });
   
+        // 🔓 Minta app React Native untuk unlock
         if (window.ReactNativeWebView) {
           window.ReactNativeWebView.postMessage("UNLOCK");
         }
@@ -533,6 +533,7 @@ function DoExamPage() {
   
       } catch (err) {
         console.error("❌ Gagal cek hasil:", err.message);
+  
         if (window.ReactNativeWebView) {
           window.ReactNativeWebView.postMessage("UNLOCK");
         }
@@ -672,16 +673,26 @@ function DoExamPage() {
             <button
   onClick={async () => {
     try {
+      // ✅ Update status ujian
       await api.post("/exam/status", {
         user_id: Cookies.get("user_id"),
         course_id: courseId,
-        status: `Mengerjakan - ${courseTitle}`
+        status: `Mengerjakan - ${courseTitle}`,
       });
 
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage("LOCK");
-      }
+      // ✅ Buat URL dengan token
+      const token = Cookies.get("token");
+      const currentUrl = window.location.href;
+      const withToken = `${currentUrl}${currentUrl.includes('?') ? '&' : '?'}token=${token}`;
+      const encodedUrl = encodeURIComponent(withToken);
 
+      // ✅ Trigger aplikasi GardaSafeExam
+      const intentUrl = `intent://lock?url=${encodedUrl}#Intent;scheme=examapp;package=com.gardasafeexam;end`;
+
+      // 🎯 Buka intent (buka app React Native)
+      window.location.href = intentUrl;
+
+      // ✅ Tutup modal (jika ada)
       setShowStartModal(false);
     } catch (err) {
       console.error("❌ Gagal memulai ujian:", err);
@@ -692,6 +703,8 @@ function DoExamPage() {
 >
   Mulai Kerjakan
 </button>
+
+
           </div>
         </div>
       </div>

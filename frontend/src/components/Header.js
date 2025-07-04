@@ -159,9 +159,15 @@ function Header({ onToggleSidebar }) {
 
   const toAbsoluteImageSrc = (path) => {
     if (!path) return "";
-    let baseURL = api.defaults.baseURL || "http://localhost:5000";
-    if (baseURL.endsWith("/api")) baseURL = baseURL.slice(0, -4);
-    return path.startsWith("http") ? path : `${baseURL}${path.startsWith("/") ? "" : "/"}${path}`;
+  
+    const baseURL = api.defaults.baseURL;
+  
+    if (path.startsWith("http")) {
+      return path;
+    }
+  
+    const fullURL = `${baseURL}${path.startsWith("/") ? "" : "/"}${path}`;
+    return fullURL;
   };
 
   return (

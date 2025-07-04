@@ -21,13 +21,7 @@ router.get("/:id/questions/get", courseController.ambilSoal);
 router.get("/:id/questions", courseController.getQuestions);
 router.post("/:id/questions/save", onlyRole(["admin", "guru"]), courseController.saveOrUpdateQuestions);
 
-// ✅ GANTI: Upload PDF untuk parsing soal
-router.post(
-  "/:id/upload-soal",
-  upload.single("file"),
-  onlyRole(["admin", "guru"]),
-  courseController.uploadSoalPdf // ✅ Ganti dari uploadSoalDocx ke uploadSoalPdf
-);
+router.post("/:id/upload-soal", upload.single("file"), onlyRole(["admin", "guru"]), courseController.uploadSoalZip);
 
 // --- Ujian & Token
 router.post("/:id/validate-token", courseController.validateCourseToken);
