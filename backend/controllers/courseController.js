@@ -777,7 +777,13 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 
 // 🔧 Hilangkan style inline
 function removeStyles(html) {
-  return html.replace(/\s*style="[^"]*"/g, "");
+  return html
+    .replace(/\s*style="[^"]*"/gi, "")
+    .replace(/\s*lang="[^"]*"/gi, "")
+    .replace(/\s*dir="[^"]*"/gi, "")
+    .replace(/<\/?(td|tr|table|tbody)[^>]*>/gi, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\u200b|\u00a0/g, " "); // invisible chars
 }
 
 // 🔧 Ganti src gambar ke path absolut berdasarkan imageMap
@@ -789,142 +795,228 @@ function fixImageSrc(html, imageMap) {
   });
 }
 
-function parseSoalFromHtml(html, imageMap) {
+function parseSoalFromHtmlsalahini(html, imageMap) {
   const $ = cheerio.load(html);
   const soalList = [];
 
-  // Ganti semua <img src> ke path absolut dan hilangkan style
+  // Ganti src gambar ke imageMap
   $("img").each((_, el) => {
-    const oldSrc = $(el).attr("src");
-    const fileName = path.basename(oldSrc);
-    const absoluteUrl = `${imageMap[fileName]}`; // tanpa /api di depan
-    if (imageMap[fileName]) {
-      $(el).attr("src", absoluteUrl);
+    const src = $(el).attr("src");
+    const base = path.basename(src || "");
+    if (imageMap[base]) {
+      $(el).attr("src", imageMap[base]);
     }
-    $(el).removeAttr("style");
   });
 
-  $("*").removeAttr("style"); // hapus style seluruhnya (optional)
+  $("*").removeAttr("style");
+  $("*").removeAttr("lang");
+  $("*").removeAttr("dir");
 
-  // Ambil semua elemen (termasuk <img>) dalam <body>
-  const bodyHtml = $("body").html();
-  const lines = bodyHtml
-    .split(/<p[^>]*>|<\/p>|<br\s*\/?>/i)
-    .map(line => line.trim())
-    .filter(line => line && !/^(&nbsp;|<br\s*\/?>)?$/i.test(line));
+  // Ambil <p> dan <li> sebagai baris
+  const lines = [];
+  $("p, li").each((_, el) => {
+    const htmlLine = $(el).html()?.trim();
+    if (htmlLine && htmlLine.length > 0) {
+      lines.push(htmlLine);
+    }
+  });
 
-  let currentSoal = null;
+  const soalRegex = /^\d+[\.\)]/;
+  const opsiRegex = /^[A-Da-d][\.\)]/;
+  const jawabanRegex = /^ANS[:：]?\s*([A-D])/i;
+
+  let state = "idle";
+  let currentSoal = "";
   let currentOpsi = [];
   let currentJawaban = null;
 
+  const pushSoal = () => {
+    if (currentSoal && currentOpsi.length >= 2 && currentJawaban) {
+      soalList.push({
+        soal: currentSoal.trim(),
+        opsi: currentOpsi,
+        jawaban: currentJawaban,
+      });
+    }
+    currentSoal = "";
+    currentOpsi = [];
+    currentJawaban = null;
+    state = "idle";
+  };
+
   for (const raw of lines) {
-    const textOnly = cheerio.load(raw).text().trim();
+    const text = cheerio.load(raw).text().trim();
 
-    if (/^\d+\s*[\.\)]/.test(textOnly)) {
-      if (currentSoal && currentOpsi.length >= 2 && currentJawaban) {
-        soalList.push({
-          soal: currentSoal,
-          opsi: currentOpsi,
-          jawaban: currentJawaban,
-        });
-      }
-
-      currentSoal = raw.replace(/^\d+\s*[\.\)]\s*/, "").trim();
-      currentOpsi = [];
-      currentJawaban = null;
+    if (soalRegex.test(text)) {
+      pushSoal();
+      currentSoal = raw.replace(soalRegex, "").trim();
+      state = "soal";
     }
 
-    else if (/^[A-Da-d]\s*[\.\)]/.test(textOnly)) {
+    else if (opsiRegex.test(text)) {
+      state = "opsi";
       currentOpsi.push(`<span class="inline-option">${raw}</span>`);
     }
 
-    else if (/^ANS[:：]?\s*([A-Da-d])/.test(textOnly)) {
-      const match = textOnly.match(/^ANS[:：]?\s*([A-Da-d])/);
+    else if (jawabanRegex.test(text)) {
+      const match = text.match(jawabanRegex);
       currentJawaban = match?.[1]?.toUpperCase();
+      state = "jawaban";
     }
 
     else {
-      if (currentOpsi.length > 0) {
+      if (state === "soal") {
+        currentSoal += " <br/> " + raw;
+      } else if (state === "opsi" && currentOpsi.length > 0) {
         currentOpsi[currentOpsi.length - 1] += " " + raw;
-      } else if (currentSoal) {
-        currentSoal += " " + raw;
       }
     }
   }
 
-  if (currentSoal && currentOpsi.length >= 2 && currentJawaban) {
-    soalList.push({
-      soal: currentSoal,
-      opsi: currentOpsi,
-      jawaban: currentJawaban,
-    });
-  }
+  pushSoal(); // terakhir
 
   return soalList;
 }
 
+function findDocxRecursive(dir) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isFile() && fullPath.endsWith(".docx")) return fullPath;
+    else if (entry.isDirectory()) {
+      const result = findDocxRecursive(fullPath);
+      if (result) return result;
+    }
+  }
+  return null;
+}
 
+function normalizeText(text) {
+  return text
+    .replace(/\u00a0/g, " ") // non-breaking space
+    .replace(/\u200b/g, "")  // zero-width space
+    .replace(/[Ａ-Ｚａ-ｚ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)) // full-width ke ascii
+    .trim();
+}
 
-// ✅ Endpoint upload ZIP soal Word HTML Filtered
-exports.uploadSoalZip = async (req, res) => {
-  const zipFile = req.file;
+async function parseSoalFromHtmlWithMammoth(docxPath) {
+  const result = await mammoth.convertToHtml({ path: docxPath }, {
+    convertImage: mammoth.images.inline(async (element) => {
+      const ext = element.contentType.split("/")[1];
+      const buffer = await element.read();
+      const filename = `${uuidv4()}.${ext}`;
+      const outputPath = path.join(uploadsDir, filename);
+      fs.writeFileSync(outputPath, buffer);
+      return { src: `/uploads/${filename}` };
+    }),
+  });
+
+  let html = result.value;
+  const $ = cheerio.load(html);
+  const soalList = [];
+
+  const blocks = [];
+  $("p, li, div, td, th, tr, ol, ul").each((_, el) => {
+    const htmlContent = $(el).html()?.trim();
+    const textContent = normalizeText($(el).text());
+
+    // Tambahkan blok jika ada isi HTML (bisa gambar saja)
+    if (htmlContent && htmlContent.length > 0) {
+      blocks.push({
+        text: textContent,
+        html: htmlContent,
+      });
+    }
+  });
+
+  const soalRegex = /^\d+[\.\)]\s*/;
+  const opsiRegex = /^[A-Da-d][\.\)]\s*/;
+  const jawabanRegex = /^ANS[:：]?\s*([A-D])/i;
+
+  let currentSoal = "";
+  let currentOpsi = [];
+  let jawaban = null;
+  let state = "idle";
+
+  const pushSoal = () => {
+    if (currentSoal && currentOpsi.length >= 2 && jawaban) {
+      soalList.push({
+        soal: currentSoal.trim(),
+        opsi: currentOpsi.map(op => op.trim()),
+        jawaban,
+      });
+    }
+    currentSoal = "";
+    currentOpsi = [];
+    jawaban = null;
+    state = "idle";
+  };
+
+  for (const { text, html } of blocks) {
+    if (soalRegex.test(text)) {
+      pushSoal();
+      currentSoal = html.replace(soalRegex, "").trim();
+      state = "soal";
+    } else if (opsiRegex.test(text)) {
+      const clean = html.replace(opsiRegex, "").trim();
+      currentOpsi.push(`<span class="inline-option">${clean}</span>`);
+      state = "opsi";
+    } else if (jawabanRegex.test(text)) {
+      const match = text.match(jawabanRegex);
+      if (match) {
+        jawaban = match[1].toUpperCase();
+        state = "jawaban";
+      }
+    } else {
+      // Konten tambahan
+      if (state === "soal") {
+        currentSoal += "<br/>" + html;
+      } else if (state === "opsi" && currentOpsi.length > 0) {
+        currentOpsi[currentOpsi.length - 1] += "<br/>" + html;
+      }
+    }
+  }
+
+  pushSoal();
+  return soalList;
+}
+
+exports.uploadSoalDocx = async (req, res) => {
+  const file = req.file;
   const tempDir = path.join(__dirname, "../temp", uuidv4());
 
   try {
     await fs.promises.mkdir(tempDir, { recursive: true });
 
-    // Ekstrak .zip
-    await fs.createReadStream(zipFile.path)
-      .pipe(unzipper.Extract({ path: tempDir }))
-      .promise();
+    const filePath = file.path;
+    let docxPath = null;
 
-    const files = fs.readdirSync(tempDir);
-    const htmlFile = files.find(f => f.endsWith(".htm") || f.endsWith(".html"));
-    if (!htmlFile) throw new Error("File HTML tidak ditemukan di dalam ZIP");
-
-    const htmlPath = path.join(tempDir, htmlFile);
-    const htmlContent = fs.readFileSync(htmlPath, "utf-8");
-
-    // ✅ Mapping nama gambar lama → baru
-    const imageMap = {};
-    const subdirs = fs.readdirSync(tempDir, { withFileTypes: true })
-      .filter(d => d.isDirectory())
-      .map(d => path.join(tempDir, d.name));
-
-    for (const folder of subdirs) {
-      const imageFiles = fs.readdirSync(folder);
-      for (const file of imageFiles) {
-        if (/\.(png|jpe?g|gif|bmp|webp)$/i.test(file)) {
-          const ext = path.extname(file);
-          const newName = `${uuidv4()}${ext}`;
-          const src = path.join(folder, file);
-          const dest = path.join(uploadsDir, newName);
-
-          fs.copyFileSync(src, dest);
-          fs.unlinkSync(src); // hapus temp lama
-
-          imageMap[file] = `/uploads/${newName}`;
-        }
-      }
+    if (file.originalname.endsWith(".zip")) {
+      await fs.createReadStream(filePath)
+        .pipe(unzipper.Extract({ path: tempDir }))
+        .promise();
+      docxPath = findDocxRecursive(tempDir);
+      if (!docxPath) throw new Error("File .docx tidak ditemukan dalam ZIP");
+    } else if (file.originalname.endsWith(".docx")) {
+      docxPath = filePath;
+    } else {
+      throw new Error("Format file tidak didukung (harus .docx atau .zip)");
     }
 
-    const soalList = parseSoalFromHtml(htmlContent, imageMap);
+    const soalList = await parseSoalFromHtmlWithMammoth(docxPath);
 
-    // Hapus sisa file
     fs.rmSync(tempDir, { recursive: true, force: true });
-    fs.unlinkSync(zipFile.path);
+    fs.unlinkSync(filePath);
 
-    console.log("✅ Soal yang berhasil diparse dan dikirim:", JSON.stringify(soalList, null, 2));
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       soal: soalList,
     });
   } catch (err) {
-    console.error("❌ Gagal upload soal ZIP:", err);
+    console.error("❌ Gagal upload soal:", err);
     res.status(500).json({
       success: false,
-      message: "Gagal memproses file ZIP",
+      message: err.message || "Gagal memproses file",
     });
   }
 };

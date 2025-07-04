@@ -171,8 +171,8 @@ function ManageCoursePage() {
 
   const handleUploadSoal = async (e) => {
     const file = e.target.files[0];
-    if (!file || !file.name.endsWith(".zip")) {
-      return alert("Hanya file .zip yang didukung!");
+    if (!file || !file.name.endsWith(".docx")) {
+      return alert("Hanya file .docx yang didukung!");
     }
   
     const form = new FormData();
@@ -493,7 +493,7 @@ function ManageCoursePage() {
     <input
       id="upload-soal"
       type="file"
-      accept=".zip"
+      accept=".docx"
       onChange={handleUploadSoal}
       className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
     />
