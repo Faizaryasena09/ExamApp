@@ -24,24 +24,44 @@ function CreateCourses() {
   const nameCookie = Cookies.get("name")?.toString();
 
   useEffect(() => {
-    api
-      .get("/users")
-      .then((res) => {
-        const currentUser = res.data.find((u) => u.name === nameCookie);
+    const fetchUserAndKelas = async () => {
+      try {
+        const userRes = await api.get("/users");
+        const currentUser = userRes.data.find((u) => u.name === nameCookie);
+  
         if (!currentUser) {
           alert("Unauthorized!");
           navigate("/courses");
-        } else {
-          setUser(currentUser);
+          return;
         }
-      })
-      .catch((err) => {
-        console.error("Gagal ambil user:", err);
+  
+        setUser(currentUser);
+  
+        // Ambil data kelas berdasarkan role
+        const role = currentUser.role;
+  
+        if (role === "guru") {
+          const namaGuru = currentUser.name; // atau bisa dari cookie
+          const kelasRes = await api.get(`/guru-kelas/nama/${encodeURIComponent(namaGuru)}`);
+          const filteredKelas = kelasRes.data.map((nama, idx) => ({
+            id: idx + 1,
+            nama_kelas: nama,
+          }));
+          setKelasList(filteredKelas);
+        } else {
+          const kelasRes = await api.get("/data/kelas");
+          setKelasList(kelasRes.data);
+        }
+  
+      } catch (err) {
+        console.error("Gagal ambil user/kelas:", err);
         navigate("/courses");
-      });
-
-    api.get("/data/kelas").then((res) => setKelasList(res.data));
+      }
+    };
+  
+    fetchUserAndKelas();
   }, [nameCookie, navigate]);
+  
 
   const handleChange = (e) => {
     const { name, value, type, checked, selectedOptions } = e.target;

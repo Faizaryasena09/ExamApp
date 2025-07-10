@@ -893,39 +893,82 @@ function findDocxRecursive(dir) {
 
 function normalizeText(text) {
   return text
-    .replace(/\u00a0/g, " ") // non-breaking space
-    .replace(/\u200b/g, "")  // zero-width space
-    .replace(/[Ａ-Ｚａ-ｚ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)) // full-width ke ascii
+    .replace(/\u00a0/g, " ")
+    .replace(/\u200b/g, "")
+    .replace(/[Ａ-Ｚａ-ｚ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
     .trim();
 }
 
 async function parseSoalFromHtmlWithMammoth(docxPath) {
-  const result = await mammoth.convertToHtml({ path: docxPath }, {
-    convertImage: mammoth.images.inline(async (element) => {
-      const ext = element.contentType.split("/")[1];
-      const buffer = await element.read();
-      const filename = `${uuidv4()}.${ext}`;
-      const outputPath = path.join(uploadsDir, filename);
-      fs.writeFileSync(outputPath, buffer);
-      return { src: `/uploads/${filename}` };
-    }),
-  });
+  const result = await mammoth.convertToHtml(
+    { path: docxPath },
+    {
+      styleMap: [
+        "p[style-name='List Number'] => ol > li:fresh",
+        "p[style-name='List Bullet'] => ul > li:fresh"
+      ],
+      convertImage: mammoth.images.inline(async (element) => {
+        const ext = element.contentType.split("/")[1];
+        const buffer = await element.read();
+        const filename = `${uuidv4()}.${ext}`;
+        const outputPath = path.join(uploadsDir, filename);
+        fs.writeFileSync(outputPath, buffer);
+        return { src: `/uploads/${filename}` };
+      }),
+    }
+  );
 
-  let html = result.value;
+  const html = result.value;
   const $ = cheerio.load(html);
   const soalList = [];
-
   const blocks = [];
-  $("p, li, div, td, th, tr, ol, ul").each((_, el) => {
-    const htmlContent = $(el).html()?.trim();
-    const textContent = normalizeText($(el).text());
 
-    // Tambahkan blok jika ada isi HTML (bisa gambar saja)
-    if (htmlContent && htmlContent.length > 0) {
-      blocks.push({
-        text: textContent,
-        html: htmlContent,
+  $("body").children().each((_, el) => {
+    const tag = el.tagName || el.name;
+
+    if (tag === "ol" || tag === "ul") {
+      const isOrdered = tag === "ol";
+      $(el).children("li").each((i, li) => {
+        const $li = $(li);
+        const htmlContent = $li.html()?.trim();
+        const textContent = normalizeText($li.text());
+        let prefix = isOrdered ? `${i + 1}. ` : `${String.fromCharCode(65 + i)}. `;
+
+        if (htmlContent) {
+          blocks.push({
+            text: prefix + textContent,
+            html: `<span class="list-prefix">${prefix}</span>` + htmlContent,
+          });
+        }
       });
+    }
+
+    else if (tag === "table") {
+      $(el).find("tr").each((_, tr) => {
+        $(tr).find("td,th").each((_, cell) => {
+          const $cell = $(cell);
+          const htmlContent = $cell.html()?.trim();
+          const textContent = normalizeText($cell.text());
+          if (htmlContent) {
+            blocks.push({
+              text: textContent,
+              html: htmlContent,
+            });
+          }
+        });
+      });
+    }
+
+    else {
+      const $el = $(el);
+      const htmlContent = $el.html()?.trim();
+      const textContent = normalizeText($el.text());
+      if (htmlContent && htmlContent.length > 0) {
+        blocks.push({
+          text: textContent,
+          html: htmlContent,
+        });
+      }
     }
   });
 
@@ -968,7 +1011,6 @@ async function parseSoalFromHtmlWithMammoth(docxPath) {
         state = "jawaban";
       }
     } else {
-      // Konten tambahan
       if (state === "soal") {
         currentSoal += "<br/>" + html;
       } else if (state === "opsi" && currentOpsi.length > 0) {
