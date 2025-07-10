@@ -149,50 +149,113 @@ function CoursesPage() {
     setShowConfirmationModal(true);
   };
   
+  const openRushlessExam = ({ user_id, token, role, name, course_id }) => {
+    const userAgent = navigator.userAgent;
+  
+    const baseUrl = `${window.location.origin}/courses/${course_id}/do?token=${token}&user_id=${user_id}`;
+    const encodedUrl = encodeURIComponent(baseUrl);
+    const encodedUA = encodeURIComponent(userAgent);
+  
+    const queryParams = [
+      `url=${encodedUrl}`,
+      `ua=${encodedUA}`,
+      `token=${encodeURIComponent(token)}`,
+      `user_id=${encodeURIComponent(user_id)}`,
+      `name=${encodeURIComponent(name)}`,
+      `role=${encodeURIComponent(role)}`,
+    ].join('&');
+  
+    const intent = `intent://lock?${queryParams}#Intent;scheme=rushless;package=com.rushlessexam;end`;
+    window.location.href = intent;
+  };  
+
   const handleDoClick = async (courseId) => {
     try {
       const { data: course } = await api.get(`/courses/${courseId}`);
       const mulai = new Date(course.tanggal_mulai);
       const selesai = course.tanggal_selesai ? new Date(course.tanggal_selesai) : null;
   
-      if (now < mulai) return toast.warn("⏳ Ujian belum dimulai. Silakan cek lagi nanti.");
+      if (now < mulai) return toast.warn("⏳ Ujian belum dimulai.");
       if (selesai && now > selesai) return toast.error("🕔 Waktu ujian sudah berakhir.");
   
       const { data: status } = await api.get(`/courses/${courseId}/status?user=${userId}`);
-      if (status.sudahMaksimal) return toast.error("❌ Kesempatan Anda untuk mengerjakan sudah habis.");
+      if (status.sudahMaksimal) return toast.error("❌ Kesempatan Anda sudah habis.");
+  
+      const isAndroid = /Android/i.test(navigator.userAgent);
   
       if (status.useToken) {
         setSelectedCourseId(courseId);
         setTokenInput("");
         setShowTokenModal(true);
       } else {
-        navigate(`/courses/${courseId}/do`);
+        // ✅ langsung arahkan ke app jika Android
+        if (isAndroid) {
+          const token = Cookies.get("token");
+          const user_id = Cookies.get("user_id");
+  
+          if (!token || !user_id) return toast.error("❌ Token atau user_id tidak ditemukan!");
+  
+          await api.post("/exam/status", {
+            user_id,
+            course_id: courseId,
+            status: `Mengerjakan - ${course.title}`,
+          });
+  
+          openRushlessExam({ user_id, token, course_id: courseId });
+        } else {
+          navigate(`/courses/${courseId}/do`);
+        }
       }
     } catch (err) {
-      console.error("❌ Gagal cek waktu/status course:", err);
-      toast.error("Terjadi kesalahan saat memeriksa status course.");
+      console.error("❌ Gagal cek waktu/status:", err);
+      toast.error("Gagal memeriksa status ujian.");
     }
   };
 
   const handleSubmitToken = async (e) => {
     e.preventDefault();
     if (!tokenInput) return;
-
+  
     try {
-      const res = await api.post(`/courses/${selectedCourseId}/validate-token`, { token: tokenInput, user: userId });
+      const res = await api.post(`/courses/${selectedCourseId}/validate-token`, {
+        token: tokenInput,
+        user: userId,
+      });
+  
       if (res.data.valid) {
-        await api.post("/courses/tokenAuth", { course_id: selectedCourseId, user_id: userId });
+        await api.post("/courses/tokenAuth", {
+          course_id: selectedCourseId,
+          user_id: userId,
+        });
+  
         toast.success("✅ Token valid! Memulai ujian...");
         setShowTokenModal(false);
-        navigate(`/courses/${selectedCourseId}/do`);
+  
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        const token = Cookies.get("token");
+        const user_id = Cookies.get("user_id");
+  
+        if (!token || !user_id) return toast.error("❌ Token atau user_id tidak ditemukan!");
+  
+        await api.post("/exam/status", {
+          user_id,
+          course_id: selectedCourseId,
+          status: `Mengerjakan - ${res.data.title || "Ujian"}`,
+        });
+  
+        if (isAndroid) {
+          openRushlessExam({ user_id, token, course_id: selectedCourseId });
+        } else {
+          navigate(`/courses/${selectedCourseId}/do`);
+        }
       } else {
-        toast.error("❌ Token salah atau sudah kedaluwarsa.");
+        toast.error("❌ Token salah atau kedaluwarsa.");
       }
     } catch (err) {
       console.error("❌ Gagal validasi token:", err);
       toast.error("Gagal memvalidasi token.");
     }
-  };
+  };  
 
   const toggleVisibility = async (id, currentHidden) => {
     try {

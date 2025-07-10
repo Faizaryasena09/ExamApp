@@ -494,7 +494,7 @@ function DoExamPage() {
   
       try {
         await api.delete("/answertrail/timer-delete", {
-          params: { user_id: userId, course_id: courseId }
+          params: { user_id: userId, course_id: courseId },
         });
       } catch (err) {
         console.warn("❌ Gagal hapus timer:", err.message);
@@ -504,43 +504,40 @@ function DoExamPage() {
         await api.post("/exam/status", {
           user_id: userId,
           course_id: courseId,
-          status: `Tidak Sedang mengerjakan`
+          status: `Tidak Sedang mengerjakan`,
         });
       } catch (err) {
-        console.error("❌ Gagal update status selesai ujian:", err.message);
+        console.error("❌ Gagal update status:", err.message);
       }
   
       try {
         const res = await api.get(`/jawaban/show-result`, {
-          params: { course_id: courseId }
+          params: { course_id: courseId },
         });
   
-        // 🔓 Minta app React Native untuk unlock
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage("UNLOCK");
-        }
-  
+        // 📢 Kirim hasilnya ke SafeExam, TAPI tidak langsung UNLOCK
         const tampilkanHasil = res.data?.tampilkan_hasil;
         const analisisJawaban = res.data?.analisis_jawaban;
+        const hasilUrl =
+          analisisJawaban
+            ? `${window.location.origin}/courses/${courseId}/${userId}/${attemptId}/hasil`
+            : tampilkanHasil
+            ? `${window.location.origin}/courses/${courseId}/${userId}/${attemptId}/summary`
+            : `${window.location.origin}/`;
   
-        if (analisisJawaban) {
-          navigate(`/courses/${courseId}/${userId}/${attemptId}/hasil`);
-        } else if (tampilkanHasil) {
-          navigate(`/courses/${courseId}/${userId}/${attemptId}/summary`);
-        } else {
-          navigate(`/`);
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(`UNLOCK:${hasilUrl}`);
         }
   
+        // ⬅️ Navigasi biasa
+        navigate(hasilUrl);
       } catch (err) {
         console.error("❌ Gagal cek hasil:", err.message);
-  
         if (window.ReactNativeWebView) {
           window.ReactNativeWebView.postMessage("UNLOCK");
         }
-  
         navigate(`/`);
       }
-  
     } else {
       alert("❌ Gagal simpan jawaban.");
       if (window.ReactNativeWebView) {
@@ -549,7 +546,8 @@ function DoExamPage() {
     }
   
     setLoadingSubmit(false);
-  };  
+  };
+  
   
   const currentSoal = soalList[currentIndex];
   
@@ -671,39 +669,37 @@ function DoExamPage() {
               Kembali
             </button>
             <button
-  onClick={async () => {
-    try {
-      // ✅ Update status ujian
-      await api.post("/exam/status", {
-        user_id: Cookies.get("user_id"),
-        course_id: courseId,
-        status: `Mengerjakan - ${courseTitle}`,
-      });
+              onClick={async () => {
+                try {
+                  const user_id = Cookies.get("user_id");
+                  const token = Cookies.get("token");
 
-      // ✅ Buat URL dengan token
-      const token = Cookies.get("token");
-      const currentUrl = window.location.href;
-      const withToken = `${currentUrl}${currentUrl.includes('?') ? '&' : '?'}token=${token}`;
-      const encodedUrl = encodeURIComponent(withToken);
+                  if (!user_id || !token) {
+                    alert("User belum login atau token hilang.");
+                    return;
+                  }
 
-      // ✅ Trigger aplikasi GardaSafeExam
-      const intentUrl = `intent://lock?url=${encodedUrl}#Intent;scheme=examapp;package=com.gardasafeexam;end`;
+                  // ✅ Update status user ke backend
+                  await api.post("/exam/status", {
+                    user_id,
+                    course_id: courseId,
+                    status: `Mengerjakan - ${courseTitle}`,
+                  });
 
-      // 🎯 Buka intent (buka app React Native)
-      window.location.href = intentUrl;
+                  // ✅ Redirect ke halaman ujian biasa
+                  navigate(`/courses/${courseId}/do`);
 
-      // ✅ Tutup modal (jika ada)
-      setShowStartModal(false);
-    } catch (err) {
-      console.error("❌ Gagal memulai ujian:", err);
-      alert("Gagal memulai ujian. Coba lagi.");
-    }
-  }}
-  className="px-6 py-2 rounded-lg font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
->
-  Mulai Kerjakan
-</button>
-
+                  // ✅ Tutup modal jika ada
+                  setShowStartModal(false);
+                } catch (err) {
+                  console.error("❌ Gagal memulai ujian:", err);
+                  alert("Gagal memulai ujian. Coba lagi.");
+                }
+              }}
+              className="px-6 py-2 rounded-lg font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+            >
+              Mulai Kerjakan
+            </button>
 
           </div>
         </div>
