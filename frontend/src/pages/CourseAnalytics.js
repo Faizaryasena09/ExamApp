@@ -342,86 +342,85 @@ const [kelasToExport, setKelasToExport] = useState("");
                       Detail Performa Peserta
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-  <div className="relative">
-    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-    <input
-      type="text"
-      placeholder="Cari nama peserta..."
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-    />
-  </div>
-  <select
-    value={selectedClass}
-    onChange={(e) => setSelectedClass(e.target.value)}
-    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  >
-    {uniqueClasses.map((kelas, index) => (
-      <option key={index} value={kelas}>
-        {kelas === "" ? "Semua Kelas" : `Kelas: ${kelas}`}
-      </option>
-    ))}
-  </select>
-  <div className="flex justify-end mb-4">
-  <button
-    onClick={() => setShowExportModal(true)}
-    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow"
-  >
-    Export Excel
-  </button>
-</div>
+                      <div className="relative">
+                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Cari nama peserta..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <select
+                        value={selectedClass}
+                        onChange={(e) => setSelectedClass(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {uniqueClasses.map((kelas, index) => (
+                          <option key={index} value={kelas}>
+                            {kelas === "" ? "Semua Kelas" : `Kelas: ${kelas}`}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="flex justify-end mb-4">
+                      <button
+                        onClick={() => setShowExportModal(true)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow"
+                      >
+                        Export Excel
+                      </button>
+                    </div>
 
-{showExportModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
-    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm">
-      <h2 className="text-lg font-semibold mb-4">Pilih Kelas untuk Ekspor</h2>
-      <select
-        value={kelasToExport}
-        onChange={(e) => setKelasToExport(e.target.value)}
-        className="w-full mb-4 p-2 border border-gray-300 rounded"
-      >
-        <option value="">-- Pilih Kelas --</option>
-        {groupedAndSortedData.map(group => (
-          <option key={group.className} value={group.className}>{group.className}</option>
-        ))}
-      </select>
-      <div className="flex justify-end gap-2">
-        <button
-          className="px-4 py-2 bg-gray-300 rounded"
-          onClick={() => setShowExportModal(false)}
-        >
-          Batal
-        </button>
-        <button
-  disabled={!kelasToExport}
-  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-  onClick={async () => {
-    const group = groupedAndSortedData.find(g => g.className === kelasToExport);
-    if (!group) return;
+                    {showExportModal && (
+                      <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
+                        <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm">
+                          <h2 className="text-lg font-semibold mb-4">Pilih Kelas untuk Ekspor</h2>
+                          <select
+                            value={kelasToExport}
+                            onChange={(e) => setKelasToExport(e.target.value)}
+                            className="w-full mb-4 p-2 border border-gray-300 rounded"
+                          >
+                            <option value="">-- Pilih Kelas --</option>
+                            {groupedAndSortedData.map(group => (
+                              <option key={group.className} value={group.className}>{group.className}</option>
+                            ))}
+                          </select>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              className="px-4 py-2 bg-gray-300 rounded"
+                              onClick={() => setShowExportModal(false)}
+                            >
+                              Batal
+                            </button>
+                            <button
+                      disabled={!kelasToExport}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                      onClick={async () => {
+                        const group = groupedAndSortedData.find(g => g.className === kelasToExport);
+                        if (!group) return;
 
-    for (const student of group.students) {
-      const attempt = student.attempts[0];
-      if (attempt) {
-        const detail = await loadJawabanDetail(courseId, student.user_id, attempt.attemp);
-        attempt.detail_jawaban = detail;
-      }
-    }
+                        for (const student of group.students) {
+                          const attempt = student.attempts[0];
+                          if (attempt) {
+                            const detail = await loadJawabanDetail(courseId, student.user_id, attempt.attemp);
+                            attempt.detail_jawaban = detail;
+                          }
+                        }
 
-    exportToExcel(groupedAndSortedData, kelasToExport);
-    setShowExportModal(false);
-  }}
->
-  Ekspor
-</button>
+                        exportToExcel(groupedAndSortedData, kelasToExport);
+                        setShowExportModal(false);
+                      }}
+                    >
+                      Ekspor
+                    </button>
 
-      </div>
-    </div>
-  </div>
-)}
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
-</div>
-
+                    </div>
                   </div>
                   {groupedAndSortedData.length > 0 ? (
                     <div>

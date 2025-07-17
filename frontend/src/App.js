@@ -29,6 +29,7 @@ import PreviewPage from "./pages/PreviewPage";
 import WebSettingsPage from "./pages/WebSettingsPage";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
+import Footer from "./components/Footer";
 
 function getCookie(name) {
   const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
@@ -229,6 +230,7 @@ function AppLayout() {
             <Route path="/courses/:courseId/:userId/:attemp/summary" element={<AnswerSummaryPage />} />
           </Routes>
         </main>
+        <Footer />
       </div>
     </div>
   );
