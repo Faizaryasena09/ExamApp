@@ -84,9 +84,11 @@ function LoginPage() {
 
       setMessage("✅ Login berhasil! Mengarahkan...");
       setTimeout(() => {
-        navigate("/home");
+        const redirectPath = localStorage.getItem("redirectAfterLogin") || "/home";
+        localStorage.removeItem("redirectAfterLogin");
+        navigate(redirectPath, { replace: true });
         setupInactivityLogout();
-      }, 1500);
+      }, 1500);      
     } catch (err) {
       setMessage(`❌ ${err.response?.data?.message || "Username atau password salah"}`);
     } finally {

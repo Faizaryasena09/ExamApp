@@ -490,8 +490,10 @@ function DoExamPage() {
     const attemptId = await submitJawabanUjian();
   
     if (attemptId != null) {
+      // Hapus timer lokal
       localStorage.removeItem(`timer-${userId}-${courseId}`);
   
+      // Hapus timer di backend
       try {
         await api.delete("/answertrail/timer-delete", {
           params: { user_id: userId, course_id: courseId },
@@ -500,44 +502,54 @@ function DoExamPage() {
         console.warn("❌ Gagal hapus timer:", err.message);
       }
   
+      // Update status ujian di backend
       try {
         await api.post("/exam/status", {
           user_id: userId,
           course_id: courseId,
-          status: `Tidak Sedang mengerjakan`,
+          status: "Tidak Sedang mengerjakan",
         });
       } catch (err) {
         console.error("❌ Gagal update status:", err.message);
       }
   
+      // Ambil info hasil ujian
       try {
         const res = await api.get(`/jawaban/show-result`, {
           params: { course_id: courseId },
         });
   
-        // 📢 Kirim hasilnya ke SafeExam, TAPI tidak langsung UNLOCK
         const tampilkanHasil = res.data?.tampilkan_hasil;
         const analisisJawaban = res.data?.analisis_jawaban;
-        const hasilUrl =
-          analisisJawaban
-            ? `${window.location.origin}/courses/${courseId}/${userId}/${attemptId}/hasil`
-            : tampilkanHasil
-            ? `${window.location.origin}/courses/${courseId}/${userId}/${attemptId}/summary`
-            : `${window.location.origin}/`;
   
+        // Path relatif untuk React Router
+        const hasilPath = analisisJawaban
+          ? `/courses/${courseId}/${userId}/${attemptId}/hasil`
+          : tampilkanHasil
+          ? `/courses/${courseId}/${userId}/${attemptId}/summary`
+          : `/`;
+  
+        // Full URL untuk WebView
+        const hasilFullUrl = window.location.origin + hasilPath;
+  
+        // Kirim ke SafeExam (tidak langsung unlock jika perlu)
         if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(`UNLOCK:${hasilUrl}`);
+          window.ReactNativeWebView.postMessage(`UNLOCK:${hasilFullUrl}`);
         }
   
-        // ⬅️ Navigasi biasa
-        navigate(hasilUrl);
+        // Navigasi di React Router
+        navigate(hasilPath, { replace: true });
+  
       } catch (err) {
         console.error("❌ Gagal cek hasil:", err.message);
+  
         if (window.ReactNativeWebView) {
           window.ReactNativeWebView.postMessage("UNLOCK");
         }
-        navigate(`/`);
+  
+        navigate(`/`, { replace: true });
       }
+  
     } else {
       alert("❌ Gagal simpan jawaban.");
       if (window.ReactNativeWebView) {
@@ -546,8 +558,8 @@ function DoExamPage() {
     }
   
     setLoadingSubmit(false);
-  };
-  
+  };  
+
   
   const currentSoal = soalList[currentIndex];
   

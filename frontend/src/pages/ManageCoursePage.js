@@ -500,7 +500,6 @@ function ManageCoursePage() {
   </div>
 </div>
 
-          
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-gray-800">📝 Daftar Soal ({soalList.length})</h3>
             <button

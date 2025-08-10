@@ -41,7 +41,15 @@ function PublicRoute({ element }) {
 }
 
 function PrivateRoute({ element }) {
-  return getCookie("name") ? element : <Navigate to="/" />;
+  const location = useLocation();
+
+  if (!getCookie("name")) {
+    // Simpan URL tujuan sebelum login
+    localStorage.setItem("redirectAfterLogin", location.pathname + location.search);
+    return <Navigate to="/" replace />;
+  }
+
+  return element;
 }
 
 function RoleRoute({ element, allowedRoles }) {
