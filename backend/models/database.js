@@ -131,7 +131,7 @@ async function initDatabase() {
         course_id INT NOT NULL,
         soal TEXT NOT NULL,
         opsi JSON NOT NULL,
-        jawaban CHAR(1) NOT NULL,
+        jawaban VARCHAR(255) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (course_id) REFERENCES courses(id)
           ON DELETE CASCADE

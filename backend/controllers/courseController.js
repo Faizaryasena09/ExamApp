@@ -292,7 +292,6 @@ exports.simpanSoal = async (req, res) => {
 
   try {
     for (const item of soalList) {
-      const opsi = acakJawaban ? shuffleArray(item.opsi) : item.opsi;
       const soalId = parseInt(item.id);
 
       if (!isNaN(soalId)) {

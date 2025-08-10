@@ -42,6 +42,8 @@ function ManageCoursePage() {
   const [soalList, setSoalList] = useState([]);
   const [acakSoal, setAcakSoal] = useState(false);
   const [acakJawaban, setAcakJawaban] = useState(false);
+  const [activeSoalIndex, setActiveSoalIndex] = useState(null);
+  const [activeOpsiIndex, setActiveOpsiIndex] = useState({ soal: null, opsi: null });
 
   useEffect(() => {
     fetchCourse();
@@ -160,14 +162,15 @@ function ManageCoursePage() {
         opsi: Array.isArray(item.opsi)
           ? item.opsi
           : JSON.parse(item.opsi || "[]"),
-        jawaban: item.jawaban
+        jawaban: item.jawaban ? item.jawaban.replace(/\./g, "").trim() : "" // hapus titik & spasi
       }));
   
       setSoalList(soalFormatted);
     } catch (err) {
       console.error("❌ Gagal ambil soal dari DB:", err);
     }
-  };   
+  };
+  
 
   const handleUploadSoal = async (e) => {
     const file = e.target.files[0];
@@ -244,8 +247,14 @@ function ManageCoursePage() {
     setSoalList(updated);
   };
 
+  const hapusLabelHuruf = (teks) => {
+    if (!teks) return '';
+    // Hilangkan label seperti "A. " atau "B. "
+    return teks.replace(/^[A-Z]\.\s*/, '');
+  };
+
   const editorSoalRef = useRef(null);
-  const labelHuruf = (i) => String.fromCharCode(65 + i);
+  const labelHuruf = (i) => String.fromCharCode(65 + i) + '. ';
   const editorOpsiRef = useRef(null);
 
   return (
@@ -516,214 +525,270 @@ function ManageCoursePage() {
           </div>
 
           {soalList.length > 0 && (
-            <div className="space-y-6">
-              {soalList.map((item, index) => {
-                return (
-                  <div
-                    key={index}
-                    className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-6 transition-all duration-300 hover:shadow-lg hover:border-blue-300"
+        <div className="space-y-6">
+          {soalList.map((item, index) => {
+            return (
+              <div
+                key={index}
+                className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-6 transition-all duration-300 hover:shadow-lg hover:border-blue-300"
+              >
+                <div className="flex justify-between items-center p-4 bg-slate-50 border-b border-slate-200">
+                  <h3 className="font-bold text-lg text-slate-800">
+                    Soal #{index + 1}
+                  </h3>
+                  <button
+                    onClick={() => setSoalList(soalList.filter((_, i) => i !== index))}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-500 hover:bg-red-100 hover:text-red-700 transition-all"
                   >
-                    <div className="flex justify-between items-center p-4 bg-slate-50 border-b border-slate-200">
-                      <h3 className="font-bold text-lg text-slate-800">
-                        Soal #{index + 1}
-                      </h3>
-                      <button
-                        onClick={() => setSoalList(soalList.filter((_, i) => i !== index))}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-500 hover:bg-red-100 hover:text-red-700 transition-all"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-                        Hapus Soal
-                      </button>
-                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                    Hapus Soal
+                  </button>
+                </div>
 
-                    <div className="p-5 md:p-6">
-                      <div className="mb-6">
-                        <label className="block text-sm font-medium text-slate-600 mb-2">
-                          Pertanyaan
-                        </label>
-                        <div className="prose max-w-none">
-                          <JoditEditor
-                            ref={editorSoalRef}
-                            value={toAbsoluteImageSrc(item.soal)}
-                            config={{
-                              readonly: false,
-                              height: 300,
-                              toolbar: true,
-                              toolbarAdaptive: false,
-                              toolbarSticky: false,
-                              buttons: [ 'bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'image', '|', 'undo', 'redo' ],
-                              enter: 'P',
-                              tabIndex: 1,
-                              allowTabNavigation: true,
-                              placeholder: 'Tuliskan pertanyaan di sini...'
-                            }}
-                            onBlur={(newContent) => {
-                              const updated = [...soalList];
-                              updated[index].soal = newContent;
-                              setSoalList(updated);
-                            }}
-                          />
-                        </div>
-                        <label htmlFor={`soal-img-upload-${index}`} className="mt-3 inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 cursor-pointer font-medium">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-image-plus"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><line x1="16" x2="22" y1="5" y2="5"/><line x1="19" x2="19" y1="2" y2="8"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-                          Sisipkan Gambar
-                        </label>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          id={`soal-img-upload-${index}`}
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files[0];
-                            if (!file) return;
-                            try {
-                              const imgPath = await uploadImageToServer(file);
-                              const updated = [...soalList];
-                              updated[index].soal = `<img src="${imgPath}" class="max-h-60 mb-2 rounded-md"><br/>` + (item.soal || '');
-                              setSoalList(updated);
-                            } catch {
-                              alert("❌ Gagal upload gambar soal.");
-                            }
+                <div className="p-5 md:p-6">
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-slate-600 mb-2">
+                      Pertanyaan
+                    </label>
+                    <div className="prose max-w-none">
+                      {activeSoalIndex === index ? (
+                        <JoditEditor
+                          ref={editorSoalRef}
+                          value={toAbsoluteImageSrc(item.soal)}
+                          config={{
+                            readonly: false,
+                            height: 300,
+                            toolbar: true,
+                            toolbarAdaptive: false,
+                            toolbarSticky: false,
+                            buttons: ['bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'image', '|', 'undo', 'redo'],
+                            enter: 'P',
+                            tabIndex: 1,
+                            allowTabNavigation: true,
+                            placeholder: 'Tuliskan pertanyaan di sini...'
+                          }}
+                          onBlur={(newContent) => {
+                            const updated = [...soalList];
+                            updated[index].soal = newContent;
+                            setSoalList(updated);
+                            setActiveSoalIndex(null);
                           }}
                         />
-                      </div>
+                      ) : (
+                        <div
+                          className="border border-slate-200 rounded-lg p-3 cursor-text hover:border-blue-400"
+                          onClick={() => setActiveSoalIndex(index)}
+                          dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(item.soal) || "<p class='text-slate-400'>Klik untuk menulis pertanyaan...</p>" }}
+                        />
+                      )}
+                    </div>
 
-                      <div>
-                        <label className="block text-base font-semibold text-slate-700 mb-3">
-                          Pilihan Jawaban
-                        </label>
-                        <div className="space-y-4">
-                          {item.opsi.map((opsi, opsiIdx) => {
-                            const huruf = labelHuruf(opsiIdx);
-                            const isChecked = item.jawaban === huruf;
+                    <label htmlFor={`soal-img-upload-${index}`} className="mt-3 inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 cursor-pointer font-medium">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-image-plus"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><line x1="16" x2="22" y1="5" y2="5"/><line x1="19" x2="19" y1="2" y2="8"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                      Sisipkan Gambar
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id={`soal-img-upload-${index}`}
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        try {
+                          const imgPath = await uploadImageToServer(file);
+                          const updated = [...soalList];
+                          updated[index].soal = `<img src="${imgPath}" class="max-h-60 mb-2 rounded-md"><br/>` + (item.soal || '');
+                          setSoalList(updated);
+                        } catch {
+                          alert("❌ Gagal upload gambar soal.");
+                        }
+                      }}
+                    />
+                  </div>
 
-                            return (
-                              <div key={opsiIdx} className={`flex items-start gap-4 p-4 rounded-lg border transition-all ${ isChecked ? 'bg-green-50 border-green-400 shadow-sm' : 'bg-slate-50 border-slate-200' }`}>
-                                <label htmlFor={`jawaban-${index}-${opsiIdx}`} className="flex-shrink-0 cursor-pointer">
-                                  <input type="radio" id={`jawaban-${index}-${opsiIdx}`} name={`jawaban-${index}`} value={huruf} checked={isChecked}
-                                    onChange={(e) => {
-                                      const updated = [...soalList];
-                                      updated[index].jawaban = e.target.value;
-                                      setSoalList(updated);
-                                    }}
-                                    className="hidden peer"
-                                  />
-                                  <div className="w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-slate-300 font-bold text-slate-500 peer-checked:bg-green-600 peer-checked:border-green-600 peer-checked:text-white transition-all">
-                                    {huruf}
-                                  </div>
-                                </label>
+                  <div>
+                    <label className="block text-base font-semibold text-slate-700 mb-3">
+                      Pilihan Jawaban
+                    </label>
+                    <div className="space-y-4">
+  {item.opsi.map((opsi, opsiIdx) => {
+    const huruf = labelHuruf(opsiIdx);
+    const isChecked = item.jawaban === huruf;
 
-                                <div className="flex-1">
-                                  <div className="prose max-w-none">
-                                      <JoditEditor
-                                        ref={editorOpsiRef}
-                                        value={toAbsoluteImageSrc(opsi)}
-                                        config={{
-                                          readonly: false,
-                                          height: 100,
-                                          toolbar: true,
-                                          toolbarAdaptive: false,
-                                          toolbarSticky: false,
-                                          buttons: [ 'bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'image', '|', 'undo', 'redo' ],
-                                          enter: 'P',
-                                          tabIndex: 1,
-                                          allowTabNavigation: true,
-                                          placeholder: 'Tuliskan pilihan jawaban...'
-                                        }}
-                                        onBlur={(newContent) => {
-                                          const updated = [...soalList];
-                                          updated[index].opsi[opsiIdx] = newContent;
-                                          setSoalList(updated);
-                                        }}
-                                      />
-                                  </div>
-                                  <label htmlFor={`opsi-img-upload-${index}-${opsiIdx}`} className="mt-2 inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 cursor-pointer font-medium">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-image-plus"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><line x1="16" x2="22" y1="5" y2="5"/><line x1="19" x2="19" y1="2" y2="8"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-                                    Sisipkan Gambar
-                                  </label>
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    id={`opsi-img-upload-${index}-${opsiIdx}`}
-                                    className="hidden"
-                                    onChange={async (e) => {
-                                      const file = e.target.files[0];
-                                      if (!file) return;
-                                      try {
-                                        const imgPath = await uploadImageToServer(file);
-                                        const updated = [...soalList];
-                                        updated[index].opsi[opsiIdx] = `<img src="${imgPath}" class="max-h-28 mb-2 rounded-md"><br/>` + (item.opsi[opsiIdx] || '');
-                                        setSoalList(updated);
-                                      } catch {
-                                        alert("❌ Gagal upload gambar opsi.");
-                                      }
-                                    }}
-                                  />
-                                </div>
+    // Pastikan opsi selalu bersih dari label lama
+    const opsiBersih = hapusLabelHuruf(
+      typeof opsi === 'string' ? opsi : opsi?.html || opsi?.text || ''
+    );
 
-                                <button
-                                  className="flex-shrink-0 text-slate-400 hover:text-red-600 transition-colors"
-                                  onClick={() => {
-                                    const updated = [...soalList];
-                                    updated[index].opsi.splice(opsiIdx, 1);
-                                    if (updated[index].jawaban === huruf) {
-                                      updated[index].jawaban = "";
-                                    }
-                                    setSoalList(updated);
-                                  }}
-                                  title="Hapus opsi ini"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x-circle"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>
-                                </button>
-                              </div>
-                            );
-                          })}
+    return (
+      <div
+  key={opsiIdx}
+  className={`flex items-start gap-4 p-4 rounded-lg border transition-all ${
+    isChecked ? 'bg-green-50 border-green-400 shadow-sm' : 'bg-slate-50 border-slate-200'
+  }`}
+>
+  <label
+    htmlFor={`jawaban-${index}-${opsiIdx}`}
+    className="flex-shrink-0 cursor-pointer"
+  >
+    {(() => {
+      const hurufBersih = huruf.replace(/\./g, "").trim(); 
+      const jawabanBersih = (item.jawaban || "").replace(/\./g, "").trim(); 
+      const isChecked = jawabanBersih === hurufBersih;
+
+      return (
+        <>
+          <input
+            type="radio"
+            id={`jawaban-${index}-${opsiIdx}`}
+            name={`jawaban-${index}`}
+            value={hurufBersih}
+            checked={isChecked}
+            onChange={(e) => {
+              const updated = [...soalList];
+              updated[index].jawaban = e.target.value;
+              setSoalList(updated);
+            }}
+            className="hidden peer"
+          />
+          <div className="w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-slate-300 font-bold text-slate-500 peer-checked:bg-green-600 peer-checked:border-green-600 peer-checked:text-white transition-all">
+            {hurufBersih}
+          </div>
+        </>
+      );
+    })()}
+  </label>
+
+
+        <div className="flex-1">
+          <div className="prose max-w-none">
+            {activeOpsiIndex.soal === index && activeOpsiIndex.opsi === opsiIdx ? (
+              <JoditEditor
+                ref={editorOpsiRef}
+                value={toAbsoluteImageSrc(opsiBersih)}
+                config={{
+                  readonly: false,
+                  height: 100,
+                  toolbar: true,
+                  toolbarAdaptive: false,
+                  toolbarSticky: false,
+                  buttons: ['bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'image', '|', 'undo', 'redo'],
+                  enter: 'P',
+                  tabIndex: 1,
+                  allowTabNavigation: true,
+                  placeholder: 'Tuliskan pilihan jawaban...'
+                }}
+                onBlur={(newContent) => {
+                  const updated = [...soalList];
+                  updated[index].opsi[opsiIdx] = hapusLabelHuruf(newContent);
+                  setSoalList(updated);
+                  setActiveOpsiIndex({ soal: null, opsi: null });
+                }}
+              />
+            ) : (
+              <div
+                className="border border-slate-200 rounded-lg p-2 cursor-text hover:border-blue-400"
+                onClick={() => setActiveOpsiIndex({ soal: index, opsi: opsiIdx })}
+                dangerouslySetInnerHTML={{
+                  __html: toAbsoluteImageSrc(opsiBersih) || "<p class='text-slate-400'>Klik untuk menulis jawaban...</p>"
+                }}
+              />
+            )}
+          </div>
+
+          <label
+            htmlFor={`opsi-img-upload-${index}-${opsiIdx}`}
+            className="mt-2 inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 cursor-pointer font-medium"
+          >
+            {/* Ikon gambar */}
+            Sisipkan Gambar
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            id={`opsi-img-upload-${index}-${opsiIdx}`}
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              try {
+                const imgPath = await uploadImageToServer(file);
+                const updated = [...soalList];
+                updated[index].opsi[opsiIdx] =
+                  `<img src="${imgPath}" class="max-h-28 mb-2 rounded-md"><br/>` +
+                  hapusLabelHuruf(item.opsi[opsiIdx] || '');
+                setSoalList(updated);
+              } catch {
+                alert('❌ Gagal upload gambar opsi.');
+              }
+            }}
+          />
+        </div>
+
+        <button
+          className="flex-shrink-0 text-slate-400 hover:text-red-600 transition-colors"
+          onClick={() => {
+            const updated = [...soalList];
+            updated[index].opsi.splice(opsiIdx, 1);
+            if (updated[index].jawaban === huruf) {
+              updated[index].jawaban = '';
+            }
+            setSoalList(updated);
+          }}
+          title="Hapus opsi ini"
+        >
+          ❌
+        </button>
+      </div>
+    );
+  })}
+</div>
+
+                    <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <button
+                        onClick={() => {
+                          const updated = [...soalList];
+                          updated[index].opsi.push("");
+                          setSoalList(updated);
+                        }}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 hover:text-blue-800 transition-all"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                        Tambah Pilihan
+                      </button>
+
+                      {(item.opsi.length < 2 || !item.jawaban) && (
+                        <div className="text-xs text-red-700 p-2 bg-red-100 rounded-lg flex items-center gap-2">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-alert-triangle"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+                          <span>Soal harus memiliki min. 2 pilihan & 1 jawaban.</span>
                         </div>
-
-                        <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                          <button
-                              onClick={() => {
-                                const updated = [...soalList];
-                                updated[index].opsi.push("");
-                                setSoalList(updated);
-                              }}
-                              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 hover:text-blue-800 transition-all"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                              Tambah Pilihan
-                            </button>
-
-                          {(item.opsi.length < 2 || !item.jawaban) && (
-                            <div className="text-xs text-red-700 p-2 bg-red-100 rounded-lg flex items-center gap-2">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-alert-triangle"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
-                              <span>Soal harus memiliki min. 2 pilihan & 1 jawaban.</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </div>
-                );
-              })}
-
-              <div className="flex justify-end gap-4 mt-8">
-                <button
-                  onClick={handleSimpanSoal}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                >
-                  💾 Simpan Semua Soal
-                </button>
-
-                <button
-                onClick={() => navigate(`/courses/${courseId}/preview`)}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition border border-gray-300"
-              >
-                <FiEye />
-                Preview Soal
-              </button>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })}
+
+          <div className="flex justify-end gap-4 mt-8">
+            <button
+              onClick={handleSimpanSoal}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+            >
+              💾 Simpan Semua Soal
+            </button>
+
+            <button
+              onClick={() => navigate(`/courses/${courseId}/preview`)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition border border-gray-300"
+            >
+              <FiEye />
+              Preview Soal
+            </button>
+          </div>
+        </div>
+      )}
         </div>
       </div>
     </div>
