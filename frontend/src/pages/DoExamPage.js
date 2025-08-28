@@ -40,6 +40,8 @@ function DoExamPage() {
   const [totalWaktu, setTotalWaktu] = useState(0);
   const [showSidebar, setShowSidebar] = useState(false);
   const [courseTitle, setCourseTitle] = useState("");
+  const [currentSoalIndex, setCurrentSoalIndex] = useState(0);
+  
 
   useEffect(() => {
     const checkTokenRequirement = async () => {
@@ -230,6 +232,16 @@ function DoExamPage() {
   useEffect(() => {
     waktuRef.current = waktuSisa;
   }, [waktuSisa]);  
+
+const bersihkanOpsi = (opsi) => {
+  return opsi
+    .replace(/^\s*(<span[^>]*>)?\s*[A-Ea-e]\.\s*(<\/span>)?/i, "")
+    .replace(/^\s*<(ol|ul)>\s*<li>/i, "")
+    .replace(/<\/li>\s*<\/(ol|ul)>$/i, "")
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
   
   const fetchSoal = async () => {
     setIsLoading(true);
@@ -388,6 +400,73 @@ function DoExamPage() {
       console.error("❌ Gagal simpan jawaban/log:", err.response?.data || err.message || err);
     }
   };
+  const currentSoalIndexRef = useRef(currentSoalIndex);
+useEffect(() => {
+  currentSoalIndexRef.current = currentSoalIndex;
+}, [currentSoalIndex]);
+
+const soalListRef = useRef(soalList);
+useEffect(() => {
+  soalListRef.current = soalList;
+}, [soalList]);
+
+const getSoalIdAktif = () => {
+  const list = soalListRef.current;
+  const index = currentSoalIndexRef.current;
+  if (Array.isArray(list) && list.length > 0 && index >= 0) {
+    return list[index]?.id || null;
+  }
+  return null;
+};
+
+useEffect(() => {
+  if (showStartModal) return;
+
+  const logCopyPaste = async (jenis) => {
+    try {
+      const soalId = getSoalIdAktif();
+      if (!soalId) {
+        console.warn(`⚠️ Tidak ada soal aktif saat ${jenis}`);
+        return;
+      }
+
+      const waktu = totalWaktu - waktuSisa;
+      await api.post("/studentworklog", {
+        user_id: userId,
+        course_id: courseId,
+        soal_id: soalId,
+        jawaban: jenis,
+        attemp: attemptNow,
+        waktu,
+      });
+
+      console.log(`✅ ${jenis} dicatat untuk soal_id: ${soalId}`);
+    } catch (err) {
+      console.error(`❌ Gagal catat ${jenis}:`, err.message);
+    }
+  };
+
+  const handleCopy = () => logCopyPaste("[COPY DETECTED]");
+  const handlePaste = () => logCopyPaste("[PASTE DETECTED]");
+
+  document.addEventListener("copy", handleCopy);
+  document.addEventListener("paste", handlePaste);
+
+  return () => {
+    document.removeEventListener("copy", handleCopy);
+    document.removeEventListener("paste", handlePaste);
+  };
+}, [
+  showStartModal,
+  totalWaktu,
+  waktuSisa,
+  userId,
+  courseId,
+  attemptNow
+]);
+
+  
+    
   
   const submitJawabanUjian = async () => {
     try {
@@ -744,51 +823,58 @@ function DoExamPage() {
   
       <div className="flex flex-1 overflow-hidden">
         <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto min-w-0">
-          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-            <div className="prose max-w-none mb-6 text-gray-800" dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(currentSoal.soal) }} />
-  
-            <div className="space-y-3">
-              {opsiArray.map((opsi, idx) => {
-                const huruf = String.fromCharCode(65 + idx);
-                const opsiAsli = currentSoal.opsiMapping[idx].slice(0, 1);
-                const isSelected = jawabanSiswa[currentSoal.id] === opsiAsli;
-  
-                return (
-                  <label
-                    key={idx}
-                    className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
-                      isSelected ? "bg-blue-50 border-blue-500 shadow-sm" : "bg-white border-gray-300 hover:border-blue-400"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name={`soal-${currentSoal.id}`}
-                      value={opsiAsli}
-                      checked={isSelected}
-                      onChange={() => handleJawab(currentSoal.id, opsiAsli)}
-                      className="hidden"
-                    />
-                    <span
-                      className={`flex items-center justify-center w-6 h-6 mr-4 border rounded-full text-sm font-bold ${
-                        isSelected ? "bg-blue-500 border-blue-500 text-white" : "border-gray-400 text-gray-600"
-                      }`}
-                    >
-                      {huruf}
-                    </span>
-                    <span
-                      className="text-gray-700 prose max-w-none"
-                      dangerouslySetInnerHTML={{
-                        __html: toAbsoluteImageSrc(
-                          opsi.replace(/^(\s*<span[^>]*>)?[A-Da-d]\.\s*(<\/span>)?/i, '')
+        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+  <div
+    className="prose max-w-none mb-6 text-gray-800"
+    dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(currentSoal.soal) }}
+  />
 
-                        ),
-                      }}
-                    />
-                  </label>
-                );
-              })}
-            </div>
-          </div>
+  <div className="space-y-3">
+    {opsiArray.map((opsi, idx) => {
+      const huruf = String.fromCharCode(65 + idx);
+      const opsiAsli = currentSoal.opsiMapping[idx].slice(0, 1);
+      const isSelected = jawabanSiswa[currentSoal.id] === opsiAsli;
+
+      const opsiBersih = bersihkanOpsi(opsi);
+
+      return (
+        <label
+          key={idx}
+          className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+            isSelected
+              ? "bg-blue-50 border-blue-500 shadow-sm"
+              : "bg-white border-gray-300 hover:border-blue-400"
+          }`}
+        >
+          <input
+            type="radio"
+            name={`soal-${currentSoal.id}`}
+            value={opsiAsli}
+            checked={isSelected}
+            onChange={() => handleJawab(currentSoal.id, opsiAsli)}
+            className="hidden"
+          />
+          <span
+            className={`flex items-center justify-center w-6 h-6 mr-4 border rounded-full text-sm font-bold ${
+              isSelected
+                ? "bg-blue-500 border-blue-500 text-white"
+                : "border-gray-400 text-gray-600"
+            }`}
+          >
+            {huruf}
+          </span>
+          <span
+            className="text-gray-700 prose max-w-none"
+            dangerouslySetInnerHTML={{
+              __html: toAbsoluteImageSrc(opsiBersih),
+            }}
+          />
+        </label>
+      );
+    })}
+  </div>
+</div>
+
   
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3 flex-wrap">

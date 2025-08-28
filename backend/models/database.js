@@ -97,7 +97,7 @@ async function initDatabase() {
         user_id VARCHAR(100),
         course_id INT,
         soal_id INT,
-        jawaban VARCHAR(10),
+        jawaban VARCHAR(255),
         attemp INT DEFAULT 1,
         waktu INT, -- ⬅️ waktu dari awal ujian, dalam detik
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

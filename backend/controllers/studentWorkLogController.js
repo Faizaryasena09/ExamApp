@@ -4,7 +4,8 @@ exports.logJawaban = async (req, res) => {
   const db = await dbPromise;
   const { user_id, course_id, soal_id, jawaban, waktu } = req.body;
 
-  if (!user_id || !course_id || !soal_id || jawaban == null || waktu == null) {
+  // Perbolehkan soal_id null untuk aktivitas non-jawaban
+  if (!user_id || !course_id || jawaban == null || waktu == null) {
     return res.status(400).json({ error: "Data tidak lengkap" });
   }
 
@@ -16,6 +17,7 @@ exports.logJawaban = async (req, res) => {
     const logAktif = cek[0]?.logPengerjaan === 1;
     if (!logAktif) return res.status(204).end();
 
+    // Ambil attempt terakhir dari jawaban_siswa
     const [rows] = await db.query(
       `SELECT MAX(attemp) AS lastAttemp 
        FROM jawaban_siswa 
@@ -28,13 +30,13 @@ exports.logJawaban = async (req, res) => {
       `INSERT INTO student_work_log 
         (user_id, course_id, soal_id, jawaban, attemp, waktu)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [user_id, course_id, soal_id, jawaban, attemp, waktu]
+      [user_id, course_id, soal_id || null, jawaban, attemp, waktu]
     );
 
-    res.status(201).json({ message: "Log jawaban tersimpan", attemp });
+    res.status(201).json({ message: "Log tersimpan", attemp });
   } catch (err) {
-    console.error("❌ Gagal simpan log jawaban:", err.message);
-    res.status(500).json({ error: "Gagal simpan log jawaban" });
+    console.error("❌ Gagal simpan log:", err.message);
+    res.status(500).json({ error: "Gagal simpan log" });
   }
 };
 

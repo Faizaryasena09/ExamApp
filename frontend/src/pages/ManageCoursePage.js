@@ -612,80 +612,86 @@ function ManageCoursePage() {
                       Pilihan Jawaban
                     </label>
                     <div className="space-y-4">
-  {item.opsi.map((opsi, opsiIdx) => {
-    const huruf = labelHuruf(opsiIdx);
-    const isChecked = item.jawaban === huruf;
+                      {item.opsi.map((opsi, opsiIdx) => {
+                        const huruf = labelHuruf(opsiIdx);
+                        const isChecked = item.jawaban === huruf;
 
-    // Pastikan opsi selalu bersih dari label lama
-    const opsiBersih = hapusLabelHuruf(
-      typeof opsi === 'string' ? opsi : opsi?.html || opsi?.text || ''
-    );
+                        // Pastikan opsi selalu bersih dari label lama
+                        const opsiBersih = hapusLabelHuruf(
+                          typeof opsi === 'string' ? opsi : opsi?.html || opsi?.text || ''
+                        );
 
-    return (
-      <div
-  key={opsiIdx}
-  className={`flex items-start gap-4 p-4 rounded-lg border transition-all ${
-    isChecked ? 'bg-green-50 border-green-400 shadow-sm' : 'bg-slate-50 border-slate-200'
-  }`}
->
-  <label
-    htmlFor={`jawaban-${index}-${opsiIdx}`}
-    className="flex-shrink-0 cursor-pointer"
-  >
-    {(() => {
-      const hurufBersih = huruf.replace(/\./g, "").trim(); 
-      const jawabanBersih = (item.jawaban || "").replace(/\./g, "").trim(); 
-      const isChecked = jawabanBersih === hurufBersih;
+                        return (
+                          <div
+                      key={opsiIdx}
+                      className={`flex items-start gap-4 p-4 rounded-lg border transition-all ${
+                        isChecked ? 'bg-green-50 border-green-400 shadow-sm' : 'bg-slate-50 border-slate-200'
+                      }`}
+                    >
+                      <label
+                        htmlFor={`jawaban-${index}-${opsiIdx}`}
+                        className="flex-shrink-0 cursor-pointer"
+                      >
+                        {(() => {
+                          const hurufBersih = huruf.replace(/\./g, "").trim(); 
+                          const jawabanBersih = (item.jawaban || "").replace(/\./g, "").trim(); 
+                          const isChecked = jawabanBersih === hurufBersih;
 
-      return (
-        <>
-          <input
-            type="radio"
-            id={`jawaban-${index}-${opsiIdx}`}
-            name={`jawaban-${index}`}
-            value={hurufBersih}
-            checked={isChecked}
-            onChange={(e) => {
-              const updated = [...soalList];
-              updated[index].jawaban = e.target.value;
-              setSoalList(updated);
-            }}
-            className="hidden peer"
-          />
-          <div className="w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-slate-300 font-bold text-slate-500 peer-checked:bg-green-600 peer-checked:border-green-600 peer-checked:text-white transition-all">
-            {hurufBersih}
-          </div>
-        </>
-      );
-    })()}
-  </label>
+                          return (
+                            <>
+                              <input
+                                type="radio"
+                                id={`jawaban-${index}-${opsiIdx}`}
+                                name={`jawaban-${index}`}
+                                value={hurufBersih}
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const updated = [...soalList];
+                                  updated[index].jawaban = e.target.value;
+                                  setSoalList(updated);
+                                }}
+                                className="hidden peer"
+                              />
+                              <div className="w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-slate-300 font-bold text-slate-500 peer-checked:bg-green-600 peer-checked:border-green-600 peer-checked:text-white transition-all">
+                                {hurufBersih}
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </label>
 
 
         <div className="flex-1">
           <div className="prose max-w-none">
             {activeOpsiIndex.soal === index && activeOpsiIndex.opsi === opsiIdx ? (
               <JoditEditor
-                ref={editorOpsiRef}
-                value={toAbsoluteImageSrc(opsiBersih)}
-                config={{
-                  readonly: false,
-                  height: 100,
-                  toolbar: true,
-                  toolbarAdaptive: false,
-                  toolbarSticky: false,
-                  buttons: ['bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'image', '|', 'undo', 'redo'],
-                  enter: 'P',
-                  tabIndex: 1,
-                  allowTabNavigation: true,
-                  placeholder: 'Tuliskan pilihan jawaban...'
-                }}
-                onBlur={(newContent) => {
-                  const updated = [...soalList];
-                  updated[index].opsi[opsiIdx] = hapusLabelHuruf(newContent);
-                  setSoalList(updated);
-                  setActiveOpsiIndex({ soal: null, opsi: null });
-                }}
-              />
+              ref={editorOpsiRef}
+              value={toAbsoluteImageSrc(opsiBersih)} // tanpa label huruf di sini
+              config={{
+                readonly: false,
+                height: 100,
+                toolbar: true,
+                toolbarAdaptive: false,
+                toolbarSticky: false,
+                buttons: ['bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'image', '|', 'undo', 'redo'],
+                enter: 'BR',
+                defaultBlock: 'span',
+                tabIndex: 1,
+                allowTabNavigation: true,
+                placeholder: 'Tuliskan pilihan jawaban...'
+              }}
+              onBlur={(newContent) => {
+                // Pastikan hanya isi opsi, tanpa label huruf dan tanpa <p> pembungkus
+                const cleanedContent = newContent
+                  .replace(/^<p>(.*)<\/p>$/i, '$1')  // hapus <p> pembungkus
+                  .trim();
+            
+                const updated = [...soalList];
+                updated[index].opsi[opsiIdx] = cleanedContent; // simpan tanpa label huruf
+                setSoalList(updated);
+                setActiveOpsiIndex({ soal: null, opsi: null });
+              }}
+            />            
             ) : (
               <div
                 className="border border-slate-200 rounded-lg p-2 cursor-text hover:border-blue-400"
@@ -746,17 +752,19 @@ function ManageCoursePage() {
 </div>
 
                     <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                      <button
-                        onClick={() => {
-                          const updated = [...soalList];
-                          updated[index].opsi.push("");
-                          setSoalList(updated);
-                        }}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 hover:text-blue-800 transition-all"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                        Tambah Pilihan
-                      </button>
+                    <button
+  onClick={() => {
+    const updated = [...soalList];
+    // Tambahkan opsi baru yang berupa span kosong (struktur konsisten)
+    updated[index].opsi.push('<span class="inline-option"></span>');
+    setSoalList(updated);
+  }}
+  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 hover:text-blue-800 transition-all"
+>
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+  Tambah Pilihan
+</button>
+
 
                       {(item.opsi.length < 2 || !item.jawaban) && (
                         <div className="text-xs text-red-700 p-2 bg-red-100 rounded-lg flex items-center gap-2">

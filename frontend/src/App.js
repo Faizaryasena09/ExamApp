@@ -139,7 +139,10 @@ function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const noHeaderPaths = ["/"];
-  const showHeader = !noHeaderPaths.includes(location.pathname);
+  const isDoExamPage = /^\/courses\/[^/]+\/do$/.test(location.pathname);
+  const showHeader = !noHeaderPaths.includes(location.pathname) && !isDoExamPage;
+
+
 
   useEffect(() => {
     if (isMobile) setSidebarOpen(false);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api';
-import { FiClock, FiCheckCircle, FiEdit3, FiRepeat, FiBookOpen } from 'react-icons/fi';
+import { FiClock, FiCheckCircle, FiEdit3, FiRepeat, FiBookOpen, FiCopy, FiClipboard } from 'react-icons/fi';
 
 const formatWaktu = (detik) => {
   const m = Math.floor(detik / 60).toString().padStart(2, '0');
@@ -14,7 +14,26 @@ const StudentLogDetailPage = () => {
   const [logs, setLogs] = useState([]);
   const [user, setUser] = useState(null);
   const [processedLogs, setProcessedLogs] = useState([]);
+  const [soalMap, setSoalMap] = useState({});
 
+  // Ambil data soal untuk mapping nomor urut
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      try {
+        const res = await api.get(`/courses/${courseId}/questions`);
+        const map = {};
+        res.data.forEach((q, idx) => {
+          map[q.id] = idx + 1; // urutan dimulai dari 1
+        });
+        setSoalMap(map);
+      } catch (err) {
+        console.error("❌ Gagal ambil soal:", err);
+      }
+    };
+    fetchQuestions();
+  }, [courseId]);
+
+  // Ambil log
   useEffect(() => {
     const fetchLogs = async () => {
       try {
@@ -28,28 +47,38 @@ const StudentLogDetailPage = () => {
     fetchLogs();
   }, [courseId, userId, attemp]);
 
+  // Proses log jadi teks + ikon
   useEffect(() => {
     const answeredSoal = new Map();
     const newProcessedLogs = logs.map(log => {
+      const nomorUrut = soalMap[log.soal_id] || log.soal_id; // fallback id kalau mapping belum ada
       let actionText = "Siswa menjawab soal";
       let Icon = FiCheckCircle;
 
-      if (answeredSoal.has(log.soal_id)) {
-        actionText = "Siswa mengubah jawaban soal";
+      if (log.jawaban === "[COPY DETECTED]") {
+        actionText = `Siswa melakukan Copy teks pada No. ${nomorUrut}`;
+        Icon = FiCopy;
+      } else if (log.jawaban === "[PASTE DETECTED]") {
+        actionText = `Siswa melakukan Paste teks pada No. ${nomorUrut}`;
+        Icon = FiClipboard;
+      } else if (answeredSoal.has(log.soal_id)) {
+        actionText = `Siswa mengubah jawaban soal No. ${nomorUrut}, dengan jawaban "${log.jawaban || '-'}"`;
         Icon = FiEdit3;
+      } else {
+        actionText = `Siswa menjawab soal No. ${nomorUrut}, dengan jawaban "${log.jawaban || '-'}"`;
       }
 
       answeredSoal.set(log.soal_id, log.jawaban);
 
       return {
         ...log,
-        text: `${actionText} No. ${log.soal_id}, dengan jawaban "${log.jawaban || '-'}"`,
+        text: actionText,
         icon: Icon,
       };
     });
 
     setProcessedLogs(newProcessedLogs);
-  }, [logs]);
+  }, [logs, soalMap]);
 
   return (
     <div className="bg-gray-100 min-h-screen">
@@ -80,7 +109,10 @@ const StudentLogDetailPage = () => {
               <div key={i} className="flex items-start">
                 <div className="flex flex-col items-center mr-4">
                   <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
-                    log.icon === FiEdit3 ? 'bg-yellow-100 text-yellow-600' : 'bg-green-100 text-green-600'
+                    log.icon === FiEdit3 ? 'bg-yellow-100 text-yellow-600'
+                      : log.icon === FiCopy ? 'bg-blue-100 text-blue-600'
+                      : log.icon === FiClipboard ? 'bg-indigo-100 text-indigo-600'
+                      : 'bg-green-100 text-green-600'
                   }`}>
                     <log.icon size={20} />
                   </div>
