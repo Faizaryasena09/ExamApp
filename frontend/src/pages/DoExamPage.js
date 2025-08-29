@@ -616,6 +616,11 @@ useEffect(() => {
           window.ReactNativeWebView.postMessage(`UNLOCK:${hasilFullUrl}`);
         }
   
+        // Kirim ke ExamBrowser untuk exit otomatis dengan URL redirect
+        if (window.chrome && window.chrome.webview) {
+          window.chrome.webview.postMessage(`UNLOCK:${hasilFullUrl}`);
+        }
+  
         // Navigasi di React Router
         navigate(hasilPath, { replace: true });
   
@@ -624,6 +629,11 @@ useEffect(() => {
   
         if (window.ReactNativeWebView) {
           window.ReactNativeWebView.postMessage("UNLOCK");
+        }
+  
+        // Kirim ke ExamBrowser untuk exit otomatis (fallback)
+        if (window.chrome && window.chrome.webview) {
+          window.chrome.webview.postMessage("UNLOCK");
         }
   
         navigate(`/`, { replace: true });
