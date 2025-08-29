@@ -59,8 +59,8 @@ exports.resetUjian = async (req, res) => {
 
     // 🧠 YANG INI: Pake `name` (username) seperti semula!
     await conn.query(`
-      INSERT INTO session_status (name, status)
-      VALUES (?, 'offline')
+      INSERT INTO session_status (name, status, last_update)
+      VALUES (?, 'offline', NOW())
       ON DUPLICATE KEY UPDATE status = 'offline'
     `, [username]);
 
@@ -88,8 +88,8 @@ exports.logoutUser = async (req, res) => {
 
     // 🧠 Ini tetap pakai name juga ya
     await conn.query(`
-      INSERT INTO session_status (name, status)
-      VALUES (?, 'offline')
+      INSERT INTO session_status (name, status, last_update)
+      VALUES (?, 'offline', NOW())
       ON DUPLICATE KEY UPDATE status = 'offline'
     `, [username]);
 
@@ -191,8 +191,8 @@ exports.resetUjianByKelas = async (req, res) => {
         ON DUPLICATE KEY UPDATE status = 'Tidak Sedang Mengerjakan'
       `, [s.id, course_id]);
       await conn.query(`
-        INSERT INTO session_status (name, status)
-        VALUES (?, 'offline')
+        INSERT INTO session_status (name, status, last_update)
+        VALUES (?, 'offline', NOW())
         ON DUPLICATE KEY UPDATE status = 'offline'
       `, [s.username]);
 
@@ -226,8 +226,8 @@ exports.resetSemuaMengerjakan = async (req, res) => {
         WHERE user_id = ? AND course_id = ?
       `, [row.user_id, course_id]);
       await conn.query(`
-        INSERT INTO session_status (name, status)
-        VALUES (?, 'offline')
+        INSERT INTO session_status (name, status, last_update)
+        VALUES (?, 'offline', NOW())
         ON DUPLICATE KEY UPDATE status = 'offline'
       `, [row.username]);
 
