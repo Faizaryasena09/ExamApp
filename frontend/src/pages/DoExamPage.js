@@ -40,7 +40,7 @@ function DoExamPage() {
   const [totalWaktu, setTotalWaktu] = useState(0);
   const [showSidebar, setShowSidebar] = useState(false);
   const [courseTitle, setCourseTitle] = useState("");
-  const [currentSoalIndex, setCurrentSoalIndex] = useState(0);
+  
   
 
   useEffect(() => {
@@ -400,24 +400,24 @@ const bersihkanOpsi = (opsi) => {
       console.error("❌ Gagal simpan jawaban/log:", err.response?.data || err.message || err);
     }
   };
-  const currentSoalIndexRef = useRef(currentSoalIndex);
-useEffect(() => {
-  currentSoalIndexRef.current = currentSoalIndex;
-}, [currentSoalIndex]);
+  const currentIndexRef = useRef(currentIndex);
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
 
-const soalListRef = useRef(soalList);
-useEffect(() => {
-  soalListRef.current = soalList;
-}, [soalList]);
+  const soalListRef = useRef(soalList);
+  useEffect(() => {
+    soalListRef.current = soalList;
+  }, [soalList]);
 
-const getSoalIdAktif = () => {
-  const list = soalListRef.current;
-  const index = currentSoalIndexRef.current;
-  if (Array.isArray(list) && list.length > 0 && index >= 0) {
-    return list[index]?.id || null;
-  }
-  return null;
-};
+  const getSoalIdAktif = () => {
+    const list = soalListRef.current;
+    const index = currentIndexRef.current;
+    if (Array.isArray(list) && list.length > 0 && index >= 0 && index < list.length) {
+      return list[index]?.id || null;
+    }
+    return null;
+  };
 
 useEffect(() => {
   if (showStartModal) return;
