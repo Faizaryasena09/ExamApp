@@ -3,6 +3,7 @@ using Microsoft.Web.WebView2.WinForms;
 using System;
 using System.Collections.Specialized;
 using System.Drawing;
+using System.IO;
 using System.Net;
 using System.Threading.Tasks;
 using System.Web;
@@ -16,6 +17,7 @@ namespace RushlessSafer
         private string initialUrl;
         private string _authToken = null;
         private string _cookies = null;
+        private string _userDataFolder = null;
 
         private bool ctrlPressed = false;
         private bool altPressed = false;
@@ -52,6 +54,10 @@ namespace RushlessSafer
                     return;
                 }
 
+                // Create a unique, temporary folder for this session
+                _userDataFolder = Path.Combine(Path.GetTempPath(), "RushlessSafer_" + Guid.NewGuid().ToString());
+                Directory.CreateDirectory(_userDataFolder);
+
                 string decodedUrl = WebUtility.UrlDecode(initialUrl.Substring("exam-lock:".Length));
                 if (decodedUrl.StartsWith("//"))
                 {
@@ -70,17 +76,17 @@ namespace RushlessSafer
                 var options = new CoreWebView2EnvironmentOptions();
                 if (!string.IsNullOrEmpty(userAgent))
                 {
-                    options.AdditionalBrowserArguments = $"--user-agent=\"{userAgent}\"";
+                    options.AdditionalBrowserArguments = $"--user-agent=\"{userAgent}\" ";
                 }
 
-                var environment = await CoreWebView2Environment.CreateAsync(null, null, options);
+                var environment = await CoreWebView2Environment.CreateAsync(null, _userDataFolder, options);
                 await webView.EnsureCoreWebView2Async(environment);
 
                 // Set Cookies
                 if (!string.IsNullOrEmpty(_cookies))
                 {
                     string[] cookiePairs = _cookies.Split(';');
-                    foreach (string cookiePair in cookiePairs)
+                    foreach (string cookiePair in cookiePairs) 
                     {
                         string[] cookieParts = cookiePair.Trim().Split('=');
                         if (cookieParts.Length == 2)
@@ -99,7 +105,7 @@ namespace RushlessSafer
             catch (Exception ex)
             {
                 MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                Application.Exit();
+                CleanupAndExit();
             }
         }
 
@@ -126,13 +132,11 @@ namespace RushlessSafer
             {
                 if (webView != null && webView.CoreWebView2 != null)
                 {
-                    // Clear everything: cache, cookies, history, etc.
                     await webView.CoreWebView2.ClearBrowsingDataAsync();
                 }
             }
             catch (Exception ex)
             {
-                // Log or handle the error if needed, but still exit
                 Console.WriteLine("Error clearing browsing data: " + ex.Message);
             }
             finally
@@ -167,13 +171,26 @@ namespace RushlessSafer
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            // This is the final cleanup point.
+            // It runs when Application.Exit() is called.
+            try
+            {
+                if (Directory.Exists(_userDataFolder))
+                {
+                    Directory.Delete(_userDataFolder, true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error deleting user data folder: " + ex.Message);
+            }
+
             if (e.CloseReason == CloseReason.UserClosing && this.TopMost == true)
             {
                 e.Cancel = true; // Prevent closing via Alt+F4 unless unlocked
             }
             else
             {
-                CleanupAndExit();
                 base.OnFormClosing(e);
             }
         }
