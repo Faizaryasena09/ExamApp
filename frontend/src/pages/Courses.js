@@ -150,7 +150,21 @@ function CoursesPage() {
   };
 
   const launchRushlessSafer = (courseId) => {
-    const examUrl = `${window.location.origin}/courses/${courseId}/do`;
+    const token = Cookies.get('token') || '';
+    const userAgent = navigator.userAgent;
+    const cookies = document.cookie;
+
+    // Base URL for the exam page
+    let examUrl = `${window.location.origin}/courses/${courseId}/do`;
+
+    // Append the data as query parameters
+    const params = new URLSearchParams();
+    params.append('token', token);
+    params.append('userAgent', userAgent);
+    params.append('cookies', cookies);
+
+    examUrl += `?${params.toString()}`;
+
     const protocolUrl = `exam-lock:${encodeURIComponent(examUrl)}`;
 
     toast.success("🔒 Meluncurkan Aplikasi Ujian Aman...");
