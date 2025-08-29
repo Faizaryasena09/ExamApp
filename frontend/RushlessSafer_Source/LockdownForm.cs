@@ -126,13 +126,14 @@ namespace RushlessSafer
             {
                 if (webView != null && webView.CoreWebView2 != null)
                 {
-                    await webView.CoreWebView2.CookieManager.DeleteAllCookiesAsync();
+                    // Clear everything: cache, cookies, history, etc.
+                    await webView.CoreWebView2.ClearBrowsingDataAsync();
                 }
             }
             catch (Exception ex)
             {
                 // Log or handle the error if needed, but still exit
-                Console.WriteLine("Error clearing cookies: " + ex.Message);
+                Console.WriteLine("Error clearing browsing data: " + ex.Message);
             }
             finally
             {
