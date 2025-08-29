@@ -4,22 +4,29 @@ const { broadcastLogout, broadcastTimerUpdate } = require("./examSSE");
 exports.getSiswaWithStatus = async (req, res) => {
   try {
     const conn = await db;
-    const [siswa] = await conn.query("SELECT id, name, username, kelas, login_locked FROM users WHERE role = 'siswa'");
-    const [statusRows] = await conn.query("SELECT * FROM session_status");
-    const [ujianStatus] = await conn.query("SELECT * FROM status_ujian");
+    const [siswaWithStatus] = await conn.query(`
+      SELECT 
+        u.id, 
+        u.name, 
+        u.username, 
+        u.kelas, 
+        u.login_locked, 
+        ss.status AS status, 
+        ss.last_update,
+        su.status AS status_ujian
+      FROM users u
+      LEFT JOIN session_status ss ON u.name = ss.name
+      LEFT JOIN status_ujian su ON u.id = su.user_id
+      WHERE u.role = 'siswa'
+    `);
 
-    const siswaWithStatus = siswa.map((s) => {
-      const status = statusRows.find((stat) => stat.name === s.username);
-      const ujian = ujianStatus.find((u) => u.user_id === s.id);
-      return {
-        ...s,
-        status: status?.status || "offline",
-        last_update: status?.last_update || null,
-        status_ujian: ujian?.status || "Tidak Sedang Mengerjakan",
-      };
-    });
+    const result = siswaWithStatus.map(s => ({
+      ...s,
+      status: s.status || 'offline',
+      status_ujian: s.status_ujian || 'Tidak Sedang Mengerjakan'
+    }));
 
-    res.json(siswaWithStatus);
+    res.json(result);
   } catch (err) {
     console.error("❌ Gagal mengambil data siswa:", err.message);
     res.status(500).json({ message: "Server error" });
@@ -52,9 +59,9 @@ exports.resetUjian = async (req, res) => {
 
     // 🧠 YANG INI: Pake `name` (username) seperti semula!
     await conn.query(`
-      INSERT INTO session_status (name, status, last_update)
-      VALUES (?, 'offline', NOW())
-      ON DUPLICATE KEY UPDATE status = 'offline', last_update = NOW()
+      INSERT INTO session_status (name, status)
+      VALUES (?, 'offline')
+      ON DUPLICATE KEY UPDATE status = 'offline'
     `, [username]);
 
     // 🔊 Broadcast ke SSE tetap pakai user_id!
@@ -81,9 +88,9 @@ exports.logoutUser = async (req, res) => {
 
     // 🧠 Ini tetap pakai name juga ya
     await conn.query(`
-      INSERT INTO session_status (name, status, last_update)
-      VALUES (?, 'offline', NOW())
-      ON DUPLICATE KEY UPDATE status = 'offline', last_update = NOW()
+      INSERT INTO session_status (name, status)
+      VALUES (?, 'offline')
+      ON DUPLICATE KEY UPDATE status = 'offline'
     `, [username]);
 
     // 🔊 Broadcast ke SSE tetap pakai user_id
@@ -184,9 +191,9 @@ exports.resetUjianByKelas = async (req, res) => {
         ON DUPLICATE KEY UPDATE status = 'Tidak Sedang Mengerjakan'
       `, [s.id, course_id]);
       await conn.query(`
-        INSERT INTO session_status (name, status, last_update)
-        VALUES (?, 'offline', NOW())
-        ON DUPLICATE KEY UPDATE status = 'offline', last_update = NOW()
+        INSERT INTO session_status (name, status)
+        VALUES (?, 'offline')
+        ON DUPLICATE KEY UPDATE status = 'offline'
       `, [s.username]);
 
       broadcastLogout(s.username);
@@ -219,9 +226,9 @@ exports.resetSemuaMengerjakan = async (req, res) => {
         WHERE user_id = ? AND course_id = ?
       `, [row.user_id, course_id]);
       await conn.query(`
-        INSERT INTO session_status (name, status, last_update)
-        VALUES (?, 'offline', NOW())
-        ON DUPLICATE KEY UPDATE status = 'offline', last_update = NOW()
+        INSERT INTO session_status (name, status)
+        VALUES (?, 'offline')
+        ON DUPLICATE KEY UPDATE status = 'offline'
       `, [row.username]);
 
       broadcastLogout(row.username);
