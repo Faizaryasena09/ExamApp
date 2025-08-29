@@ -106,23 +106,32 @@ function Header({ onToggleSidebar }) {
 
       sse = new EventSource(`${api.defaults.baseURL}/exam/session/stream`);
 
-      sse.onmessage = (event) => {
+      // Listener for the named 'unlock' event (for forced logout)
+      sse.addEventListener('unlock', (event) => {
         if (!isActive || logoutFlagRef.current) return;
-      
         try {
           const data = JSON.parse(event.data);
           const currentUserId = Cookies.get("user_id");
-      
-          if (data.type === "forceLogout" && data.user_id == currentUserId) {
+          if (data.user_id && data.user_id.toString() === currentUserId) {
             cleanupResources();
             handleLogout();
           }
-      
+        } catch (err) {
+          console.error("❌ Gagal parsing data SSE (unlock):", err);
+        }
+      });
+
+      // Listener for generic messages (like timer updates)
+      sse.onmessage = (event) => {
+        if (!isActive || logoutFlagRef.current) return;
+        try {
+          const data = JSON.parse(event.data);
           if (data.type === "timer-updated") {
             window.location.reload();
           }
         } catch (err) {
-          console.error("❌ Gagal parsing data SSE:", err);
+          // This might catch the 'unlock' event data if not parsed as JSON, so we can ignore it.
+          // console.error("❌ Gagal parsing data SSE (generic):", err);
         }
       };        
 
