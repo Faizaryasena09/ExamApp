@@ -48,15 +48,18 @@ namespace RushlessSafer
             {
                 if (string.IsNullOrEmpty(initialUrl) || !initialUrl.StartsWith("exam-lock:"))
                 {
+                    LogToFile("Invalid initial URL or not exam-lock protocol.");
                     await webView.EnsureCoreWebView2Async(null);
                     webView.CoreWebView2.NavigateToString("<h1>Error: Invalid exam URL.</h1><p>Please launch the exam from your course page.</p>");
                     return;
                 }
 
-                // Create a unique, temporary folder for this session
+                // Buat folder user data sementara
                 _userDataFolder = Path.Combine(Path.GetTempPath(), "RushlessSafer_" + Guid.NewGuid().ToString());
                 Directory.CreateDirectory(_userDataFolder);
+                LogToFile($"User data folder created: {_userDataFolder}");
 
+                // ✅ Decode hanya sekali
                 string decodedUrl = WebUtility.UrlDecode(initialUrl.Substring("exam-lock:".Length));
                 if (decodedUrl.StartsWith("//"))
                 {
@@ -68,57 +71,68 @@ namespace RushlessSafer
 
                 _authToken = query["token"];
                 string userAgent = query["userAgent"];
-
-                string navigationUrl = uri.GetLeftPart(UriPartial.Path);
-
-                var options = new CoreWebView2EnvironmentOptions();
-                if (!string.IsNullOrEmpty(userAgent))
-                {
-                    options.AdditionalBrowserArguments = $"--user-agent=\"{userAgent}\" ";
-                }
-
-                var environment = await CoreWebView2Environment.CreateAsync(null, _userDataFolder, options);
-                await webView.EnsureCoreWebView2Async(environment);
-
-                // Clear all browsing data before navigating to ensure a clean slate
-                await webView.CoreWebView2.ClearBrowsingDataAsync();
-
-                // Get specific cookie values from query
                 string userId = query["userId"];
                 string name = query["name"];
                 string role = query["role"];
 
-                // Set specific cookies for the correct domain
-                string cookieDomain = "localhost"; // Assuming both frontend and backend are on localhost
+                LogToFile($"Parsed Query Params: Token={(_authToken != null ? "[PRESENT]" : "[MISSING]")}, UserAgent={userAgent}, UserId={userId}, Name={name}, Role={role}");
 
+                string navigationUrl = uri.GetLeftPart(UriPartial.Path);
+                LogToFile($"Navigation URL: {navigationUrl}");
+
+                // Setup WebView2 environment dengan custom user-agent
+                var options = new CoreWebView2EnvironmentOptions();
+                if (!string.IsNullOrEmpty(userAgent))
+                {
+                    options.AdditionalBrowserArguments = $"--user-agent=\"{userAgent}\"";
+                }
+
+                var environment = await CoreWebView2Environment.CreateAsync(null, _userDataFolder, options);
+                await webView.EnsureCoreWebView2Async(environment);
+                LogToFile("WebView2 environment created and ensured.");
+
+                // ✅ Clear semua browsing data sebelum mulai
+                await webView.CoreWebView2.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.All);
+                LogToFile("Browsing data cleared before cookie injection.");
+
+                // ✅ Inject cookies
+                string cookieDomain = uri.Host; // contoh: "localhost"
                 if (!string.IsNullOrEmpty(userId))
                 {
-                    var userIdCookie = webView.CoreWebView2.CookieManager.CreateCookie("user_id", userId, cookieDomain, "/");
-                    webView.CoreWebView2.CookieManager.AddOrUpdateCookie(userIdCookie);
+                    var cookie = webView.CoreWebView2.CookieManager.CreateCookie("user_id", userId, cookieDomain, "/");
+                    webView.CoreWebView2.CookieManager.AddOrUpdateCookie(cookie);
+                    LogToFile($"Added cookie: user_id={userId}");
                 }
                 if (!string.IsNullOrEmpty(name))
                 {
-                    var nameCookie = webView.CoreWebView2.CookieManager.CreateCookie("name", name, cookieDomain, "/");
-                    webView.CoreWebView2.CookieManager.AddOrUpdateCookie(nameCookie);
+                    var cookie = webView.CoreWebView2.CookieManager.CreateCookie("name", name, cookieDomain, "/");
+                    webView.CoreWebView2.CookieManager.AddOrUpdateCookie(cookie);
+                    LogToFile($"Added cookie: name={name}");
                 }
                 if (!string.IsNullOrEmpty(role))
                 {
-                    var roleCookie = webView.CoreWebView2.CookieManager.CreateCookie("role", role, cookieDomain, "/");
-                    webView.CoreWebView2.CookieManager.AddOrUpdateCookie(roleCookie);
+                    var cookie = webView.CoreWebView2.CookieManager.CreateCookie("role", role, cookieDomain, "/");
+                    webView.CoreWebView2.CookieManager.AddOrUpdateCookie(cookie);
+                    LogToFile($"Added cookie: role={role}");
                 }
-                if (!string.IsNullOrEmpty(_authToken)) // Token is also a cookie
+                if (!string.IsNullOrEmpty(_authToken))
                 {
-                    var tokenCookie = webView.CoreWebView2.CookieManager.CreateCookie("token", _authToken, cookieDomain, "/");
-                    webView.CoreWebView2.CookieManager.AddOrUpdateCookie(tokenCookie);
+                    var cookie = webView.CoreWebView2.CookieManager.CreateCookie("token", _authToken, cookieDomain, "/");
+                    webView.CoreWebView2.CookieManager.AddOrUpdateCookie(cookie);
+                    LogToFile("Added cookie: token=[PRESENT]");
                 }
 
+                // Event handler
                 webView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
                 webView.CoreWebView2.WebResourceRequested += CoreWebView2_WebResourceRequested;
 
+                // Navigate
                 webView.CoreWebView2.Navigate(navigationUrl);
+                LogToFile($"Navigating to: {navigationUrl}");
             }
             catch (Exception ex)
             {
+                LogToFile($"Error during InitializeWebView: {ex.Message}");
                 MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 CleanupAndExit();
             }
@@ -126,15 +140,22 @@ namespace RushlessSafer
 
         private void CoreWebView2_WebResourceRequested(object sender, CoreWebView2WebResourceRequestedEventArgs e)
         {
+            LogToFile($"WebResourceRequested: URL={e.Request.Uri}");
             if (!string.IsNullOrEmpty(_authToken))
             {
                 e.Request.Headers.SetHeader("Authorization", "Bearer " + _authToken);
+                LogToFile($"  Authorization header set for {e.Request.Uri}");
+            }
+            else
+            {
+                LogToFile($"  No auth token to set for {e.Request.Uri}");
             }
         }
 
         private void CoreWebView2_WebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs args)
         {
             string message = args.TryGetWebMessageAsString();
+            LogToFile($"WebMessageReceived: {message}");
             if (message != null && message.StartsWith("UNLOCK"))
             {
                 CleanupAndExit();
@@ -143,22 +164,24 @@ namespace RushlessSafer
 
         private async void CleanupAndExit()
         {
+            LogToFile("CleanupAndExit started.");
             try
             {
-                if (webView != null && webView.CoreWebView2 != null)
+                if (webView?.CoreWebView2 != null)
                 {
-                    // Clear everything: cache, cookies, history, etc.
-                    await webView.CoreWebView2.ClearBrowsingDataAsync();
+                    await webView.CoreWebView2.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.All);
+                    LogToFile("Browsing data cleared during cleanup.");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error clearing browsing data: " + ex.Message);
+                LogToFile($"Error clearing browsing data during cleanup: {ex.Message}");
             }
             finally
             {
                 this.TopMost = false;
                 Application.Exit();
+                LogToFile("Application exiting.");
             }
         }
 
@@ -187,28 +210,36 @@ namespace RushlessSafer
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            // This is the final cleanup point.
-            // It runs when Application.Exit() is called.
             try
             {
                 if (Directory.Exists(_userDataFolder))
                 {
                     Directory.Delete(_userDataFolder, true);
+                    LogToFile($"User data folder deleted: {_userDataFolder}");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error deleting user data folder: " + ex.Message);
+                LogToFile($"Error deleting user data folder: {ex.Message}");
             }
 
             if (e.CloseReason == CloseReason.UserClosing && this.TopMost == true)
             {
-                e.Cancel = true; // Prevent closing via Alt+F4 unless unlocked
+                e.Cancel = true; // prevent Alt+F4
             }
             else
             {
                 base.OnFormClosing(e);
             }
+        }
+
+        private void LogToFile(string message)
+        {
+            try
+            {
+                File.AppendAllText("rushless_log.txt", DateTime.Now + " | " + message + Environment.NewLine);
+            }
+            catch { }
         }
     }
 }
