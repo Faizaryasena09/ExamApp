@@ -222,6 +222,29 @@ function DoExamPage() {
     return () => clearInterval(timer);
   }, [showStartModal, soalList.length]);  
 
+  useEffect(() => {
+    const sse = new EventSource("http://localhost:5000/api/exam/session/stream");
+
+    sse.addEventListener('unlock', (e) => {
+      const data = JSON.parse(e.data);
+      const currentUserId = Cookies.get("user_id");
+
+      if (data.user_id && data.user_id.toString() === currentUserId) {
+        if (window.chrome && window.chrome.webview) {
+          window.chrome.webview.postMessage('UNLOCK');
+        }
+        // Also handle for React Native WebView if present
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage('UNLOCK');
+        }
+      }
+    });
+
+    return () => {
+      sse.close();
+    };
+  }, []); // Run only once
+
   const shuffleArray = (array) => {
     return array
       .map((a) => ({ sort: Math.random(), value: a }))

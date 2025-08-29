@@ -196,7 +196,7 @@ exports.resetUjianByKelas = async (req, res) => {
         ON DUPLICATE KEY UPDATE status = 'offline'
       `, [s.username]);
 
-      broadcastLogout(s.username);
+      broadcastLogout(s.id);
     }
 
     res.json({ message: "✅ Semua siswa di kelas berhasil direset" });
@@ -231,7 +231,7 @@ exports.resetSemuaMengerjakan = async (req, res) => {
         ON DUPLICATE KEY UPDATE status = 'offline'
       `, [row.username]);
 
-      broadcastLogout(row.username);
+      broadcastLogout(row.user_id);
     }
 
     res.json({ message: "✅ Semua siswa yang sudah mengerjakan berhasil direset" });

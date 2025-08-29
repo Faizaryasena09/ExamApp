@@ -15,8 +15,8 @@ exports.streamSession = (req, res) => {
 
 // 🔁 Broadcast Logout berdasarkan user_id
 exports.broadcastLogout = (user_id) => {
-  const payload = JSON.stringify({ type: "forceLogout", user_id });
-  clients.forEach(res => res.write(`data: ${payload}\n\n`));
+  const payload = JSON.stringify({ user_id });
+  clients.forEach(res => res.write(`event: unlock\ndata: ${payload}\n\n`));
 };
 
 // ✅ Broadcast Timer Update (tidak perlu diubah karena general)
