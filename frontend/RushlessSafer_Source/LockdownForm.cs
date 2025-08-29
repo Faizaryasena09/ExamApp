@@ -16,7 +16,6 @@ namespace RushlessSafer
         private WebView2 webView;
         private string initialUrl;
         private string _authToken = null;
-        private string _userDataFolder = null;
 
         private bool ctrlPressed = false;
         private bool altPressed = false;
@@ -53,10 +52,6 @@ namespace RushlessSafer
                     return;
                 }
 
-                // Create a unique, temporary folder for this session
-                _userDataFolder = Path.Combine(Path.GetTempPath(), "RushlessSafer_" + Guid.NewGuid().ToString());
-                Directory.CreateDirectory(_userDataFolder);
-
                 string decodedUrl = WebUtility.UrlDecode(initialUrl.Substring("exam-lock:".Length));
                 if (decodedUrl.StartsWith("//"))
                 {
@@ -77,22 +72,37 @@ namespace RushlessSafer
                     options.AdditionalBrowserArguments = $"--user-agent=\"{userAgent}\" ";
                 }
 
-                var environment = await CoreWebView2Environment.CreateAsync(null, _userDataFolder, options);
+                // Use null for userDataFolder to create an in-memory (non-persistent) profile
+                var environment = await CoreWebView2Environment.CreateAsync(null, null, options);
                 await webView.EnsureCoreWebView2Async(environment);
 
-                // Set Cookies
-                if (!string.IsNullOrEmpty(_cookies))
+                // Get specific cookie values from query
+                string userId = query["userId"];
+                string name = query["name"];
+                string role = query["role"];
+
+                // Set specific cookies for the correct domain
+                string cookieDomain = "localhost"; // Assuming both frontend and backend are on localhost
+
+                if (!string.IsNullOrEmpty(userId))
                 {
-                    string[] cookiePairs = _cookies.Split(';');
-                    foreach (string cookiePair in cookiePairs) 
-                    {
-                        string[] cookieParts = cookiePair.Trim().Split('=');
-                        if (cookieParts.Length == 2)
-                        {
-                            var cookie = webView.CoreWebView2.CookieManager.CreateCookie(cookieParts[0], cookieParts[1], uri.Host, "/");
-                            webView.CoreWebView2.CookieManager.AddOrUpdateCookie(cookie);
-                        }
-                    }
+                    var userIdCookie = webView.CoreWebView2.CookieManager.CreateCookie("user_id", userId, cookieDomain, "/");
+                    webView.CoreWebView2.CookieManager.AddOrUpdateCookie(userIdCookie);
+                }
+                if (!string.IsNullOrEmpty(name))
+                {
+                    var nameCookie = webView.CoreWebView2.CookieManager.CreateCookie("name", name, cookieDomain, "/");
+                    webView.CoreWebView2.CookieManager.AddOrUpdateCookie(nameCookie);
+                }
+                if (!string.IsNullOrEmpty(role))
+                {
+                    var roleCookie = webView.CoreWebView2.CookieManager.CreateCookie("role", role, cookieDomain, "/");
+                    webView.CoreWebView2.CookieManager.AddOrUpdateCookie(roleCookie);
+                }
+                if (!string.IsNullOrEmpty(_authToken)) // Token is also a cookie
+                {
+                    var tokenCookie = webView.CoreWebView2.CookieManager.CreateCookie("token", _authToken, cookieDomain, "/");
+                    webView.CoreWebView2.CookieManager.AddOrUpdateCookie(tokenCookie);
                 }
 
                 webView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
@@ -130,6 +140,7 @@ namespace RushlessSafer
             {
                 if (webView != null && webView.CoreWebView2 != null)
                 {
+                    // Clear everything: cache, cookies, history, etc.
                     await webView.CoreWebView2.ClearBrowsingDataAsync();
                 }
             }
@@ -169,19 +180,9 @@ namespace RushlessSafer
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            // This is the final cleanup point.
-            // It runs when Application.Exit() is called.
-            try
-            {
-                if (Directory.Exists(_userDataFolder))
-                {
-                    Directory.Delete(_userDataFolder, true);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Error deleting user data folder: " + ex.Message);
-            }
+            // With userDataFolder set to null, WebView2 uses an in-memory profile.
+            // There is no persistent folder to delete.
+            // The CleanupAndExit() method already handles clearing browsing data.
 
             if (e.CloseReason == CloseReason.UserClosing && this.TopMost == true)
             {
