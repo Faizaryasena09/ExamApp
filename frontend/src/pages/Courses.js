@@ -156,6 +156,13 @@ function CoursesPage() {
     const name = Cookies.get('name') || '';
     const role = Cookies.get('role') || '';
 
+    console.log("Launching RushlessSafer with:");
+    console.log("  Token:", token ? "[PRESENT]" : "[MISSING]");
+    console.log("  User ID:", userId);
+    console.log("  Name:", name);
+    console.log("  Role:", role);
+    console.log("  User Agent:", userAgent);
+
     // Base URL for the exam page
     let examUrl = `${window.location.origin}/courses/${courseId}/do`;
 
