@@ -80,7 +80,7 @@ function LoginPage() {
       Cookies.set("name", name, { expires: 2 });
       Cookies.set("role", role, { expires: 2 });
 
-      await api.post("/session", { name, status: "online" });
+      await api.post("/session", { user_id, status: "online" });
 
       setMessage("✅ Login berhasil! Mengarahkan...");
       setTimeout(() => {

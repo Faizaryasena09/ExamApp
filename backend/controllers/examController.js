@@ -15,7 +15,7 @@ exports.getSiswaWithStatus = async (req, res) => {
         ss.last_update,
         su.status AS status_ujian
       FROM users u
-      LEFT JOIN session_status ss ON u.name = ss.name
+      LEFT JOIN session_status ss ON u.id = ss.user_id
       LEFT JOIN status_ujian su ON u.id = su.user_id
       WHERE u.role = 'siswa'
     `);
@@ -40,12 +40,6 @@ exports.resetUjian = async (req, res) => {
   try {
     const conn = await db;
 
-    // Ambil username dari user_id (untuk query ke DB)
-    const [rows] = await conn.query("SELECT username FROM users WHERE id = ?", [user_id]);
-    if (rows.length === 0) return res.status(404).json({ message: "User tidak ditemukan" });
-
-    const username = rows[0].username;
-
     // Hapus jawaban ujian & timer
     await conn.query("DELETE FROM jawaban_trail WHERE course_id = ? AND user_id = ?", [course_id, user_id]);
     await conn.query("DELETE FROM answertrail_timer WHERE course_id = ? AND user_id = ?", [course_id, user_id]);
@@ -57,14 +51,14 @@ exports.resetUjian = async (req, res) => {
       ON DUPLICATE KEY UPDATE status = 'Tidak Sedang Mengerjakan'
     `, [user_id, course_id]);
 
-    // 🧠 YANG INI: Pake `name` (username) seperti semula!
+    // Set session status to offline using user_id
     await conn.query(`
-      INSERT INTO session_status (name, status, last_update)
+      INSERT INTO session_status (user_id, status, last_update)
       VALUES (?, 'offline', NOW())
       ON DUPLICATE KEY UPDATE status = 'offline'
-    `, [username]);
+    `, [user_id]);
 
-    // 🔊 Broadcast ke SSE tetap pakai user_id!
+    // Broadcast ke SSE tetap pakai user_id!
     broadcastLogout(user_id);
 
     res.json({ message: "✅ Ujian berhasil direset dan diset offline." });
@@ -81,19 +75,14 @@ exports.logoutUser = async (req, res) => {
   try {
     const conn = await db;
 
-    const [rows] = await conn.query("SELECT username FROM users WHERE id = ?", [user_id]);
-    if (rows.length === 0) return res.status(404).json({ message: "User tidak ditemukan" });
-
-    const username = rows[0].username;
-
-    // 🧠 Ini tetap pakai name juga ya
+    // Set session status to offline using user_id
     await conn.query(`
-      INSERT INTO session_status (name, status, last_update)
+      INSERT INTO session_status (user_id, status, last_update)
       VALUES (?, 'offline', NOW())
       ON DUPLICATE KEY UPDATE status = 'offline'
-    `, [username]);
+    `, [user_id]);
 
-    // 🔊 Broadcast ke SSE tetap pakai user_id
+    // Broadcast ke SSE tetap pakai user_id
     broadcastLogout(user_id);
 
     res.json({ message: "✅ User berhasil logout dan status diset offline." });
@@ -191,10 +180,10 @@ exports.resetUjianByKelas = async (req, res) => {
         ON DUPLICATE KEY UPDATE status = 'Tidak Sedang Mengerjakan'
       `, [s.id, course_id]);
       await conn.query(`
-        INSERT INTO session_status (name, status, last_update)
+        INSERT INTO session_status (user_id, status, last_update)
         VALUES (?, 'offline', NOW())
         ON DUPLICATE KEY UPDATE status = 'offline'
-      `, [s.username]);
+      `, [s.id]);
 
       broadcastLogout(s.id);
     }
@@ -226,10 +215,10 @@ exports.resetSemuaMengerjakan = async (req, res) => {
         WHERE user_id = ? AND course_id = ?
       `, [row.user_id, course_id]);
       await conn.query(`
-        INSERT INTO session_status (name, status, last_update)
+        INSERT INTO session_status (user_id, status, last_update)
         VALUES (?, 'offline', NOW())
         ON DUPLICATE KEY UPDATE status = 'offline'
-      `, [row.username]);
+      `, [row.user_id]);
 
       broadcastLogout(row.user_id);
     }

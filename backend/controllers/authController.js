@@ -26,10 +26,10 @@ exports.login = async (req, res) => {
       return res.status(403).json({ message: "Akun dikunci oleh admin" });
     }
 
-    // 3. Cek status sesi (gunakan name!)
+    // 3. Cek status sesi (gunakan user_id)
     const [sessions] = await connection.execute(
-      "SELECT status FROM session_status WHERE name = ?",
-      [user.name]
+      "SELECT status FROM session_status WHERE user_id = ?",
+      [user.id]
     );
 
     const isOnline = sessions.length > 0 && sessions[0].status === "online";
@@ -42,11 +42,11 @@ exports.login = async (req, res) => {
     // 4. Simpan status online (insert/update)
     await connection.execute(
       `
-      INSERT INTO session_status (name, status, last_update)
+      INSERT INTO session_status (user_id, status, last_update)
       VALUES (?, 'online', NOW())
       ON DUPLICATE KEY UPDATE status = 'online', last_update = NOW()
       `,
-      [user.name]
+      [user.id]
     );
 
     // 5. Buat token
@@ -72,17 +72,17 @@ exports.login = async (req, res) => {
 };
 
 exports.isLogin = async (req, res) => {
-  const { name } = req.query;
+  const { user_id } = req.query;
 
-  if (!name) {
-    return res.status(400).json({ error: "Parameter 'name' wajib diisi." });
+  if (!user_id) {
+    return res.status(400).json({ error: "Parameter 'user_id' wajib diisi." });
   }
 
   try {
     const connection = await db;
     const [rows] = await connection.execute(
-      "SELECT * FROM session_status WHERE name = ?",
-      [name]
+      "SELECT * FROM session_status WHERE user_id = ?",
+      [user_id]
     );
 
     if (rows.length === 0) {

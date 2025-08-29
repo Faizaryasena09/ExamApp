@@ -40,9 +40,10 @@ async function initDatabase() {
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS session_status (
-        name VARCHAR(100) PRIMARY KEY,
+        user_id INT(11) NOT NULL,
         status ENUM('online', 'offline') NOT NULL,
-        last_update DATETIME NOT NULL
+        last_update DATETIME NOT NULL,
+        PRIMARY KEY (user_id)
       )
     `);
 

@@ -43,9 +43,9 @@ function Header({ onToggleSidebar }) {
     logoutFlagRef.current = true;
 
     try {
-      const name = Cookies.get("name");
-      if (name) {
-        await api.post("/session", { name, status: "offline" });
+      const user_id = Cookies.get("user_id");
+      if (user_id) {
+        await api.post("/session", { user_id, status: "offline" });
       }
     } catch (err) {
       console.error("❌ Gagal update status logout:", err);
@@ -55,8 +55,8 @@ function Header({ onToggleSidebar }) {
   };
 
   useEffect(() => {
-    const name = Cookies.get("name");
-    if (!name) return;
+    const user_id = Cookies.get("user_id");
+    if (!user_id) return;
 
     let idleTimeout = null;
     let sse = null;
@@ -86,7 +86,7 @@ function Header({ onToggleSidebar }) {
     const updateStatus = async (status) => {
       if (!isActive || logoutFlagRef.current) return;
       try {
-        await api.post("/session", { name, status });
+        await api.post("/session", { user_id, status });
       } catch (err) {
         console.error("❌ Gagal update status:", err);
       }
@@ -111,9 +111,9 @@ function Header({ onToggleSidebar }) {
       
         try {
           const data = JSON.parse(event.data);
-          const userId = Cookies.get("user_id");
+          const currentUserId = Cookies.get("user_id");
       
-          if (data.type === "forceLogout" && data.user_id == userId) {
+          if (data.type === "forceLogout" && data.user_id == currentUserId) {
             cleanupResources();
             handleLogout();
           }

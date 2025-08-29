@@ -1,9 +1,9 @@
 const db = require("../models/database");
 
 exports.updateSessionStatus = async (req, res) => {
-  const { name, status } = req.body;
+  const { user_id, status } = req.body;
 
-  if (!name || !["online", "offline"].includes(status)) {
+  if (!user_id || !["online", "offline"].includes(status)) {
     return res.status(400).json({ message: "Data tidak valid" });
   }
 
@@ -12,23 +12,23 @@ exports.updateSessionStatus = async (req, res) => {
     const now = new Date();
 
     const [rows] = await connection.query(
-      "SELECT * FROM session_status WHERE name = ?",
-      [name]
+      "SELECT * FROM session_status WHERE user_id = ?",
+      [user_id]
     );
 
     if (rows.length > 0) {
       await connection.query(
-        "UPDATE session_status SET status = ?, last_update = ? WHERE name = ?",
-        [status, now, name]
+        "UPDATE session_status SET status = ?, last_update = ? WHERE user_id = ?",
+        [status, now, user_id]
       );
     } else {
       await connection.query(
-        "INSERT INTO session_status (name, status, last_update) VALUES (?, ?, ?)",
-        [name, status, now]
+        "INSERT INTO session_status (user_id, status, last_update) VALUES (?, ?, ?)",
+        [user_id, status, now]
       );
     }
 
-    res.json({ message: `Status ${name} diubah ke ${status}` });
+    res.json({ message: `Status user ${user_id} diubah ke ${status}` });
   } catch (err) {
     console.error("❌ Gagal update status:", err.message);
     res.status(500).json({ message: "Server error" });
@@ -40,7 +40,7 @@ exports.startAutoSessionChecker = () => {
     try {
       const connection = await db;
       const [rows] = await connection.query(
-        "SELECT name, last_update FROM session_status WHERE status = 'online'"
+        "SELECT user_id, last_update FROM session_status WHERE status = 'online'"
       );
 
       const now = new Date();
@@ -50,8 +50,8 @@ exports.startAutoSessionChecker = () => {
 
         if (diffMinutes > 20) {
           await connection.query(
-            "UPDATE session_status SET status = 'offline' WHERE name = ?",
-            [row.name]
+            "UPDATE session_status SET status = 'offline' WHERE user_id = ?",
+            [row.user_id]
           );
         }
       }
