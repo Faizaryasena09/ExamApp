@@ -16,7 +16,6 @@ namespace RushlessSafer
         private WebView2 webView;
         private string initialUrl;
         private string _authToken = null;
-        private string _cookies = null;
         private string _userDataFolder = null;
 
         private bool ctrlPressed = false;
@@ -68,7 +67,6 @@ namespace RushlessSafer
                 NameValueCollection query = HttpUtility.ParseQueryString(uri.Query);
 
                 _authToken = query["token"];
-                _cookies = query["cookies"];
                 string userAgent = query["userAgent"];
 
                 string navigationUrl = uri.GetLeftPart(UriPartial.Path);

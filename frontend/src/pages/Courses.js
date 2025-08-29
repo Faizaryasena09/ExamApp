@@ -152,7 +152,9 @@ function CoursesPage() {
   const launchRushlessSafer = (courseId) => {
     const token = Cookies.get('token') || '';
     const userAgent = navigator.userAgent;
-    const cookies = document.cookie;
+    const userId = Cookies.get('user_id') || '';
+    const name = Cookies.get('name') || '';
+    const role = Cookies.get('role') || '';
 
     // Base URL for the exam page
     let examUrl = `${window.location.origin}/courses/${courseId}/do`;
@@ -161,7 +163,9 @@ function CoursesPage() {
     const params = new URLSearchParams();
     params.append('token', token);
     params.append('userAgent', userAgent);
-    params.append('cookies', cookies);
+    params.append('userId', userId);
+    params.append('name', name);
+    params.append('role', role);
 
     examUrl += `?${params.toString()}`;
 

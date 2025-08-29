@@ -245,6 +245,31 @@ function DoExamPage() {
     };
   }, []); // Run only once
 
+  useEffect(() => {
+    if (showStartModal) return;
+
+    const updateUserSessionStatus = async () => {
+      try {
+        const currentUserId = Cookies.get("user_id");
+        if (currentUserId) {
+          await api.post("/session", {
+            user_id: currentUserId,
+            status: "online",
+          });
+        }
+      } catch (error) {
+        console.error("Failed to update session status:", error);
+      }
+    };
+
+    updateUserSessionStatus(); // Initial update
+    const intervalId = setInterval(updateUserSessionStatus, 15000); // every 15 seconds
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [showStartModal]);
+
   const shuffleArray = (array) => {
     return array
       .map((a) => ({ sort: Math.random(), value: a }))
