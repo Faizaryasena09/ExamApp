@@ -148,106 +148,16 @@ function CoursesPage() {
     });
     setShowConfirmationModal(true);
   };
-  
-  const openRushlessExam = ({ user_id, token, role, name, course_id }) => {
-    const userAgent = navigator.userAgent;
-  
-    const baseUrl = `${window.location.origin}/courses/${course_id}/do?token=${token}&user_id=${user_id}`;
-    const encodedUrl = encodeURIComponent(baseUrl);
-    const encodedUA = encodeURIComponent(userAgent);
-  
-    const queryParams = [
-      `url=${encodedUrl}`,
-      `ua=${encodedUA}`,
-      `token=${encodeURIComponent(token)}`,
-      `user_id=${encodeURIComponent(user_id)}`,
-      `name=${encodeURIComponent(name)}`,
-      `role=${encodeURIComponent(role)}`,
-    ].join('&');
-  
-    const intent = `intent://lock?${queryParams}#Intent;scheme=rushless;package=com.rushlessexam;end`;
-    window.location.href = intent;
-  };  
 
-  const launchExamBrowser = async (examUrl, studentId = null) => {
-    try {
-      // Get authentication cookies to pass to ExamBrowser
-      const token = Cookies.get('token');
-      const userId = Cookies.get('user_id');
-      const userName = Cookies.get('name');
-      const userRole = Cookies.get('role');
-      
-      // Create URL with authentication parameters
-      const urlWithAuth = new URL(examUrl);
-      if (token) urlWithAuth.searchParams.set('auth_token', token);
-      if (userId) urlWithAuth.searchParams.set('auth_user_id', userId);
-      if (userName) urlWithAuth.searchParams.set('auth_name', encodeURIComponent(userName));
-      if (userRole) urlWithAuth.searchParams.set('auth_role', userRole);
-      
-      // Create protocol URL to launch client application
-      const protocolUrl = `exambrowser://${encodeURIComponent(urlWithAuth.toString())}`;
-      
-      // Show immediate feedback
-      toast.success('🔒 Meluncurkan Secure Exam Browser...');
-      
-      // Hide the current page to prevent access during exam
-      document.body.style.display = 'none';
-      
-      // Show overlay message
-      showExamActiveOverlay();
-      
-      // Launch the exam browser using custom protocol
-      window.location.href = protocolUrl;
-      
-      return { success: true, sessionId: `exam_${Date.now()}` };
-    } catch (error) {
-      console.error('❌ Error launching exam browser:', error);
-      toast.error('❌ Gagal meluncurkan secure exam browser! Pastikan Exam Browser terinstal.');
-      
-      // Restore page if launch failed
-      document.body.style.display = '';
-      const overlay = document.getElementById('examActiveOverlay');
-      if (overlay) overlay.remove();
-      
-      throw error;
-    }
-  };
+  const launchRushlessSafer = (courseId) => {
+    const examUrl = `${window.location.origin}/courses/${courseId}/do`;
+    const protocolUrl = `exam-lock:${encodeURIComponent(examUrl)}`;
 
-  const showExamActiveOverlay = () => {
-    const overlay = document.createElement('div');
-    overlay.id = 'examActiveOverlay';
-    overlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      z-index: 10000;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      color: white;
-      font-family: Arial, sans-serif;
-    `;
-    
-    overlay.innerHTML = `
-      <div style="text-align: center; max-width: 600px; padding: 40px;">
-        <div style="font-size: 64px; margin-bottom: 30px;">🔒</div>
-        <h1 style="font-size: 36px; margin-bottom: 20px; font-weight: bold;">Secure Exam Mode Active</h1>
-        <p style="font-size: 18px; margin-bottom: 30px; opacity: 0.9;">Ujian Anda sedang berjalan dalam mode aman. Silakan selesaikan ujian di aplikasi Secure Exam Browser yang telah terbuka.</p>
-        <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; margin: 20px 0;">
-          <p style="margin: 0; font-size: 16px;"><strong>Catatan Penting:</strong></p>
-          <p style="margin: 10px 0 0 0; font-size: 14px;">• Browser web telah dikunci untuk mencegah kecurangan</p>
-          <p style="margin: 5px 0 0 0; font-size: 14px;">• Selesaikan ujian di aplikasi Secure Exam Browser</p>
-          <p style="margin: 5px 0 0 0; font-size: 14px;">• Halaman ini akan kembali normal setelah ujian selesai</p>
-        </div>
-        <p style="font-size: 14px; opacity: 0.7;">Jika aplikasi tidak terbuka, hubungi pengawas ujian.</p>
-      </div>
-    `;
-    
-    document.body.appendChild(overlay);
+    toast.success("🔒 Meluncurkan Aplikasi Ujian Aman...");
+
+    // Redirect the browser to the custom protocol URL.
+    // This will trigger the OS to open RushlessSafer.exe
+    window.location.href = protocolUrl;
   };
 
   const handleDoClick = async (courseId) => {
@@ -262,7 +172,6 @@ function CoursesPage() {
       const { data: status } = await api.get(`/courses/${courseId}/status?user=${userId}`);
       if (status.sudahMaksimal) return toast.error("❌ Kesempatan Anda sudah habis.");
 
-      const isAndroid = /Android/i.test(navigator.userAgent);
       const isWindows = /Windows/i.test(navigator.userAgent);
 
       if (status.useToken) {
@@ -270,29 +179,18 @@ function CoursesPage() {
         setTokenInput("");
         setShowTokenModal(true);
       } else {
-        const token = Cookies.get("token");
-        const user_id = Cookies.get("user_id");
-
-        if (!token || !user_id) return toast.error("❌ Token atau user_id tidak ditemukan!");
-
         await api.post("/exam/status", {
-          user_id,
+          user_id: userId,
           course_id: courseId,
           status: `Mengerjakan - ${course.nama || course.title}`,
         });
 
-        // ✅ Platform Detection and Launch
         if (isWindows) {
-          // 🔒 WINDOWS: Immediate secure exam browser launch
-          const examUrl = `${window.location.origin}/courses/${courseId}/do?token=${token}&user_id=${user_id}`;
-          toast.info('🔒 Meluncurkan Secure Exam Browser...');
-          await launchExamBrowser(examUrl, user_id);
-          // No fallback - Windows MUST use secure browser
-        } else if (isAndroid) {
-          // 📱 ANDROID: Launch Rushless app
-          openRushlessExam({ user_id, token, course_id: courseId });
+          // Launch the .NET lockdown application
+          launchRushlessSafer(courseId);
         } else {
-          // 🌐 OTHER PLATFORMS: Regular browser
+          // Fallback for non-Windows clients
+          toast.warn("Aplikasi ujian aman hanya tersedia untuk Windows. Anda akan diarahkan ke browser biasa.");
           navigate(`/courses/${courseId}/do`);
         }
       }
@@ -321,31 +219,20 @@ function CoursesPage() {
         toast.success("✅ Token valid! Memulai ujian...");
         setShowTokenModal(false);
   
-        const isAndroid = /Android/i.test(navigator.userAgent);
         const isWindows = /Windows/i.test(navigator.userAgent);
-        const token = Cookies.get("token");
-        const user_id = Cookies.get("user_id");
-  
-        if (!token || !user_id) return toast.error("❌ Token atau user_id tidak ditemukan!");
   
         await api.post("/exam/status", {
-          user_id,
+          user_id: userId,
           course_id: selectedCourseId,
           status: `Mengerjakan - ${res.data.title || res.data.nama || "Ujian"}`,
         });
   
-        // ✅ Platform Detection and Launch
         if (isWindows) {
-          // 🔒 WINDOWS: Immediate secure exam browser launch
-          const examUrl = `${window.location.origin}/courses/${selectedCourseId}/do?token=${token}&user_id=${user_id}`;
-          toast.info('🔒 Meluncurkan Secure Exam Browser...');
-          await launchExamBrowser(examUrl, user_id);
-          // No fallback - Windows MUST use secure browser
-        } else if (isAndroid) {
-          // 📱 ANDROID: Launch Rushless app
-          openRushlessExam({ user_id, token, course_id: selectedCourseId });
+          // Launch the .NET lockdown application
+          launchRushlessSafer(selectedCourseId);
         } else {
-          // 🌐 OTHER PLATFORMS: Regular browser
+          // Fallback for non-Windows clients
+          toast.warn("Aplikasi ujian aman hanya tersedia untuk Windows. Anda akan diarahkan ke browser biasa.");
           navigate(`/courses/${selectedCourseId}/do`);
         }
       } else {

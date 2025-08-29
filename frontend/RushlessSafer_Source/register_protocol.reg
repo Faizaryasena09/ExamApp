@@ -1,0 +1,12 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CLASSES_ROOT\exam-lock]
+@="URL:Exam Lock Protocol"
+"URL Protocol"=""
+
+[HKEY_CLASSES_ROOT\exam-lock\shell]
+
+[HKEY_CLASSES_ROOT\exam-lock\shell\open]
+
+[HKEY_CLASSES_ROOT\exam-lock\shell\open\command]
+@="D:\\Hasil Coding\\ExamApp\\frontend\\RushlessSafer_Source\\bin\\Release\\net8.0-windows\\RushlessSafer.exe" "%1"
