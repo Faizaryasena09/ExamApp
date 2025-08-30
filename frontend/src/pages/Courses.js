@@ -150,24 +150,15 @@ function CoursesPage() {
   };
 
   const launchRushlessSafer = (courseId) => {
-    // 1. Get all necessary data
     const targetUrl = `${window.location.origin}/courses/${courseId}/do`;
     const allCookies = document.cookie;
-    const userAgent = navigator.userAgent;
 
-    // 2. Base64 encode the data for safe transfer
-    // Use `btoa` for Base64 encoding
-    const encodedUrl = btoa(targetUrl);
-    const encodedCookies = btoa(allCookies);
-    const encodedUserAgent = btoa(userAgent);
+    const encodedUrl = encodeURIComponent(targetUrl);
+    const encodedCookies = encodeURIComponent(allCookies);
 
-    // 3. Construct the custom protocol URL
-    // Format: rushlesssafer://<base64_url>?cookies=<base64_cookies>&ua=<base64_ua>
-    const protocolUrl = `rushlesssafer://${encodedUrl}?cookies=${encodedCookies}&ua=${encodedUserAgent}`;
+    const protocolUrl = `rushless-safer:?url=${encodedUrl}&cookies=${encodedCookies}`;
 
     toast.success("🔒 Meluncurkan Aplikasi Ujian Aman...");
-
-    // 4. Redirect to trigger the application
     window.location.href = protocolUrl;
   };
 
