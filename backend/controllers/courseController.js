@@ -180,10 +180,8 @@ function shuffleArray(array) {
       if (role === "guru") {
         query += " WHERE c.pengajar = ?";
         params.push(name);
-      }
-  
-      let siswaKelas = null;
-      if (role === "siswa") {
+      } else if (role === "siswa") {
+        query += " WHERE c.hidden = 0";
         const [userRows] = await pool.query("SELECT kelas FROM users WHERE name = ?", [name]);
         if (userRows.length === 0) {
           return res.status(404).json({ message: "User siswa tidak ditemukan" });
