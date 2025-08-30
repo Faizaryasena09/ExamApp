@@ -41,7 +41,7 @@ const QuestionCard = ({ question, index }) => {
             key={i}
             className="p-4 rounded-lg border bg-gray-100 border-gray-200 text-gray-700 flex items-start space-x-3"
           >
-            <span className="font-bold">{String.fromCharCode(65 + i)}.</span>
+            {/* <span className="font-bold">{String.fromCharCode(65 + i)}.</span> */} {/* This line is commented out */}
             <div dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(opsiText) }} className="prose max-w-none text-sm" />
 
           </li>
