@@ -631,12 +631,18 @@ if (!userId || isNaN(userId)) {
           ? row.jawaban.trim().charAt(0).toUpperCase()
           : null;
   
-        return {
+        const questionData = {
           id: row.id,
           soal: row.soal,
           opsi: opsiParsed,
-          jawaban,
         };
+
+        // Hanya sertakan jawaban jika bukan peran siswa
+        if (userRole !== "siswa") {
+          questionData.jawaban = jawaban;
+        }
+
+        return questionData;
       });
   
       res.json(soalList);
