@@ -230,12 +230,14 @@ function DoExamPage() {
       const currentUserId = Cookies.get("user_id");
 
       if (data.user_id && data.user_id.toString() === currentUserId) {
+        console.log("SSE 'unlock' received for current user. Closing app.");
         if (window.chrome && window.chrome.webview) {
-          window.chrome.webview.postMessage('UNLOCK');
+          // Kirim pesan unlock dalam format JSON yang benar
+          window.chrome.webview.postMessage({ type: 'unlock' });
         }
-        // Also handle for React Native WebView if present
+        // Handle React Native WebView jika ada
         if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage('UNLOCK');
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'unlock' }));
         }
       }
     });
@@ -617,80 +619,57 @@ useEffect(() => {
     const attemptId = await submitJawabanUjian();
   
     if (attemptId != null) {
-      // Hapus timer lokal
+      // Hapus timer lokal dan backend
       localStorage.removeItem(`timer-${userId}-${courseId}`);
-  
-      // Hapus timer di backend
       try {
-        await api.delete("/answertrail/timer-delete", {
-          params: { user_id: userId, course_id: courseId },
-        });
+        await api.delete("/answertrail/timer-delete", { params: { user_id: userId, course_id: courseId } });
       } catch (err) {
-        console.warn("❌ Gagal hapus timer:", err.message);
+        console.warn("❌ Gagal hapus timer di backend:", err.message);
       }
   
       // Update status ujian di backend
       try {
-        await api.post("/exam/status", {
-          user_id: userId,
-          course_id: courseId,
-          status: "Tidak Sedang mengerjakan",
-        });
+        await api.post("/exam/status", { user_id: userId, course_id: courseId, status: "Tidak Sedang mengerjakan" });
       } catch (err) {
         console.error("❌ Gagal update status:", err.message);
       }
   
-      // Ambil info hasil ujian
       try {
-        const res = await api.get(`/jawaban/show-result`, {
-          params: { course_id: courseId },
-        });
+        const res = await api.get(`/jawaban/show-result`, { params: { course_id: courseId } });
+        const { tampilkan_hasil, analisis_jawaban } = res.data;
   
-        const tampilkanHasil = res.data?.tampilkan_hasil;
-        const analisisJawaban = res.data?.analisis_jawaban;
-  
-        // Path relatif untuk React Router
-        const hasilPath = analisisJawaban
+        const hasilPath = analisis_jawaban
           ? `/courses/${courseId}/${userId}/${attemptId}/hasil`
-          : tampilkanHasil
+          : tampilkan_hasil
           ? `/courses/${courseId}/${userId}/${attemptId}/summary`
-          : `/`;
-  
-        // Full URL untuk WebView
-        const hasilFullUrl = window.location.origin + hasilPath;
-  
-        // Kirim ke SafeExam (tidak langsung unlock jika perlu)
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(`UNLOCK:${hasilFullUrl}`);
-        }
-  
-        // Kirim ke ExamBrowser untuk exit otomatis dengan URL redirect
+          : null;
+
         if (window.chrome && window.chrome.webview) {
-          window.chrome.webview.postMessage(`UNLOCK:${hasilFullUrl}`);
+          if (hasilPath) {
+            const hasilFullUrl = window.location.origin + hasilPath;
+            console.log(`Redirecting to ${hasilFullUrl} and closing.`);
+            window.chrome.webview.postMessage({ type: 'redirect', url: hasilFullUrl });
+          } else {
+            console.log("Unlocking without redirect.");
+            window.chrome.webview.postMessage({ type: 'unlock' });
+          }
+        } else {
+          // Fallback untuk browser biasa
+          navigate(hasilPath || '/', { replace: true });
         }
-  
-        // Navigasi di React Router
-        navigate(hasilPath, { replace: true });
-  
+
       } catch (err) {
-        console.error("❌ Gagal cek hasil:", err.message);
-  
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage("UNLOCK");
-        }
-  
-        // Kirim ke ExamBrowser untuk exit otomatis (fallback)
+        console.error("❌ Gagal cek hasil, unlocking as fallback:", err.message);
         if (window.chrome && window.chrome.webview) {
-          window.chrome.webview.postMessage("UNLOCK");
+          window.chrome.webview.postMessage({ type: 'unlock' });
         }
-  
         navigate(`/`, { replace: true });
       }
   
     } else {
-      alert("❌ Gagal simpan jawaban.");
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage("UNLOCK");
+      alert("❌ Gagal menyimpan jawaban. Aplikasi akan ditutup.");
+      if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage({ type: 'unlock' });
       }
     }
   
