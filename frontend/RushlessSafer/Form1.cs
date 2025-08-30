@@ -59,6 +59,23 @@ namespace RushlessSafer
             webView.CoreWebView2.Navigate(_initialUrl);
         }
 
+        private bool _isExiting = false;
+
+        private void CleanupAndExit()
+        {
+            if (_isExiting) return;
+            _isExiting = true;
+
+            // Restart Explorer Shell
+            Process.Start("explorer.exe");
+
+            // Dispose keyboard hook to re-enable normal keyboard function
+            _keyboardHook.Dispose();
+
+            // Use Application.Exit() for a graceful shutdown
+            Application.Exit();
+        }
+
         private void HandleWebMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs args)
         {
             var jsonMessage = args.WebMessageAsJson;
@@ -73,7 +90,8 @@ namespace RushlessSafer
                     string type = typeElement.GetString() ?? "";
                     if (string.Equals(type, "unlock", StringComparison.OrdinalIgnoreCase))
                     {
-                        Environment.Exit(0);
+                        // Use Invoke to ensure cleanup runs on the UI thread
+                        this.Invoke(new Action(CleanupAndExit));
                     }
                     else if (string.Equals(type, "redirect", StringComparison.OrdinalIgnoreCase))
                     {
@@ -83,7 +101,7 @@ namespace RushlessSafer
                             if (!string.IsNullOrEmpty(redirectUrl))
                             {
                                 Process.Start(new ProcessStartInfo(redirectUrl) { UseShellExecute = true });
-                                Environment.Exit(0);
+                                this.Invoke(new Action(CleanupAndExit));
                             }
                         }
                     }
@@ -104,11 +122,7 @@ namespace RushlessSafer
 
         private void LockdownForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            // Restart Explorer Shell
-            Process.Start("explorer.exe");
-
-            // Dispose keyboard hook
-            _keyboardHook.Dispose();
+            CleanupAndExit();
         }
 
         private void batteryTimer_Tick(object sender, EventArgs e)
