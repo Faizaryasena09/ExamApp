@@ -46,27 +46,13 @@ namespace RushlessSafer
             // 
             // lblBattery
             // 
-            this.lblBattery.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.lblBattery.AutoSize = true;
-            this.lblBattery.BackColor = System.Drawing.Color.Black;
-            this.lblBattery.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
-            this.lblBattery.ForeColor = System.Drawing.Color.White;
-            this.lblBattery.Location = new System.Drawing.Point(680, 9);
             this.lblBattery.Name = "lblBattery";
-            this.lblBattery.Padding = new System.Windows.Forms.Padding(5);
             this.lblBattery.Size = new System.Drawing.Size(108, 30);
             this.lblBattery.TabIndex = 1;
             this.lblBattery.Text = "Baterai: 100%";
             // 
             // btnWifi
             // 
-            this.btnWifi.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnWifi.BackColor = System.Drawing.Color.Black;
-            this.btnWifi.FlatAppearance.BorderColor = System.Drawing.Color.White;
-            this.btnWifi.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnWifi.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
-            this.btnWifi.ForeColor = System.Drawing.Color.White;
-            this.btnWifi.Location = new System.Drawing.Point(544, 9);
             this.btnWifi.Name = "btnWifi";
             this.btnWifi.Size = new System.Drawing.Size(130, 30);
             this.btnWifi.TabIndex = 2;
@@ -79,8 +65,6 @@ namespace RushlessSafer
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
-            this.Controls.Add(this.btnWifi);
-            this.Controls.Add(this.lblBattery);
             this.Controls.Add(this.webView);
             this.Name = "LockdownForm";
             this.Text = "Rushless Safer";
