@@ -66,24 +66,24 @@ namespace RushlessSafer
                     string type = typeElement.GetString() ?? "";
                     if (type == "unlock")
                     {
-                        // Invoke on UI thread to safely close the form
-                        this.Invoke((Action)(() => Application.Exit()));
+                        // Gunakan BeginInvoke (asynchronous) untuk mencegah deadlock
+                        this.BeginInvoke((Action)(() => this.Close()));
                     }
                     else if (type == "redirect" && root.TryGetProperty("url", out var urlElement))
                     {
                         string redirectUrl = urlElement.GetString() ?? "";
                         if (!string.IsNullOrEmpty(redirectUrl))
                         {
-                            // Open URL in default browser
                             Process.Start(new ProcessStartInfo(redirectUrl) { UseShellExecute = true });
-                            this.Invoke((Action)(() => Application.Exit()));
+                            // Gunakan BeginInvoke di sini juga untuk konsistensi
+                            this.BeginInvoke((Action)(() => this.Close()));
                         }
                     }
                 }
             }
             catch (JsonException)
             {
-                // Handle invalid JSON if necessary
+                // Abaikan jika format JSON tidak valid
             }
         }
 
