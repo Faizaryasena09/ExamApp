@@ -150,38 +150,24 @@ function CoursesPage() {
   };
 
   const launchRushlessSafer = (courseId) => {
-    const token = Cookies.get('token') || '';
+    // 1. Get all necessary data
+    const targetUrl = `${window.location.origin}/courses/${courseId}/do`;
+    const allCookies = document.cookie;
     const userAgent = navigator.userAgent;
-    const userId = Cookies.get('user_id') || '';
-    const name = Cookies.get('name') || '';
-    const role = Cookies.get('role') || '';
 
-    console.log("Launching RushlessSafer with:");
-    console.log("  Token:", token ? "[PRESENT]" : "[MISSING]");
-    console.log("  User ID:", userId);
-    console.log("  Name:", name);
-    console.log("  Role:", role);
-    console.log("  User Agent:", userAgent);
+    // 2. Base64 encode the data for safe transfer
+    // Use `btoa` for Base64 encoding
+    const encodedUrl = btoa(targetUrl);
+    const encodedCookies = btoa(allCookies);
+    const encodedUserAgent = btoa(userAgent);
 
-    // Base URL for the exam page
-    let examUrl = `${window.location.origin}/courses/${courseId}/do`;
-
-    // Append the data as query parameters
-    const params = new URLSearchParams();
-    params.append('token', token);
-    params.append('userAgent', userAgent);
-    params.append('userId', userId);
-    params.append('name', name);
-    params.append('role', role);
-
-    examUrl += `?${params.toString()}`;
-
-    const protocolUrl = `exam-lock:${encodeURIComponent(examUrl)}`;
+    // 3. Construct the custom protocol URL
+    // Format: rushlesssafer://<base64_url>?cookies=<base64_cookies>&ua=<base64_ua>
+    const protocolUrl = `rushlesssafer://${encodedUrl}?cookies=${encodedCookies}&ua=${encodedUserAgent}`;
 
     toast.success("🔒 Meluncurkan Aplikasi Ujian Aman...");
 
-    // Redirect the browser to the custom protocol URL.
-    // This will trigger the OS to open RushlessSafer.exe
+    // 4. Redirect to trigger the application
     window.location.href = protocolUrl;
   };
 
@@ -211,10 +197,8 @@ function CoursesPage() {
         });
 
         if (isWindows) {
-          // Launch the .NET lockdown application
           launchRushlessSafer(courseId);
         } else {
-          // Fallback for non-Windows clients
           toast.warn("Aplikasi ujian aman hanya tersedia untuk Windows. Anda akan diarahkan ke browser biasa.");
           navigate(`/courses/${courseId}/do`);
         }
@@ -253,10 +237,8 @@ function CoursesPage() {
         });
   
         if (isWindows) {
-          // Launch the .NET lockdown application
           launchRushlessSafer(selectedCourseId);
         } else {
-          // Fallback for non-Windows clients
           toast.warn("Aplikasi ujian aman hanya tersedia untuk Windows. Anda akan diarahkan ke browser biasa.");
           navigate(`/courses/${selectedCourseId}/do`);
         }
