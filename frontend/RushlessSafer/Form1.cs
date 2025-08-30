@@ -66,8 +66,8 @@ namespace RushlessSafer
                     string type = typeElement.GetString() ?? "";
                     if (type == "unlock")
                     {
-                        // Gunakan BeginInvoke (asynchronous) untuk mencegah deadlock
-                        this.BeginInvoke((Action)(() => this.Close()));
+                        // LANGKAH DIAGNOSTIK: Paksa proses untuk berhenti.
+                        Environment.Exit(0);
                     }
                     else if (type == "redirect" && root.TryGetProperty("url", out var urlElement))
                     {
@@ -75,8 +75,8 @@ namespace RushlessSafer
                         if (!string.IsNullOrEmpty(redirectUrl))
                         {
                             Process.Start(new ProcessStartInfo(redirectUrl) { UseShellExecute = true });
-                            // Gunakan BeginInvoke di sini juga untuk konsistensi
-                            this.BeginInvoke((Action)(() => this.Close()));
+                            // LANGKAH DIAGNOSTIK: Paksa proses untuk berhenti.
+                            Environment.Exit(0);
                         }
                     }
                 }
