@@ -1,7 +1,9 @@
+require('dotenv').config();
+
 const db = require("../models/database");
 const jwt = require("jsonwebtoken");
 
-const JWT_SECRET = "rahasia_jangan_dibocorin";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 exports.login = async (req, res) => {
   const { username, password } = req.body;

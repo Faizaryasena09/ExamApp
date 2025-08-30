@@ -1,11 +1,13 @@
+require('dotenv').config();
+
 const mysql = require("mysql2/promise");
 
-const DB_NAME = "senexamapp";
+const DB_NAME = process.env.DB_NAME;
 
 const serverPool = mysql.createPool({
-  host: "localhost",
-  user: "root",
-  password: "1234",
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -13,13 +15,15 @@ const serverPool = mysql.createPool({
 
 async function initDatabase() {
   try {
-    await serverPool.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\``);
+    await serverPool.query(`CREATE DATABASE IF NOT EXISTS 
+${DB_NAME}
+`);
     console.log("✅ Database dicek/dibuat");
 
     const pool = mysql.createPool({
-      host: "localhost",
-      user: "root",
-      password: "1234",
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
       database: DB_NAME,
       waitForConnections: true,
       connectionLimit: 10,
