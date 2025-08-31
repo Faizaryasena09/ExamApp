@@ -8,6 +8,9 @@ import { uploadImageToServer } from "../utils/uploadImageToServer";
 import JoditEditor from "jodit-react";
 import { FiEye } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
+import * as docx from 'docx';
+import { saveAs } from 'file-saver';
+import { convert } from 'html-to-text';
 
 window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
 
@@ -255,7 +258,105 @@ function ManageCoursePage() {
 
   const editorSoalRef = useRef(null);
   const labelHuruf = (i) => String.fromCharCode(65 + i) + '. ';
-  const editorOpsiRef = useRef(null);
+    const editorOpsiRef = useRef(null);
+
+  const handleDownloadDocx = async () => {
+    const doc = new docx.Document({
+      sections: [
+        {
+          properties: {},
+          children: await createDocxContent(soalList),
+        },
+      ],
+    });
+
+        docx.Packer.toBlob(doc).then(blob => {
+      saveAs(blob, `Soal_${form.nama.replace(/ /g, "_")}.docx`);
+    });
+  };
+
+  const getImageBuffer = async (url) => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      const buffer = await response.arrayBuffer();
+      return buffer;
+    } catch (error) {
+      console.error(`Gagal fetch gambar: ${url}`, error);
+      return null;
+    }
+  };
+
+    const createDocxContent = async (soalList) => {
+    const children = [];
+    for (let i = 0; i < soalList.length; i++) {
+      const item = soalList[i];
+      const questionNumber = i + 1;
+
+      // Process question
+      const questionParagraphs = await processHtml(`${questionNumber}. ${item.soal}`);
+      children.push(...questionParagraphs);
+
+      // Process options
+      for (let j = 0; j < item.opsi.length; j++) {
+        const opsiHtml = item.opsi[j];
+        const optionLetter = String.fromCharCode(65 + j);
+        const optionParagraphs = await processHtml(`  ${optionLetter}. ${opsiHtml}`);
+        children.push(...optionParagraphs);
+      }
+
+      // Add correct answer info and spacing
+      const jawabanText = `Jawaban: ${item.jawaban}`;
+      children.push(new docx.Paragraph({ text: jawabanText, style: "strong" }));
+      children.push(new docx.Paragraph({ text: "" }));
+    }
+    return children;
+  };
+
+  const processHtml = async (html) => {
+    const paragraphs = [];
+    // 1. Convert HTML to plain text, removing image tags first to avoid placeholders
+    const textOnlyHtml = html.replace(/<img[^>]*>/g, "");
+    const text = convert(textOnlyHtml, {
+      wordwrap: false,
+      selectors: [
+        { selector: 'a', options: { ignoreHref: true } },
+        { selector: 'img', format: 'skip' },
+      ]
+    });
+
+    if (text.trim()) {
+      paragraphs.push(new docx.Paragraph({ text }));
+    }
+
+    // 2. Find all images and add them after the text
+    const imgRegex = /<img[^>]+src="([^">]+)"/g;
+    let match;
+    while ((match = imgRegex.exec(html)) !== null) {
+      const imageUrl = toAbsoluteImageSrc(match[1]); // Use the helper to get absolute URL
+      const imageBuffer = await getImageBuffer(imageUrl);
+      if (imageBuffer) {
+        try {
+          paragraphs.push(
+            new docx.Paragraph({
+              children: [
+                new docx.ImageRun({
+                  data: imageBuffer,
+                  transformation: {
+                    width: 450,
+                    height: 300,
+                  },
+                }),
+              ],
+            })
+          );
+        } catch (e) {
+          console.error("Gagal memproses gambar untuk DOCX:", e);
+        }
+      }
+    }
+    return paragraphs;
+  };
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -779,21 +880,30 @@ function ManageCoursePage() {
             );
           })}
 
-          <div className="flex justify-end gap-4 mt-8">
-            <button
-              onClick={handleSimpanSoal}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-            >
-              💾 Simpan Semua Soal
-            </button>
-
-            <button
-              onClick={() => navigate(`/courses/${courseId}/preview`)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition border border-gray-300"
-            >
-              <FiEye />
-              Preview Soal
-            </button>
+                    <div className="sticky bottom-0 z-10 bg-white/90 backdrop-blur-sm py-4 border-t -mx-8 -mb-8 mt-8">
+            <div className="max-w-7xl mx-auto px-8">
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={handleDownloadDocx}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition border border-green-700"
+                >
+                  Download Soal (Word)
+                </button>
+                <button
+                  onClick={() => navigate(`/courses/${courseId}/preview`)}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition border border-gray-300"
+                >
+                  <FiEye />
+                  Preview Soal
+                </button>
+                <button
+                  onClick={handleSimpanSoal}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                >
+                  💾 Simpan Semua Soal
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
