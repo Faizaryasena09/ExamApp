@@ -44,13 +44,14 @@ function Header({ onToggleSidebar }) {
 
     try {
       const user_id = Cookies.get("user_id");
-      if (user_id) {
-        await api.post("/session", { user_id, status: "offline" });
-      }
+      // Panggil endpoint logout utama di backend
+      // Endpoint ini akan menghapus httpOnly refreshToken dan set status offline
+      await api.post("/auth/logout", { user_id });
     } catch (err) {
-      console.error("❌ Gagal update status logout:", err);
+      console.error("Gagal saat memanggil endpoint logout:", err);
+      // Tetap lanjutkan cleanup di frontend meskipun backend gagal
     } finally {
-      performCleanup();
+      performCleanup(); // Hapus cookie di sisi frontend dan redirect
     }
   };
 

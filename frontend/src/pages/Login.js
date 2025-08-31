@@ -42,25 +42,7 @@ function LoginPage() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const setupInactivityLogout = () => {
-    let timeout;
-    const resetTimer = () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        Cookies.remove("token");
-        Cookies.remove("name");
-        Cookies.remove("role");
-        Cookies.remove("user_id");
-        window.location.href = "/";
-      }, 30 * 60 * 1000);
-    };
-    const events = ["mousemove", "mousedown", "keypress", "touchstart"];
-    events.forEach((event) => window.addEventListener(event, resetTimer));
-    resetTimer();
-    window.addEventListener("beforeunload", () => {
-      events.forEach((event) => window.removeEventListener(event, resetTimer));
-    });
-  };
+  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -87,7 +69,6 @@ function LoginPage() {
         const redirectPath = localStorage.getItem("redirectAfterLogin") || "/home";
         localStorage.removeItem("redirectAfterLogin");
         navigate(redirectPath, { replace: true });
-        setupInactivityLogout();
       }, 1500);      
     } catch (err) {
       setMessage(`❌ ${err.response?.data?.message || "Username atau password salah"}`);

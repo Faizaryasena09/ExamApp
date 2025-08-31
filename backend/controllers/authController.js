@@ -136,12 +136,33 @@ exports.refreshToken = (req, res) => {
   });
 };
 
-exports.logout = (req, res) => {
+exports.logout = async (req, res) => {
+  const { user_id } = req.body;
+  console.log(`Attempting to logout user_id: ${user_id}`); // DEBUGGING LOG
+
+  try {
+    if (user_id) {
+      const connection = await db;
+      const [result] = await connection.execute(
+        'UPDATE session_status SET status = \'offline\' WHERE user_id = ?',
+        [user_id]
+      );
+      console.log(`Session status update result for user_id ${user_id}:`, result); // DEBUGGING LOG
+    } else {
+      console.log('No user_id provided in logout request body.'); // DEBUGGING LOG
+    }
+  } catch (err) {
+    console.error("Gagal update status saat logout:", err);
+    // Jangan hentikan proses logout meski gagal update status
+  }
+
+  // Hapus cookie refreshToken
   res.cookie('refreshToken', '', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
     expires: new Date(0)
   });
-  res.sendStatus(204);
+  
+  res.sendStatus(204); // No Content
 };
