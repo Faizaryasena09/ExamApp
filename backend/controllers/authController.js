@@ -51,21 +51,40 @@ exports.login = async (req, res) => {
       [user.id]
     );
 
-    // 5. Buat token
-    const token = jwt.sign(
+    // 5. Buat Access Token dan Refresh Token
+        // 5. Buat Access Token (dikirim ke frontend) dan Refresh Token (disimpan di httpOnly cookie)
+    const accessToken = jwt.sign(
       {
+        userId: user.id,
         name: user.name,
         role: user.role,
       },
       JWT_SECRET,
-      { expiresIn: "2h" }
+      { expiresIn: "15m" } // Masa berlaku singkat
     );
 
+    const refreshToken = jwt.sign(
+      {
+        userId: user.id,
+      },
+      process.env.REFRESH_TOKEN_SECRET,
+      { expiresIn: "7d" } // Masa berlaku panjang
+    );
+
+    // Simpan refresh token di httpOnly cookie, aman dari akses JavaScript
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 hari
+    });
+
+    // Kirim accessToken ke frontend untuk disimpan di cookie 'token' oleh browser
     res.json({
       user_id: user.id,
       name: user.name,
       role: user.role,
-      token: token,
+      token: accessToken, 
     });
   } catch (err) {
     console.error("❌ Login error:", err.message);
@@ -99,4 +118,30 @@ exports.isLogin = async (req, res) => {
     console.error("❌ Gagal cek isLogin:", err);
     res.status(500).json({ error: "Terjadi kesalahan di server." });
   }
+};
+
+exports.refreshToken = (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+  if (!refreshToken) return res.sendStatus(401);
+
+  jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+
+    const accessToken = jwt.sign(
+        { userId: user.userId, name: user.name, role: user.role },
+        JWT_SECRET,
+        { expiresIn: '15m' }
+    );
+    res.json({ accessToken });
+  });
+};
+
+exports.logout = (req, res) => {
+  res.cookie('refreshToken', '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    expires: new Date(0)
+  });
+  res.sendStatus(204);
 };

@@ -33,13 +33,25 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Cek apakah token masih ada. Jika tidak, berarti proses logout sudah berjalan.
+    const tokenExists = document.cookie.split('; ').some(item => item.trim().startsWith('token='));
+
     if (
       error.response &&
       error.response.status === 401 &&
-      error.response.data?.message?.toLowerCase().includes("expired")
+      tokenExists // Hanya jalankan jika token masih ada
     ) {
-      alert("Sesi kamu sudah habis. Silakan login ulang.");
-      window.location.href = "/login";
+      // Hapus semua cookie
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+          let cookie = cookies[i];
+          let eqPos = cookie.indexOf("=");
+          let name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+          document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      }
+      
+      alert("Sesi Anda telah berakhir. Silakan login kembali.");
+      window.location.href = "/"; // Arahkan ke halaman utama
     }
 
     return Promise.reject(error);
