@@ -158,43 +158,59 @@ const StudentRow = ({ student, courseId }) => {
     );
 };
 
-const exportToExcel = (groupedData, selectedKelas) => {
+const exportToExcel = (group, selectedAttempts, pointPerQuestion) => {
   const workbook = XLSX.utils.book_new();
-  const group = groupedData.find(g => g.className === selectedKelas);
-  if (!group) return;
-
-  const soalCount = group.students[0]?.attempts[0]?.total_dikerjakan || 10;
-  const pointPerQuestion = 100 / soalCount;
-
   const sheetData = [];
-  const soalHeaders = Array.from({ length: soalCount }, (_, i) => `Soal${i + 1}`);
-  const headers = ['Kelas', 'Nama', 'Skor', ...soalHeaders];
 
-  let totalSkor = 0;
+  const sortedAttempts = [...selectedAttempts].sort((a, b) => a - b);
 
-  group.students.forEach(student => {
-    const attempt = student.attempts[0];
-    const jawaban = attempt.detail_jawaban || [];
+  sortedAttempts.forEach((attemptNumber, index) => {
+    // Sub-header for the attempt
+    sheetData.push([`Attempt ${attemptNumber}`]);
 
-    const skor = jawaban.reduce((acc, j) => acc + (j ? pointPerQuestion : 0), 0);
-    totalSkor += skor;
+    const attemptStudents = group.students.filter(s => s.attempts.some(a => a.attemp === attemptNumber));
+    const soalCount = attemptStudents[0]?.attempts.find(a => a.attemp === attemptNumber)?.total_dikerjakan || 10;
+    const soalHeaders = Array.from({ length: soalCount }, (_, i) => `Soal ${i + 1}`);
+    const headers = ['Kelas', 'Nama', 'Skor', ...soalHeaders];
+    sheetData.push(headers);
 
-    const row = [
-      student.kelas,
-      student.name,
-      skor.toFixed(1),
-      ...jawaban.map(j => j ? pointPerQuestion : 0)
-    ];
-    sheetData.push(row);
+    let totalSkor = 0;
+    let studentCount = 0;
+
+    attemptStudents.forEach(student => {
+      const attempt = student.attempts.find(a => a.attemp === attemptNumber);
+      if (!attempt) return;
+
+      studentCount++;
+      const jawaban = attempt.detail_jawaban || [];
+      const skor = jawaban.reduce((acc, j) => acc + (j ? pointPerQuestion : 0), 0);
+      totalSkor += skor;
+
+      const row = [
+        student.kelas,
+        student.name,
+        skor.toFixed(1),
+        ...Array.from({ length: soalCount }, (_, i) => (jawaban[i] ? pointPerQuestion : 0))
+      ];
+      sheetData.push(row);
+    });
+
+    if (studentCount > 0) {
+      const avgSkor = totalSkor / studentCount;
+      const avgRow = ["", "Rata-rata", avgSkor.toFixed(1), ...Array(soalCount).fill("")];
+      sheetData.push(avgRow);
+    }
+
+    // Add 2 blank rows if it's not the last attempt
+    if (index < sortedAttempts.length - 1) {
+      sheetData.push([]);
+      sheetData.push([]);
+    }
   });
 
-  const avgSkor = totalSkor / group.students.length;
-  const avgRow = ["", "Rata-rata", avgSkor.toFixed(1), ...Array(soalCount).fill("")];
-  sheetData.push(avgRow);
-
-  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...sheetData]);
-  XLSX.utils.book_append_sheet(workbook, worksheet, selectedKelas);
-  const fileName = `Analytics_${selectedKelas}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+  XLSX.utils.book_append_sheet(workbook, worksheet, group.className);
+  const fileName = `Analytics_${group.className}_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
   const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
   const dataBlob = new Blob([excelBuffer], { type: 'application/octet-stream' });
@@ -206,11 +222,46 @@ const AnalyticsPage = () => {
     const navigate = useNavigate();
     const [analytics, setAnalytics] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+        const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedClass, setSelectedClass] = useState("");
     const [showExportModal, setShowExportModal] = useState(false);
-const [kelasToExport, setKelasToExport] = useState("");
+    const [kelasToExport, setKelasToExport] = useState("");
+    const [maxAttempts, setMaxAttempts] = useState(0);
+    const [selectedAttempts, setSelectedAttempts] = useState([]);
+        const [isExporting, setIsExporting] = useState(false);
+
+    useEffect(() => {
+      fetchMaxAttempts(kelasToExport);
+      setSelectedAttempts([]); // Reset selected attempts when class changes
+    }, [kelasToExport]);
+
+    const fetchMaxAttempts = async (className) => {
+      if (!className) {
+        setMaxAttempts(0);
+        return;
+      }
+      try {
+        const res = await api.get(`/courses/analytics/${courseId}/max-attempts?className=${className}`);
+        setMaxAttempts(res.data.maxAttempts || 0);
+      } catch (err) {
+        console.error("Gagal ambil max attempts:", err);
+        setMaxAttempts(0);
+      }
+    };
+
+    useEffect(() => {
+      fetchMaxAttempts(kelasToExport);
+      setSelectedAttempts([]); // Reset selected attempts when class changes
+    }, [kelasToExport]);
+
+    const handleAttemptCheckboxChange = (attemptNumber) => {
+      setSelectedAttempts(prev => 
+        prev.includes(attemptNumber) 
+          ? prev.filter(a => a !== attemptNumber) 
+          : [...prev, attemptNumber]
+      );
+    };
 
     const fetchAnalytics = async () => {
       try {
@@ -372,10 +423,13 @@ const [kelasToExport, setKelasToExport] = useState("");
                       </button>
                     </div>
 
-                    {showExportModal && (
+                                                            {showExportModal && (
                       <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
-                        <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm">
-                          <h2 className="text-lg font-semibold mb-4">Pilih Kelas untuk Ekspor</h2>
+                        <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+                          <h2 className="text-lg font-semibold mb-4">Pengaturan Ekspor Excel</h2>
+                          
+                          {/* Class Selector */}
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Kelas</label>
                           <select
                             value={kelasToExport}
                             onChange={(e) => setKelasToExport(e.target.value)}
@@ -386,35 +440,95 @@ const [kelasToExport, setKelasToExport] = useState("");
                               <option key={group.className} value={group.className}>{group.className}</option>
                             ))}
                           </select>
-                          <div className="flex justify-end gap-2">
+
+                          {/* Attempts Selector */}
+                          {maxAttempts > 0 && (
+                            <div className="mb-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Pilih Attempts</label>
+                              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 border p-3 rounded-md">
+                                <div className="col-span-full">
+                                  <label className="flex items-center space-x-2 cursor-pointer">
+                                    <input 
+                                      type="checkbox" 
+                                      onChange={() => {
+                                        if (selectedAttempts.length === maxAttempts) {
+                                          setSelectedAttempts([]);
+                                        } else {
+                                          setSelectedAttempts(Array.from({ length: maxAttempts }, (_, i) => i + 1));
+                                        }
+                                      }}
+                                      checked={selectedAttempts.length === maxAttempts}
+                                      className="rounded"
+                                    />
+                                    <span className="font-medium">Pilih Semua</span>
+                                  </label>
+                                </div>
+                                {Array.from({ length: maxAttempts }, (_, i) => i + 1).map(attempt => (
+                                  <label key={attempt} className="flex items-center space-x-2 cursor-pointer">
+                                    <input 
+                                      type="checkbox" 
+                                      value={attempt} 
+                                      checked={selectedAttempts.includes(attempt)}
+                                      onChange={() => handleAttemptCheckboxChange(attempt)}
+                                      className="rounded"
+                                    />
+                                    <span>{attempt}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Action Buttons */}
+                          <div className="flex justify-end gap-2 mt-6">
                             <button
-                              className="px-4 py-2 bg-gray-300 rounded"
+                              className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
                               onClick={() => setShowExportModal(false)}
                             >
                               Batal
                             </button>
                             <button
-                      disabled={!kelasToExport}
-                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                      onClick={async () => {
-                        const group = groupedAndSortedData.find(g => g.className === kelasToExport);
-                        if (!group) return;
+                              disabled={!kelasToExport || selectedAttempts.length === 0 || isExporting}
+                              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                              onClick={async () => {
+                                setIsExporting(true);
+                                const group = groupedAndSortedData.find(g => g.className === kelasToExport);
+                                if (!group) {
+                                  setIsExporting(false);
+                                  return;
+                                }
 
-                        for (const student of group.students) {
-                          const attempt = student.attempts[0];
-                          if (attempt) {
-                            const detail = await loadJawabanDetail(courseId, student.user_id, attempt.attemp);
-                            attempt.detail_jawaban = detail;
-                          }
-                        }
+                                const firstStudentWithAttempts = group.students.find(s => s.attempts.length > 0);
+                                const soalCount = firstStudentWithAttempts?.attempts[0]?.total_dikerjakan || 10;
+                                const pointPerQuestion = 100 / soalCount;
 
-                        exportToExcel(groupedAndSortedData, kelasToExport);
-                        setShowExportModal(false);
-                      }}
-                    >
-                      Ekspor
-                    </button>
+                                for (const student of group.students) {
+                                  for (const attempt of student.attempts) {
+                                    if (selectedAttempts.includes(attempt.attemp)) {
+                                      // Load detail only if not already loaded
+                                      if (!attempt.detail_jawaban) {
+                                        const detail = await loadJawabanDetail(courseId, student.user_id, attempt.attemp);
+                                        attempt.detail_jawaban = detail;
+                                      }
+                                    }
+                                  }
+                                }
 
+                                exportToExcel(group, selectedAttempts, pointPerQuestion);
+                                setIsExporting(false);
+                                setShowExportModal(false);
+                              }}
+                            >
+                              {isExporting ? (
+                                <>
+                                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  Mengekspor...
+                                </>
+                              ) : 'Ekspor'}
+                            </button>
                           </div>
                         </div>
                       </div>

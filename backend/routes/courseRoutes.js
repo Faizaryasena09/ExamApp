@@ -29,6 +29,8 @@ router.post("/:id/submit", courseController.submitUjian);
 
 // --- Analytics
 router.get("/analytics/:courseId", courseController.getAnalyticsByCourse);
+router.get("/analytics/:courseId/max-attempts", courseController.getMaxAttempts);
+
 
 // --- Lainnya
 router.get("/:id/status", courseController.getCourseStatus);

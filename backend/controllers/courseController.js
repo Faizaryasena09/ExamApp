@@ -1065,3 +1065,29 @@ exports.uploadSoalDocx = async (req, res) => {
     });
   }
 };
+
+exports.getMaxAttempts = async (req, res) => {
+  const { courseId } = req.params;
+  const { className } = req.query;
+
+  if (!className) {
+    return res.status(400).json({ message: "className query parameter is required." });
+  }
+
+  try {
+    const connection = await db;
+    const [rows] = await connection.query(`
+      SELECT MAX(js.attemp) as maxAttempts
+      FROM jawaban_siswa js
+      JOIN users u ON js.user_id = u.id
+      WHERE js.course_id = ? AND u.kelas = ?
+    `, [courseId, className]);
+
+    const maxAttempts = rows[0]?.maxAttempts || 0;
+
+    res.json({ maxAttempts });
+  } catch (err) {
+    console.error("Gagal ambil max attempts:", err);
+    res.status(500).json({ message: "Gagal mengambil data max attempts" });
+  }
+};
