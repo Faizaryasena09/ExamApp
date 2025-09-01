@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
   FiHome, FiUsers, FiBookOpen, FiX,
-  FiFileText, FiSettings, FiUserCheck
+  FiFileText, FiSettings, FiUserCheck, FiSliders
 } from "react-icons/fi";
 import api from "../api";
 
@@ -130,7 +130,7 @@ function Sidebar({ isOpen, onClose }) {
                     style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
                     className="flex items-center px-4 py-2.5 rounded-lg hover:bg-slate-700 hover:text-white transition-colors duration-200"
                   >
-                    <FiSettings className="mr-3 text-lg" />
+                    <FiSliders className="mr-3 text-lg" />
                     <span>Kontrol Ujian</span>
                   </NavLink>
                 </li>
