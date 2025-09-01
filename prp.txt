@@ -1,0 +1,38 @@
+Aku punya file soal dalam format DOCX. Aku ingin kamu memprosesnya dengan cara berikut:
+
+Baca file DOCX menggunakan library docxjs atau pustaka serupa. Jangan ambil raw text langsung dari XML, tapi render dulu struktur dokumen agar semua elemen (paragraf, numbering, list, tabel, gambar) tetap dikenali.
+
+Setelah di-render, ambil innerText atau konten teks bersih dari setiap paragraf, lalu gabungkan sesuai urutan aslinya. Abaikan format aneh seperti span, style inline, atau tag bawaan Word.
+
+Normalisasikan hasil teks agar punya struktur seragam. Contoh format target:
+
+1. [teks soal]  
+A. [opsi A]  
+B. [opsi B]  
+C. [opsi C]  
+D. [opsi D]  
+ANS: B
+
+
+Jadi setiap soal jelas terdiri dari nomor, opsi-opsi (A–E), dan baris jawaban dengan label ANS:.
+
+Setelah teks disusun ulang, lakukan parsing:
+
+Pisahkan soal berdasarkan nomor.
+
+Kelompokkan opsi berdasarkan huruf A–E.
+
+Simpan jawaban benar dari baris ANS:.
+
+Output akhir berupa struktur JSON dengan format:
+
+{
+  "question": "teks soal",
+  "options": {
+    "A": "teks opsi A",
+    "B": "teks opsi B",
+    "C": "teks opsi C",
+    "D": "teks opsi D"
+  },
+  "answer": "B"
+}

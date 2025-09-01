@@ -47,6 +47,10 @@ function ManageCoursePage() {
   const [acakJawaban, setAcakJawaban] = useState(false);
   const [activeSoalIndex, setActiveSoalIndex] = useState(null);
   const [activeOpsiIndex, setActiveOpsiIndex] = useState({ soal: null, opsi: null });
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
+  const [parsedSoal, setParsedSoal] = useState([]);
 
   useEffect(() => {
     fetchCourse();
@@ -175,36 +179,57 @@ function ManageCoursePage() {
     }
   };
   
-
-  const handleUploadSoal = async (e) => {
+  const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (!file || !file.name.endsWith(".docx")) {
-      return alert("Hanya file .docx yang didukung!");
+    if (file && file.name.endsWith(".docx")) {
+      setSelectedFile(file);
+    } else {
+      toast.error("Hanya file .docx yang didukung!");
+      setSelectedFile(null);
     }
-  
-    const form = new FormData();
-    form.append("file", file);
-  
+  };
+
+  const handleProcessFile = async () => {
+    if (!selectedFile) {
+      return toast.error("Pilih file terlebih dahulu!");
+    }
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
     try {
-      const res = await api.post(`/courses/${id}/upload-soal`, form, {
+      const res = await api.post(`/courses/${id}/upload-soal`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
-  
+
       if (res.data.success) {
-        const soal = res.data.soal;
-        setSoalList((prev) => [...prev, ...soal]);
-        alert(`✅ Berhasil membaca ${soal.length} soal`);
+        setParsedSoal(res.data.soal);
+        setModalMessage(`Berhasil mem-parse ${res.data.soal.length} soal.`);
+        setIsModalOpen(true);
       } else {
-        alert("❌ Gagal membaca soal: " + (res.data.message || "Respons tidak valid"));
+        toast.error("Gagal membaca soal: " + (res.data.message || "Respons tidak valid"));
       }
     } catch (err) {
-      console.error("❌ Gagal upload:", err);
-      alert("Gagal membaca file soal dari server");
+      console.error("Gagal upload:", err);
+      toast.error("Gagal membaca file soal dari server");
     }
   };
-  
+
+  const handleApplySoal = () => {
+    setSoalList((prev) => [...prev, ...parsedSoal]);
+    setIsModalOpen(false);
+    setParsedSoal([]);
+    setSelectedFile(null);
+    toast.success("Soal berhasil ditambahkan!");
+  };
+
+  const handleDiscardSoal = () => {
+    setIsModalOpen(false);
+    setParsedSoal([]);
+    setSelectedFile(null);
+  };
 
   const handleSimpanSoal = async () => {
     try {
@@ -592,24 +617,50 @@ function ManageCoursePage() {
           </form>
         </div>
 
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-xl">
+              <h3 className="text-lg font-bold mb-4">Konfirmasi Upload Soal</h3>
+              <p>{modalMessage}</p>
+              <div className="mt-6 flex justify-end gap-4">
+                <button onClick={handleDiscardSoal} className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400">
+                  Buang
+                </button>
+                <button onClick={handleApplySoal} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                  Terapkan
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white p-8 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold text-gray-700 mb-2">Manajemen Soal</h2>
           <p className="text-sm text-gray-500 mb-6">Upload soal dari file Word atau tambahkan soal secara manual.</p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center border rounded-lg p-4 mb-8 bg-gray-50">
-  <div>
-    <label htmlFor="upload-soal" className="block text-sm font-medium text-gray-600 mb-2">
-      📤 Upload Soal (.pdf)
-    </label>
-    <input
-      id="upload-soal"
-      type="file"
-      accept=".docx"
-      onChange={handleUploadSoal}
-      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-    />
-  </div>
-</div>
+            <div>
+              <label htmlFor="upload-soal" className="block text-sm font-medium text-gray-600 mb-2">
+                📤 Upload Soal (.docx)
+              </label>
+              <div className="flex items-center gap-4">
+                <input
+                  id="upload-soal"
+                  type="file"
+                  accept=".docx"
+                  onChange={handleFileChange}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                <button
+                  onClick={handleProcessFile}
+                  disabled={!selectedFile}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  Proses File
+                </button>
+              </div>
+            </div>
+          </div>
 
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-gray-800">📝 Daftar Soal ({soalList.length})</h3>
