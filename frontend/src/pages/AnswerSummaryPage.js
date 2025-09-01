@@ -68,11 +68,17 @@ const AnswerSummaryPage = () => {
     fetchResult();
   }, [courseId, userId, attemp]);
 
+  const { pgQuestions, essayQuestions } = useMemo(() => {
+    const pg = examData.questions.filter(q => q.tipe_soal !== 'esai');
+    const essay = examData.questions.filter(q => q.tipe_soal === 'esai');
+    return { pgQuestions: pg, essayQuestions: essay };
+  }, [examData.questions]);
+
   const score = useMemo(() => {
-    return examData.questions.reduce((acc, q) => {
+    return pgQuestions.reduce((acc, q) => {
       return q.jawaban_siswa === q.jawaban_benar ? acc + 1 : acc;
     }, 0);
-  }, [examData.questions]);
+  }, [pgQuestions]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
@@ -93,7 +99,7 @@ const AnswerSummaryPage = () => {
             {error}
           </div>
         ) : (
-          <ScoreCard score={score} total={examData.questions.length} />
+          <ScoreCard score={score} total={pgQuestions.length} />
         )}
 
         <div className="text-center">

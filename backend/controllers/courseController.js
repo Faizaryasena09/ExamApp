@@ -556,21 +556,28 @@ if (!userId || isNaN(userId)) {
       }
   
       for (const item of soal) {
-        // 💡 Replace base64 image with uploaded file path
         const soalCleaned = replaceBase64Images(item.soal);
-        const opsiCleaned = cleanOptionsArray(item.opsi);
-        const opsiFinal = acakJawaban ? shuffleArray(opsiCleaned) : opsiCleaned;
+        const tipeSoal = item.tipe_soal || 'pilihan_ganda';
         const soalId = parseInt(item.id);
+  
+        let opsiFinal = JSON.stringify([]);
+        let jawabanFinal = null;
+  
+        if (tipeSoal === 'pilihan_ganda') {
+          const opsiCleaned = cleanOptionsArray(item.opsi);
+          opsiFinal = JSON.stringify(acakJawaban ? shuffleArray(opsiCleaned) : opsiCleaned);
+          jawabanFinal = item.jawaban ? item.jawaban.toUpperCase() : null;
+        }
   
         if (!isNaN(soalId)) {
           await db.query(
-            "UPDATE questions SET soal = ?, opsi = ?, jawaban = ? WHERE id = ? AND course_id = ?",
-            [soalCleaned, JSON.stringify(opsiFinal), item.jawaban.toUpperCase(), soalId, course_id]
+            "UPDATE questions SET soal = ?, opsi = ?, jawaban = ?, tipe_soal = ? WHERE id = ? AND course_id = ?",
+            [soalCleaned, opsiFinal, jawabanFinal, tipeSoal, soalId, course_id]
           );
         } else {
           await db.query(
-            "INSERT INTO questions (course_id, soal, opsi, jawaban) VALUES (?, ?, ?, ?)",
-            [course_id, soalCleaned, JSON.stringify(opsiFinal), item.jawaban.toUpperCase()]
+            "INSERT INTO questions (course_id, soal, opsi, jawaban, tipe_soal) VALUES (?, ?, ?, ?, ?)",
+            [course_id, soalCleaned, opsiFinal, jawabanFinal, tipeSoal]
           );
         }
       }
@@ -613,7 +620,7 @@ if (!userId || isNaN(userId)) {
       }
   
       const [rows] = await db.query(
-        "SELECT id, soal, opsi, jawaban FROM questions WHERE course_id = ?",
+        "SELECT id, soal, opsi, jawaban, tipe_soal FROM questions WHERE course_id = ?",
         [course_id]
       );
   
@@ -633,6 +640,7 @@ if (!userId || isNaN(userId)) {
           id: row.id,
           soal: row.soal,
           opsi: opsiParsed,
+          tipe_soal: row.tipe_soal || 'pilihan_ganda',
         };
 
         // Hanya sertakan jawaban jika bukan peran siswa
@@ -668,7 +676,7 @@ if (!userId || isNaN(userId)) {
         FROM jawaban_siswa js
         JOIN questions q ON js.soal_id = q.id
         JOIN users u ON js.user_id = u.id
-        WHERE js.course_id = ?
+        WHERE js.course_id = ? AND q.tipe_soal = 'pilihan_ganda'
       `, [courseId]);
   
       const [durasiRows] = await connection.query(`

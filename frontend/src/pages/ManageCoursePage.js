@@ -165,7 +165,8 @@ function ManageCoursePage() {
         opsi: Array.isArray(item.opsi)
           ? item.opsi
           : JSON.parse(item.opsi || "[]"),
-        jawaban: item.jawaban ? item.jawaban.replace(/\./g, "").trim() : "" // hapus titik & spasi
+        jawaban: item.jawaban ? item.jawaban.replace(/\./g, "").trim() : "", // hapus titik & spasi
+        tipe_soal: item.tipe_soal || 'pilihan_ganda' // Tambahkan ini
       }));
   
       setSoalList(soalFormatted);
@@ -614,7 +615,7 @@ function ManageCoursePage() {
             <h3 className="text-lg font-semibold text-gray-800">📝 Daftar Soal ({soalList.length})</h3>
             <button
               onClick={() => {
-                setSoalList((prev) => [...prev, { soal: "", opsi: ["", ""], jawaban: "" }]);
+                setSoalList((prev) => [...prev, { soal: "", opsi: ["", ""], jawaban: "", tipe_soal: 'pilihan_ganda' }]);
                 setTimeout(() => {
                   window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
                 }, 100);
@@ -634,9 +635,23 @@ function ManageCoursePage() {
                 className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-6 transition-all duration-300 hover:shadow-lg hover:border-blue-300"
               >
                 <div className="flex justify-between items-center p-4 bg-slate-50 border-b border-slate-200">
-                  <h3 className="font-bold text-lg text-slate-800">
-                    Soal #{index + 1}
-                  </h3>
+                  <div className="flex items-center gap-4">
+                    <h3 className="font-bold text-lg text-slate-800">
+                      Soal #{index + 1}
+                    </h3>
+                    <select
+                      value={item.tipe_soal || 'pilihan_ganda'}
+                      onChange={(e) => {
+                        const updated = [...soalList];
+                        updated[index].tipe_soal = e.target.value;
+                        setSoalList(updated);
+                      }}
+                      className="block w-full max-w-xs pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                    >
+                      <option value="pilihan_ganda">Pilihan Ganda</option>
+                      <option value="esai">Esai</option>
+                    </select>
+                  </div>
                   <button
                     onClick={() => setSoalList(soalList.filter((_, i) => i !== index))}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-500 hover:bg-red-100 hover:text-red-700 transition-all"
@@ -708,6 +723,7 @@ function ManageCoursePage() {
                     />
                   </div>
 
+                  {item.tipe_soal === 'pilihan_ganda' && (
                   <div>
                     <label className="block text-base font-semibold text-slate-700 mb-3">
                       Pilihan Jawaban
@@ -875,6 +891,7 @@ function ManageCoursePage() {
                       )}
                     </div>
                   </div>
+                  )}
                 </div>
               </div>
             );

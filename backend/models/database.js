@@ -136,7 +136,7 @@ ${DB_NAME}
         course_id INT NOT NULL,
         soal TEXT NOT NULL,
         opsi JSON NOT NULL,
-        jawaban VARCHAR(255) NOT NULL,
+        jawaban VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (course_id) REFERENCES courses(id)
           ON DELETE CASCADE
@@ -202,6 +202,27 @@ ${DB_NAME}
         PRIMARY KEY (user_id, course_id)
       )
     `);
+
+    // MIGRASI: Tambah kolom tipe_soal ke tabel questions
+    const [questionsColumns] = await pool.query("SHOW COLUMNS FROM questions LIKE 'tipe_soal'");
+    if (questionsColumns.length === 0) {
+      await pool.query("ALTER TABLE questions ADD COLUMN tipe_soal VARCHAR(20) DEFAULT 'pilihan_ganda'");
+      console.log("✅ Migrasi: Kolom 'tipe_soal' ditambahkan ke tabel 'questions'.");
+    }
+
+    // MIGRASI: Ubah tipe kolom jawaban di jawaban_siswa menjadi TEXT
+    const [jawabanSiswaColumns] = await pool.query("SHOW COLUMNS FROM jawaban_siswa WHERE Field = 'jawaban' AND Type LIKE 'varchar(5)'");
+    if (jawabanSiswaColumns.length > 0) {
+      await pool.query("ALTER TABLE jawaban_siswa MODIFY COLUMN jawaban TEXT");
+      console.log("✅ Migrasi: Tipe kolom 'jawaban' di 'jawaban_siswa' diubah menjadi TEXT.");
+    }
+
+    // MIGRASI: Ubah tipe kolom jawaban di jawaban_trail menjadi TEXT
+    const [jawabanTrailColumns] = await pool.query("SHOW COLUMNS FROM jawaban_trail WHERE Field = 'jawaban' AND Type LIKE 'varchar(5)'");
+    if (jawabanTrailColumns.length > 0) {
+      await pool.query("ALTER TABLE jawaban_trail MODIFY COLUMN jawaban TEXT");
+      console.log("✅ Migrasi: Tipe kolom 'jawaban' di 'jawaban_trail' diubah menjadi TEXT.");
+    }
 
     const [rows] = await pool.query("SELECT * FROM users WHERE username = 'admin'");
     if (rows.length === 0) {

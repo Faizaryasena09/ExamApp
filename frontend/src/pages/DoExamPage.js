@@ -1,8 +1,10 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 import Cookies from "js-cookie";
 import { ImSpinner2 } from 'react-icons/im';
+import JoditEditor from "jodit-react";
+import debounce from 'lodash.debounce';
 
 import { FiFlag, FiClock, FiChevronLeft, FiChevronRight, FiCheckCircle, FiAlertTriangle } from 'react-icons/fi';
 
@@ -40,6 +42,14 @@ function DoExamPage() {
   const [totalWaktu, setTotalWaktu] = useState(0);
   const [showSidebar, setShowSidebar] = useState(false);
   const [courseTitle, setCourseTitle] = useState("");
+  
+  const currentSoal = soalList[currentIndex];
+  
+  const opsiArray = currentSoal && currentSoal.tipe_soal === 'pilihan_ganda' ? (
+    typeof currentSoal.opsi === "string" 
+    ? JSON.parse(currentSoal.opsi) 
+    : currentSoal.opsi || []
+  ) : [];
   
   
 
@@ -293,6 +303,30 @@ const bersihkanOpsi = (opsi) => {
     .trim();
 };
   
+  const editorConfig = useMemo(() => ({
+    readonly: false,
+    height: 300,
+    placeholder: 'Ketik jawaban esai Anda di sini...',
+  }), []);
+
+  const debouncedSave = useCallback(
+    debounce((soalId, jawaban) => {
+      simpanJawabanKeServer(soalId, jawaban);
+    }, 1000),
+    [userId, id, attemptNow] 
+  );
+
+  const handleEssayChange = useCallback((soalId, newContent) => {
+    setJawabanSiswa((prev) => ({ ...prev, [soalId]: newContent }));
+    debouncedSave(soalId, newContent);
+  }, [debouncedSave]);
+  
+  const onEditorChange = useCallback((newContent) => {
+    if (currentSoal?.id) {
+      handleEssayChange(currentSoal.id, newContent);
+    }
+  }, [currentSoal?.id, handleEssayChange]);
+
   const fetchSoal = async () => {
     setIsLoading(true);
     try {
@@ -343,44 +377,47 @@ const bersihkanOpsi = (opsi) => {
       const rawSoal = soalRes.data;
   
       const soalFinal = (acakSoalFromServer ? shuffleArray(rawSoal) : rawSoal).map((soal, index) => {
-        const opsiOriginal = typeof soal.opsi === "string" ? JSON.parse(soal.opsi) : soal.opsi;
-        const opsiFinal = acakJawabanFromServer ? shuffleArray([...opsiOriginal]) : [...opsiOriginal];
-  
-        const opsiCleaned = opsiFinal.map((opsiHTML) => {
-          try {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(opsiHTML, "text/html");
-            const firstNode = doc.body.firstChild;
-  
-            if (
-              firstNode &&
-              firstNode.nodeType === 1 &&
-              firstNode.childNodes.length === 1 &&
-              firstNode.firstChild.nodeType === 3
-            ) {
-              const rawText = firstNode.textContent;
-              if (/^[A-Da-d]\.\s*/.test(rawText)) {
-                firstNode.textContent = rawText.replace(/^[A-Da-d]\.\s*/, '');
-                return firstNode.outerHTML;
+        if (soal.tipe_soal === 'pilihan_ganda') {
+          const opsiOriginal = typeof soal.opsi === "string" ? JSON.parse(soal.opsi) : soal.opsi;
+          const opsiFinal = acakJawabanFromServer ? shuffleArray([...opsiOriginal]) : [...opsiOriginal];
+    
+          const opsiCleaned = opsiFinal.map((opsiHTML) => {
+            try {
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(opsiHTML, "text/html");
+              const firstNode = doc.body.firstChild;
+    
+              if (
+                firstNode &&
+                firstNode.nodeType === 1 &&
+                firstNode.childNodes.length === 1 &&
+                firstNode.firstChild.nodeType === 3
+              ) {
+                const rawText = firstNode.textContent;
+                if (/^[A-Da-d]\.\s*/.test(rawText)) {
+                  firstNode.textContent = rawText.replace(/^[A-Da-d]\.\s*/, '');
+                  return firstNode.outerHTML;
+                }
               }
+    
+              return opsiHTML;
+            } catch {
+              return opsiHTML;
             }
-  
-            return opsiHTML;
-          } catch {
-            return opsiHTML;
-          }
-        });
-  
-        const opsiMapping = opsiFinal.map((opsi) => {
-          const idxAsli = opsiOriginal.findIndex(o => o === opsi);
-          return String.fromCharCode(65 + idxAsli);
-        });
-  
-        return {
-          ...soal,
-          opsi: opsiCleaned,
-          opsiMapping,
-        };
+          });
+    
+          const opsiMapping = opsiFinal.map((opsi) => {
+            const idxAsli = opsiOriginal.findIndex(o => o === opsi);
+            return String.fromCharCode(65 + idxAsli);
+          });
+    
+          return {
+            ...soal,
+            opsi: opsiCleaned,
+            opsiMapping,
+          };
+        }
+        return soal; // Return as is for essay questions
       });
   
       setSoalList(soalFinal);
@@ -676,15 +713,6 @@ useEffect(() => {
     setLoadingSubmit(false);
   };  
 
-  
-  const currentSoal = soalList[currentIndex];
-  
-  const opsiArray = currentSoal ? (
-    typeof currentSoal.opsi === "string" 
-    ? JSON.parse(currentSoal.opsi) 
-    : currentSoal.opsi || []
-  ) : [];
-
   const formatWaktu = (detik) => {
     if (typeof detik !== 'number' || isNaN(detik) || detik < 0) detik = 0;
     const jam = Math.floor(detik / 3600).toString().padStart(2, '0');
@@ -866,50 +894,60 @@ useEffect(() => {
     dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(currentSoal.soal) }}
   />
 
-  <div className="space-y-3">
-    {opsiArray.map((opsi, idx) => {
-      const huruf = String.fromCharCode(65 + idx);
-      const opsiAsli = currentSoal.opsiMapping[idx].slice(0, 1);
-      const isSelected = jawabanSiswa[currentSoal.id] === opsiAsli;
+  {currentSoal.tipe_soal === 'pilihan_ganda' ? (
+    <div className="space-y-3">
+      {opsiArray.map((opsi, idx) => {
+        const huruf = String.fromCharCode(65 + idx);
+        const opsiAsli = currentSoal.opsiMapping[idx].slice(0, 1);
+        const isSelected = jawabanSiswa[currentSoal.id] === opsiAsli;
 
-      const opsiBersih = bersihkanOpsi(opsi);
+        const opsiBersih = bersihkanOpsi(opsi);
 
-      return (
-        <label
-          key={idx}
-          className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
-            isSelected
-              ? "bg-blue-50 border-blue-500 shadow-sm"
-              : "bg-white border-gray-300 hover:border-blue-400"
-          }`}
-        >
-          <input
-            type="radio"
-            name={`soal-${currentSoal.id}`}
-            value={opsiAsli}
-            checked={isSelected}
-            onChange={() => handleJawab(currentSoal.id, opsiAsli)}
-            className="hidden"
-          />
-          <span
-            className={`flex items-center justify-center w-6 h-6 mr-4 border rounded-full text-sm font-bold ${
+        return (
+          <label
+            key={idx}
+            className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
               isSelected
-                ? "bg-blue-500 border-blue-500 text-white"
-                : "border-gray-400 text-gray-600"
+                ? "bg-blue-50 border-blue-500 shadow-sm"
+                : "bg-white border-gray-300 hover:border-blue-400"
             }`}
           >
-            {huruf}
-          </span>
-          <span
-            className="text-gray-700 prose max-w-none"
-            dangerouslySetInnerHTML={{
-              __html: toAbsoluteImageSrc(opsiBersih),
-            }}
-          />
-        </label>
-      );
-    })}
-  </div>
+            <input
+              type="radio"
+              name={`soal-${currentSoal.id}`}
+              value={opsiAsli}
+              checked={isSelected}
+              onChange={() => handleJawab(currentSoal.id, opsiAsli)}
+              className="hidden"
+            />
+            <span
+              className={`flex items-center justify-center w-6 h-6 mr-4 border rounded-full text-sm font-bold ${
+                isSelected
+                  ? "bg-blue-500 border-blue-500 text-white"
+                  : "border-gray-400 text-gray-600"
+              }`}
+            >
+              {huruf}
+            </span>
+            <span
+              className="text-gray-700 prose max-w-none"
+              dangerouslySetInnerHTML={{
+                __html: toAbsoluteImageSrc(opsiBersih),
+              }}
+            />
+          </label>
+        );
+      })}
+    </div>
+  ) : (
+    <div>
+      <JoditEditor
+        value={jawabanSiswa[currentSoal.id] || ''}
+        config={editorConfig}
+        onChange={onEditorChange}
+      />
+    </div>
+  )}
 </div>
 
   

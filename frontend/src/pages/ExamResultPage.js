@@ -36,32 +36,45 @@ function toAbsoluteImageSrc(html) {
 }
 
 const QuestionCard = ({ question, index }) => {
+  const isEssay = question.tipe_soal === 'esai';
+
   const opsi = useMemo(() => {
+    if (isEssay) return [];
     try {
       return Array.isArray(question.opsi) ? question.opsi : JSON.parse(question.opsi || '[]');
     } catch {
       return [];
     }
-  }, [question.opsi]);
+  }, [question.opsi, isEssay]);
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 transition-shadow hover:shadow-md">
       <h2 className="text-lg font-semibold text-gray-800 mb-5 flex items-start">
-  <span className="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-4 flex-shrink-0">{index + 1}</span>
-  <span dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(question.soal) }} />
-</h2>
+        <span className="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-4 flex-shrink-0">{index + 1}</span>
+        <span dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(question.soal) }} />
+      </h2>
 
-      <ul className="space-y-3">
-        {opsi.map((opsiText, i) => (
-          <Option
-            key={i}
-            index={i}
-            text={opsiText}
-            isCorrect={String.fromCharCode(65 + i) === question.jawaban_benar}
-            isSelected={String.fromCharCode(65 + i) === question.jawaban_siswa}
+      {isEssay ? (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-600 mb-2">Jawaban Siswa:</h3>
+          <div 
+            className="prose max-w-none p-4 bg-gray-50 rounded-md border"
+            dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(question.jawaban_siswa || '<p class="text-gray-400 italic">Tidak ada jawaban.</p>') }} 
           />
-        ))}
-      </ul>
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {opsi.map((opsiText, i) => (
+            <Option
+              key={i}
+              index={i}
+              text={opsiText}
+              isCorrect={String.fromCharCode(65 + i) === question.jawaban_benar}
+              isSelected={question.jawaban_siswa && question.jawaban_siswa.toUpperCase() === String.fromCharCode(65 + i)}
+            />
+          ))}
+        </ul>
+      )}
     </div>
   );
 };
@@ -177,11 +190,17 @@ const ExamResultPage = () => {
     saveAs(blob, `HasilUjian_${examData.studentName}_Attempt${attemp}.xlsx`);
   };  
 
-  const score = useMemo(() => {
-    return examData.questions.reduce((acc, q) => {
-      return q.jawaban_siswa === q.jawaban_benar ? acc + 1 : acc;
-    }, 0);
+  const { pgQuestions, essayQuestions } = useMemo(() => {
+    const pg = examData.questions.filter(q => q.tipe_soal !== 'esai');
+    const essay = examData.questions.filter(q => q.tipe_soal === 'esai');
+    return { pgQuestions: pg, essayQuestions: essay };
   }, [examData.questions]);
+
+  const score = useMemo(() => {
+    return pgQuestions.reduce((acc, q) => {
+      return q.jawaban_siswa && q.jawaban_siswa.toUpperCase() === q.jawaban_benar ? acc + 1 : acc;
+    }, 0);
+  }, [pgQuestions]);
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -200,14 +219,27 @@ const ExamResultPage = () => {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <main className="lg:col-span-2 space-y-6">
-              {examData.questions.map((q, index) => (
-                <QuestionCard key={q.soal_id} question={q} index={index} />
-              ))}
+              {pgQuestions.length > 0 && (
+                <div className="space-y-6">
+                  <h2 class="text-2xl font-bold text-gray-700">Soal Pilihan Ganda</h2>
+                  {pgQuestions.map((q, index) => (
+                    <QuestionCard key={q.soal_id} question={q} index={index} />
+                  ))}
+                </div>
+              )}
+              {essayQuestions.length > 0 && (
+                <div className="space-y-6 mt-8">
+                  <h2 class="text-2xl font-bold text-gray-700">Soal Esai</h2>
+                  {essayQuestions.map((q, index) => (
+                    <QuestionCard key={q.soal_id} question={q} index={pgQuestions.length + index} />
+                  ))}
+                </div>
+              )}
             </main>
 
             <aside className="lg:col-span-1">
               <div className="sticky top-8">
-                <ScoreCard score={score} totalQuestions={examData.questions.length} />
+                <ScoreCard score={score} totalQuestions={pgQuestions.length} />
               </div>
               <button
             onClick={handleDownloadExcel}

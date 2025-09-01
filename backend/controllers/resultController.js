@@ -16,8 +16,9 @@ exports.getUserExamResult = async (req, res) => {
         q.id AS soal_id,
         q.soal,
         q.opsi,
+        q.tipe_soal,
         TRIM(UPPER(q.jawaban)) AS jawaban_benar,
-        LEFT(TRIM(UPPER(js.jawaban)), 1) AS jawaban_siswa,
+        js.jawaban AS jawaban_siswa,
         u.name AS siswa_name
       FROM questions q
       LEFT JOIN jawaban_siswa js
