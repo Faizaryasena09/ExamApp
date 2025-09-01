@@ -59,6 +59,46 @@ exports.setGuruKelas = async (req, res) => {
   }
 };
 
+exports.batchUpdateGuruKelas = async (req, res) => {
+  const { pengajaran } = req.body;
+
+  if (!pengajaran || typeof pengajaran !== 'object') {
+    return res.status(400).json({ error: "Data tidak lengkap atau format salah" });
+  }
+
+  const db = await dbPromise;
+  const connection = await db.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    await connection.query("DELETE FROM guru_kelas");
+
+    const inserts = [];
+    for (const guruId in pengajaran) {
+      const kelasList = pengajaran[guruId];
+      if (Array.isArray(kelasList)) {
+        kelasList.forEach(kelas => {
+          inserts.push([guruId, kelas]);
+        });
+      }
+    }
+
+    if (inserts.length > 0) {
+      await connection.query("INSERT INTO guru_kelas (guru_id, kelas) VALUES ?", [inserts]);
+    }
+
+    await connection.commit();
+    res.json({ success: true, message: "Data berhasil disimpan" });
+  } catch (err) {
+    await connection.rollback();
+    console.error("Gagal simpan guru_kelas batch:", err);
+    res.status(500).json({ error: "Gagal menyimpan data pengajaran" });
+  } finally {
+    connection.release();
+  }
+};
+
 exports.getKelasByNamaGuru = async (req, res) => {
     const namaGuru = req.params.nama;
   
