@@ -26,6 +26,7 @@ import StudentLogDetailPage from "./pages/StudentLogDetailPage";
 import ManageExamPage from "./pages/ManageExamPage";
 import ManageGuruPage from "./pages/ManageGuruPage";
 import PreviewPage from "./pages/PreviewPage";
+import NotFoundPage from "./pages/NotFoundPage";
 import WebSettingsPage from "./pages/WebSettingsPage";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
@@ -239,6 +240,7 @@ function AppLayout() {
               element={<RoleRoute allowedRoles={["admin"]} element={<WebSettingsPage />} />}
             />
             <Route path="/courses/:courseId/:userId/:attemp/summary" element={<AnswerSummaryPage />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>
         <Footer />
