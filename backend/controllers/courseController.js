@@ -889,177 +889,75 @@ function parseSoalFromHtmlsalahini(html, imageMap) {
   return soalList;
 }
 
-function findDocxRecursive(dir) {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isFile() && fullPath.endsWith(".docx")) return fullPath;
-    else if (entry.isDirectory()) {
-      const result = findDocxRecursive(fullPath);
-      if (result) return result;
-    }
-  }
-  return null;
-}
+async function parseSoalFromDocx(docxPath) {
+  const result = await mammoth.extractRawText({ path: docxPath });
+  const text = result.value;
+  const lines = text.split('\n').filter(line => line.trim() !== '');
 
-function normalizeText(text) {
-  return text
-    .replace(/\u00a0/g, " ")
-    .replace(/\u200b/g, "")
-    .replace(/[Ａ-Ｚａ-ｚ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
-    .trim();
-}
-
-async function parseSoalFromHtmlWithMammoth(docxPath) {
-  const result = await mammoth.convertToHtml(
-    { path: docxPath },
-    {
-      styleMap: [
-        "p[style-name='List Number'] => ol > li:fresh",
-        "p[style-name='List Bullet'] => ul > li:fresh"
-      ],
-      convertImage: mammoth.images.inline(async (element) => {
-        const ext = element.contentType.split("/")[1];
-        const buffer = await element.read();
-        const filename = `${uuidv4()}.${ext}`;
-        const outputPath = path.join(uploadsDir, filename);
-        fs.writeFileSync(outputPath, buffer);
-        return { src: `/uploads/${filename}` };
-      }),
-    }
-  );
-
-  const html = result.value;
-  const $ = cheerio.load(html);
   const soalList = [];
-  const blocks = [];
+  let currentSoal = null;
 
-  $("body").children().each((_, el) => {
-    const tag = el.tagName || el.name;
+  const soalRegex = /^\d+\.\s+/;
+  const opsiRegex = /^[A-E]\.\s+/;
+  const ansRegex = /^ANS:\s*([A-E])/i;
 
-    if (tag === "ol" || tag === "ul") {
-      const isOrdered = tag === "ol";
-      $(el).children("li").each((i, li) => {
-        const $li = $(li);
-        const htmlContent = $li.html()?.trim();
-        const textContent = normalizeText($li.text());
-        let prefix = isOrdered ? `${i + 1}. ` : `${String.fromCharCode(65 + i)}. `;
+  for (const line of lines) {
+    const trimmedLine = line.trim();
 
-        if (htmlContent) {
-          blocks.push({
-            text: prefix + textContent,
-            html: `<span class="list-prefix">${prefix}</span>` + htmlContent,
-          });
-        }
-      });
-    }
-
-    else if (tag === "table") {
-      $(el).find("tr").each((_, tr) => {
-        $(tr).find("td,th").each((_, cell) => {
-          const $cell = $(cell);
-          const htmlContent = $cell.html()?.trim();
-          const textContent = normalizeText($cell.text());
-          if (htmlContent) {
-            blocks.push({
-              text: textContent,
-              html: htmlContent,
-            });
-          }
-        });
-      });
-    }
-
-    else {
-      const $el = $(el);
-      const htmlContent = $el.html()?.trim();
-      const textContent = normalizeText($el.text());
-      if (htmlContent && htmlContent.length > 0) {
-        blocks.push({
-          text: textContent,
-          html: htmlContent,
-        });
+    if (soalRegex.test(trimmedLine)) {
+      if (currentSoal) {
+        soalList.push(currentSoal);
       }
-    }
-  });
-
-  const soalRegex = /^\d+[\.\)]\s*/;
-  const opsiRegex = /^[A-Da-d][\.\)]\s*/;
-  const jawabanRegex = /^ANS[:：]?\s*([A-D])/i;
-
-  let currentSoal = "";
-  let currentOpsi = [];
-  let jawaban = null;
-  let state = "idle";
-
-  const pushSoal = () => {
-    if (currentSoal && currentOpsi.length >= 2 && jawaban) {
-      soalList.push({
-        soal: currentSoal.trim(),
-        opsi: currentOpsi.map(op => op.trim()),
-        jawaban,
-      });
-    }
-    currentSoal = "";
-    currentOpsi = [];
-    jawaban = null;
-    state = "idle";
-  };
-
-  for (const { text, html } of blocks) {
-    if (soalRegex.test(text)) {
-      pushSoal();
-      currentSoal = html.replace(soalRegex, "").trim();
-      state = "soal";
-    } else if (opsiRegex.test(text)) {
-      const clean = html.replace(opsiRegex, "").trim();
-      currentOpsi.push(`<span class="inline-option">${clean}</span>`);
-      state = "opsi";
-    } else if (jawabanRegex.test(text)) {
-      const match = text.match(jawabanRegex);
-      if (match) {
-        jawaban = match[1].toUpperCase();
-        state = "jawaban";
+      currentSoal = {
+        question: trimmedLine.replace(soalRegex, ''),
+        options: {},
+        answer: ''
+      };
+    } else if (opsiRegex.test(trimmedLine)) {
+      if (currentSoal) {
+        const key = trimmedLine.charAt(0);
+        const value = trimmedLine.substring(3);
+        currentSoal.options[key] = value;
+      }
+    } else if (ansRegex.test(trimmedLine)) {
+      if (currentSoal) {
+        const match = trimmedLine.match(ansRegex);
+        if (match) {
+          currentSoal.answer = match[1].toUpperCase();
+        }
       }
     } else {
-      if (state === "soal") {
-        currentSoal += "<br/>" + html;
-      } else if (state === "opsi" && currentOpsi.length > 0) {
-        currentOpsi[currentOpsi.length - 1] += "<br/>" + html;
+      if (currentSoal && !currentSoal.answer) {
+        currentSoal.question += '\n' + trimmedLine;
       }
     }
   }
 
-  pushSoal();
-  return soalList;
+  if (currentSoal) {
+    soalList.push(currentSoal);
+  }
+
+  return soalList.map(s => ({
+    soal: s.question,
+    opsi: Object.entries(s.options).map(([key, value]) => `${key}. ${value}`),
+    jawaban: s.answer
+  }));
 }
 
-exports.uploadSoalDocx = async (req, res) => {
+exports.uploadSoal = async (req, res) => {
   const file = req.file;
-  const tempDir = path.join(__dirname, "../temp", uuidv4());
+  if (!file) {
+    return res.status(400).json({ success: false, message: "File tidak ditemukan" });
+  }
 
   try {
-    await fs.promises.mkdir(tempDir, { recursive: true });
+    const soalList = await parseSoalFromDocx(file.path);
+    
+    fs.unlinkSync(file.path); // Hapus file sementara
 
-    const filePath = file.path;
-    let docxPath = null;
-
-    if (file.originalname.endsWith(".zip")) {
-      await fs.createReadStream(filePath)
-        .pipe(unzipper.Extract({ path: tempDir }))
-        .promise();
-      docxPath = findDocxRecursive(tempDir);
-      if (!docxPath) throw new Error("File .docx tidak ditemukan dalam ZIP");
-    } else if (file.originalname.endsWith(".docx")) {
-      docxPath = filePath;
-    } else {
-      throw new Error("Format file tidak didukung (harus .docx atau .zip)");
+    if (soalList.length === 0) {
+      return res.status(400).json({ success: false, message: "Tidak ada soal yang dapat di-parse dari file." });
     }
-
-    const soalList = await parseSoalFromHtmlWithMammoth(docxPath);
-
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    fs.unlinkSync(filePath);
 
     return res.status(200).json({
       success: true,
@@ -1067,6 +965,9 @@ exports.uploadSoalDocx = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Gagal upload soal:", err);
+    if (file && file.path) {
+      fs.unlinkSync(file.path); // Pastikan file sementara dihapus jika terjadi error
+    }
     res.status(500).json({
       success: false,
       message: err.message || "Gagal memproses file",

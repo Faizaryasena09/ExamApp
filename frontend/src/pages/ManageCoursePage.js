@@ -48,9 +48,8 @@ function ManageCoursePage() {
   const [activeSoalIndex, setActiveSoalIndex] = useState(null);
   const [activeOpsiIndex, setActiveOpsiIndex] = useState({ soal: null, opsi: null });
   const [selectedFile, setSelectedFile] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMessage, setModalMessage] = useState("");
-  const [parsedSoal, setParsedSoal] = useState([]);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewQuestions, setPreviewQuestions] = useState([]);
 
   useEffect(() => {
     fetchCourse();
@@ -205,9 +204,8 @@ function ManageCoursePage() {
       });
 
       if (res.data.success) {
-        setParsedSoal(res.data.soal);
-        setModalMessage(`Berhasil mem-parse ${res.data.soal.length} soal.`);
-        setIsModalOpen(true);
+        setPreviewQuestions(res.data.soal);
+        setIsPreviewModalOpen(true);
       } else {
         toast.error("Gagal membaca soal: " + (res.data.message || "Respons tidak valid"));
       }
@@ -217,18 +215,22 @@ function ManageCoursePage() {
     }
   };
 
-  const handleApplySoal = () => {
-    setSoalList((prev) => [...prev, ...parsedSoal]);
-    setIsModalOpen(false);
-    setParsedSoal([]);
-    setSelectedFile(null);
-    toast.success("Soal berhasil ditambahkan!");
-  };
-
-  const handleDiscardSoal = () => {
-    setIsModalOpen(false);
-    setParsedSoal([]);
-    setSelectedFile(null);
+  const handleApplyPreview = async () => {
+    try {
+      await api.post(`/courses/${id}/questions/save`, {
+        soal: previewQuestions,
+        acakSoal,
+        acakJawaban,
+      });
+      toast.success("Soal berhasil ditambahkan!");
+      setIsPreviewModalOpen(false);
+      setPreviewQuestions([]);
+      setSelectedFile(null);
+      fetchSoalFromDB();
+    } catch (err) {
+      console.error("Gagal simpan soal:", err);
+      toast.error("Gagal menyimpan soal");
+    }
   };
 
   const handleSimpanSoal = async () => {
@@ -617,16 +619,28 @@ function ManageCoursePage() {
           </form>
         </div>
 
-        {isModalOpen && (
+        {isPreviewModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-xl">
-              <h3 className="text-lg font-bold mb-4">Konfirmasi Upload Soal</h3>
-              <p>{modalMessage}</p>
+            <div className="bg-white p-6 rounded-lg shadow-xl max-w-3xl w-full">
+              <h3 className="text-lg font-bold mb-4">Preview Soal</h3>
+              <div className="max-h-96 overflow-y-auto">
+                {previewQuestions.map((soal, index) => (
+                  <div key={index} className="mb-4 border-b pb-4">
+                    <p className="font-semibold">{index + 1}. {soal.soal}</p>
+                    <ul className="list-disc ml-8">
+                      {soal.opsi.map((opsi, i) => (
+                        <li key={i}>{opsi}</li>
+                      ))}
+                    </ul>
+                    <p className="text-sm text-green-600">Jawaban: {soal.jawaban}</p>
+                  </div>
+                ))}
+              </div>
               <div className="mt-6 flex justify-end gap-4">
-                <button onClick={handleDiscardSoal} className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400">
-                  Buang
+                <button onClick={() => setIsPreviewModalOpen(false)} className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400">
+                  Batal
                 </button>
-                <button onClick={handleApplySoal} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                <button onClick={handleApplyPreview} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
                   Terapkan
                 </button>
               </div>
