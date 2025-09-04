@@ -1,12 +1,20 @@
-Compiled with problems:
-×
-ERROR
-[eslint] 
-src\pages\ManageCoursePage.js
-  Line 209:30:  'mammoth' is not defined                no-undef
-  Line 646:10:  'isPreviewModalOpen' is not defined     no-undef
-  Line 651:18:  'previewQuestions' is not defined       no-undef
-  Line 664:40:  'setIsPreviewModalOpen' is not defined  no-undef
-  Line 667:34:  'handleApplyPreview' is not defined     no-undef
+1. Perubahan wujud benda dari padat menjadi cair disebut...?
+A. Mencair
+B. Menguap
+C. Mengembun
+D. Membeku
+ANS: A
 
-Search for the keywords to learn more about each error.
+2. Planet yang memiliki cincin paling besar adalah...?
+A. Bumi
+B. Mars
+C. Saturnus
+D. Uranus
+ANS: C
+
+3. Alat untuk mengukur suhu adalah...?
+A. Barometer
+B. Termometer
+C. Anemometer
+D. Hygrometer
+ANS: B

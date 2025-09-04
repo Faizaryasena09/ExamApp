@@ -6,8 +6,8 @@ function ParsingModal({ isOpen, onClose, file, onSave }) {
   const [htmlContent, setHtmlContent] = useState('');
   const [selections, setSelections] = useState([]);
   const [currentSelection, setCurrentSelection] = useState({ soal: '', opsi: [], jawaban: '' });
-  const [selectionMode, setSelectionMode] = useState('soal'); // 'soal', 'opsi', 'jawaban'
-  const [editingIndex, setEditingIndex] = useState(null); // null or index
+  const [selectionMode, setSelectionMode] = useState('soal');
+  const [editingIndex, setEditingIndex] = useState(null);
   const contentRef = useRef(null);
 
   const processFile = useCallback(async () => {
@@ -48,50 +48,47 @@ function ParsingModal({ isOpen, onClose, file, onSave }) {
   }, [selections, isOpen, file]);
 
   const markTextAsParsed = (textToMark) => {
-    if (contentRef.current) {
+    if (contentRef.current && textToMark) {
       const content = contentRef.current.innerHTML;
-      const newContent = content.replace(textToMark, `<span class="bg-green-200">${textToMark}</span>`);
+      // Use a function with replace to avoid issues with special regex characters in the text
+      const newContent = content.replace(textToMark, () => `<span class="bg-green-200">${textToMark}</span>`);
       if (content !== newContent) {
         contentRef.current.innerHTML = newContent;
       }
     }
   };
-  
+
   const handleMouseUp = () => {
     const selection = window.getSelection();
     if (!selection.rangeCount > 0) return;
-  
+
     const range = selection.getRangeAt(0);
-    const selectedText = range.toString().trim();
-  
-    // Prevent selecting already parsed text
     if (range.startContainer.parentElement.closest('.bg-green-200') || range.endContainer.parentElement.closest('.bg-green-200')) {
       toast.warn("Teks ini sudah diparsing.");
       selection.removeAllRanges();
       return;
     }
-  
+
+    const selectedText = range.toString().trim();
     if (selectedText) {
       const tempDiv = document.createElement('div');
       tempDiv.appendChild(range.cloneContents());
       const selectedHtml = tempDiv.innerHTML;
-  
+
       switch (selectionMode) {
         case 'soal':
           setCurrentSelection(prev => ({ ...prev, soal: selectedHtml }));
-          toast.success(`Soal ditandai: "${selectedText}"`);
+          toast.success(`Soal ditandai`);
           setSelectionMode('opsi');
           break;
         case 'opsi':
           setCurrentSelection(prev => ({ ...prev, opsi: [...prev.opsi, selectedHtml] }));
-          toast.info(`Opsi ditandai: "${selectedText}"`);
+          toast.info(`Opsi ditandai`);
           break;
         case 'jawaban':
-          if (selectedText.length > 1) {
-            toast.warn("Jawaban sebaiknya hanya satu huruf (misal: A, B, C).");
-          }
+          if (selectedText.length > 1) toast.warn("Jawaban sebaiknya hanya satu huruf.");
           setCurrentSelection(prev => ({ ...prev, jawaban: selectedText.charAt(0).toUpperCase() }));
-          toast.success(`Jawaban ditandai: "${selectedText}"`);
+          toast.success(`Jawaban ditandai`);
           break;
         default:
           break;
@@ -113,27 +110,88 @@ function ParsingModal({ isOpen, onClose, file, onSave }) {
       newSelections.push(currentSelection);
       toast.success('Soal berhasil ditambahkan!');
     }
-    
-    // Mark text in document
+
     markTextAsParsed(currentSelection.soal);
     currentSelection.opsi.forEach(opsi => markTextAsParsed(opsi));
-    
+
     setSelections(newSelections);
     setCurrentSelection({ soal: '', opsi: [], jawaban: '' });
     setSelectionMode('soal');
     setEditingIndex(null);
   };
 
+  const handleAutoParse = () => {
+  if (!contentRef.current) return;
+
+  // Ambil teks mentah lalu pecah berdasarkan newline
+  const rawText = contentRef.current.innerText || "";
+  const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+  const foundSoal = [];
+  let currentSoal = null;
+
+  const soalRegex = /^\s*\d+[\.\)]\s*/;              // 1. atau 2)
+  const opsiRegex = /^\s*[A-Ea-e][\.\)]\s*/;         // A. B. dst
+  const jawabanRegex = /^\s*(?:ANS|JAWABAN)\s*:\s*([A-Ea-e])/i;
+
+  lines.forEach((line) => {
+    if (soalRegex.test(line)) {
+      // simpan soal lama kalau ada
+      if (currentSoal) {
+        foundSoal.push(currentSoal);
+      }
+      currentSoal = {
+        soal: line.replace(soalRegex, '').trim(),
+        opsi: [],
+        jawaban: ''
+      };
+
+    } else if (opsiRegex.test(line)) {
+      if (currentSoal) {
+        currentSoal.opsi.push(line.replace(opsiRegex, '').trim());
+      }
+
+    } else if (jawabanRegex.test(line)) {
+      if (currentSoal) {
+        const match = line.match(jawabanRegex);
+        currentSoal.jawaban = match[1].toUpperCase();
+        foundSoal.push(currentSoal);
+        currentSoal = null;
+      }
+
+    } else if (currentSoal && line) {
+      // lanjutan kalimat
+      if (currentSoal.opsi.length > 0) {
+        const last = currentSoal.opsi.length - 1;
+        currentSoal.opsi[last] += " " + line;
+      } else {
+        currentSoal.soal += " " + line;
+      }
+    }
+  });
+
+  if (currentSoal) {
+    foundSoal.push(currentSoal);
+  }
+
+  if (foundSoal.length > 0) {
+    setSelections(prev => [...prev, ...foundSoal]);
+    toast.success(`${foundSoal.length} soal berhasil diparsing otomatis!`);
+  } else {
+    toast.error("Tidak ada soal yang cocok dengan pola otomatis.");
+  }
+};
+
+
   const handleEdit = (index) => {
     setEditingIndex(index);
     setCurrentSelection(selections[index]);
-    setSelectionMode('soal'); // Reset mode to start editing from soal
+    setSelectionMode('soal');
   };
 
   const handleDelete = (index) => {
     if (window.confirm("Yakin ingin menghapus soal ini?")) {
-      const newSelections = selections.filter((_, i) => i !== index);
-      setSelections(newSelections);
+      setSelections(selections.filter((_, i) => i !== index));
       toast.info('Soal dihapus.');
     }
   };
@@ -141,16 +199,12 @@ function ParsingModal({ isOpen, onClose, file, onSave }) {
   const resetCurrentSoal = () => {
     setCurrentSelection({ soal: '', opsi: [], jawaban: '' });
     setSelectionMode('soal');
-    if (editingIndex !== null) {
-      setEditingIndex(null);
-    }
+    if (editingIndex !== null) setEditingIndex(null);
     toast.info('Soal saat ini direset.');
   };
 
   const handleSave = () => {
-    if (selections.length === 0) {
-      return toast.error('Tidak ada soal untuk disimpan.');
-    }
+    if (selections.length === 0) return toast.error('Tidak ada soal untuk disimpan.');
     onSave(selections);
     localStorage.removeItem(`selections_${file?.name}`);
     onClose();
@@ -158,11 +212,7 @@ function ParsingModal({ isOpen, onClose, file, onSave }) {
 
   if (!isOpen) return null;
 
-  const getModeButtonClass = (mode) => {
-    return selectionMode === mode
-      ? 'bg-blue-600 text-white'
-      : 'bg-gray-200 text-gray-800 hover:bg-gray-300';
-  };
+  const getModeButtonClass = (mode) => selectionMode === mode ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
@@ -174,17 +224,18 @@ function ParsingModal({ isOpen, onClose, file, onSave }) {
 
         <div className="flex flex-1 overflow-hidden">
           <div className="w-1/2 p-6 overflow-y-auto border-r" onMouseUp={handleMouseUp}>
-            <h3 className="font-semibold mb-2 text-gray-700">Konten Dokumen:</h3>
-            <div
-              ref={contentRef}
-              className="prose max-w-none"
-              dangerouslySetInnerHTML={{ __html: htmlContent }}
-            />
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-gray-700">Konten Dokumen:</h3>
+              <button onClick={handleAutoParse} className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-semibold">
+                ✨ Parse Otomatis
+              </button>
+            </div>
+            <div ref={contentRef} className="prose max-w-none" dangerouslySetInnerHTML={{ __html: htmlContent }} />
           </div>
 
           <div className="w-1/2 p-6 flex flex-col overflow-hidden">
             <div className="flex-shrink-0">
-              <h3 className="font-semibold mb-4 text-gray-700">Kontrol Seleksi:</h3>
+              <h3 className="font-semibold mb-4 text-gray-700">Kontrol Seleksi Manual:</h3>
               <div className="flex gap-2 mb-4 p-3 bg-gray-100 rounded-lg">
                 <button onClick={() => setSelectionMode('soal')} className={`px-4 py-2 rounded-md text-sm font-medium ${getModeButtonClass('soal')}`}>1. Tandai Soal</button>
                 <button onClick={() => setSelectionMode('opsi')} className={`px-4 py-2 rounded-md text-sm font-medium ${getModeButtonClass('opsi')}`}>2. Tandai Opsi</button>
@@ -198,10 +249,10 @@ function ParsingModal({ isOpen, onClose, file, onSave }) {
                 <div className="bg-gray-50 p-2 rounded text-xs"><strong>Jawaban:</strong> {currentSelection.jawaban || '...'}</div>
                 <div className="flex gap-2 mt-3">
                   <button onClick={addOrUpdateSoal} className="w-full px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm">
-                    {editingIndex !== null ? 'Update Soal' : 'Tambah Soal ke Daftar'}
+                    {editingIndex !== null ? 'Update Soal' : 'Tambah Soal'}
                   </button>
                   <button onClick={resetCurrentSoal} className="w-full px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm">
-                    Reset Soal Ini
+                    Reset
                   </button>
                 </div>
               </div>
@@ -214,9 +265,7 @@ function ParsingModal({ isOpen, onClose, file, onSave }) {
                   <div key={index} className={`border p-2 rounded text-xs flex justify-between items-start ${editingIndex === index ? 'bg-blue-50' : 'bg-white'}`}>
                     <div>
                       <p><strong>{index + 1}. </strong> <span dangerouslySetInnerHTML={{ __html: s.soal }} /></p>
-                      <ul className="pl-4 list-disc list-inside">
-                        {s.opsi.map((opt, i) => <li key={i} dangerouslySetInnerHTML={{__html: opt}} />)}
-                      </ul>
+                      <ul className="pl-4 list-disc list-inside">{s.opsi.map((opt, i) => <li key={i} dangerouslySetInnerHTML={{__html: opt}} />)}</ul>
                       <p className="pl-4"><strong>Jawaban:</strong> {s.jawaban}</p>
                     </div>
                     <div className="flex gap-2 flex-shrink-0 ml-2">
