@@ -530,7 +530,7 @@ if (!userId || isNaN(userId)) {
   
   exports.saveOrUpdateQuestions = async (req, res) => {
     const course_id = req.params.id;
-    const { soal, acakSoal, acakJawaban } = req.body;
+    const { soal } = req.body;
   
     if (!Array.isArray(soal)) {
       return res.status(400).json({ error: "Format soal tidak valid" });
@@ -539,22 +539,9 @@ if (!userId || isNaN(userId)) {
     try {
       const db = await dbPromise;
   
-      const [existingSoal] = await db.query(
-        "SELECT id FROM questions WHERE course_id = ?",
-        [course_id]
-      );
-      const existingIds = existingSoal.map((s) => s.id);
-  
-      const incomingIds = soal.filter(s => s.id).map(s => parseInt(s.id));
-      const toDelete = existingIds.filter(id => !incomingIds.includes(id));
-  
-      if (toDelete.length > 0) {
-        await db.query(
-          "DELETE FROM questions WHERE id IN (?) AND course_id = ?",
-          [toDelete, course_id]
-        );
-      }
-  
+      // Simplified logic: Always treat incoming questions as new additions
+      // unless they have an ID, in which case we update.
+      // This supports both appending new questions and editing existing ones.
       for (const item of soal) {
         const soalCleaned = replaceBase64Images(item.soal);
         const tipeSoal = item.tipe_soal || 'pilihan_ganda';
@@ -564,17 +551,19 @@ if (!userId || isNaN(userId)) {
         let jawabanFinal = null;
   
         if (tipeSoal === 'pilihan_ganda') {
-          const opsiCleaned = cleanOptionsArray(item.opsi);
-          opsiFinal = JSON.stringify(acakJawaban ? shuffleArray(opsiCleaned) : opsiCleaned);
+          // Assuming options are already clean from the frontend
+          opsiFinal = JSON.stringify(item.opsi || []);
           jawabanFinal = item.jawaban ? item.jawaban.toUpperCase() : null;
         }
   
         if (!isNaN(soalId)) {
+          // Update existing question if ID is provided
           await db.query(
             "UPDATE questions SET soal = ?, opsi = ?, jawaban = ?, tipe_soal = ? WHERE id = ? AND course_id = ?",
             [soalCleaned, opsiFinal, jawabanFinal, tipeSoal, soalId, course_id]
           );
         } else {
+          // Insert new question if no ID is provided
           await db.query(
             "INSERT INTO questions (course_id, soal, opsi, jawaban, tipe_soal) VALUES (?, ?, ?, ?, ?)",
             [course_id, soalCleaned, opsiFinal, jawabanFinal, tipeSoal]

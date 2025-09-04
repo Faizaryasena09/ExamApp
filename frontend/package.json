@@ -24,7 +24,7 @@
     "js-cookie": "^3.0.5",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.523.0",
-    "mammoth": "^1.9.1",
+    "mammoth": "^1.10.0",
     "quill": "^2.0.3",
     "react": "^19.1.0",
     "react-beautiful-dnd": "^13.1.1",

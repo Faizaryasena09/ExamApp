@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import * as docx from 'docx';
 import { saveAs } from 'file-saver';
 import { convert } from 'html-to-text';
+import ParsingModal from "../components/ParsingModal";
 
 window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
 
@@ -49,6 +50,7 @@ function ManageCoursePage() {
   const [activeOpsiIndex, setActiveOpsiIndex] = useState({ soal: null, opsi: null });
   const [selectedFile, setSelectedFile] = useState(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [isParsingModalOpen, setIsParsingModalOpen] = useState(false);
   const [previewQuestions, setPreviewQuestions] = useState([]);
 
   useEffect(() => {
@@ -192,26 +194,23 @@ function ManageCoursePage() {
     if (!selectedFile) {
       return toast.error("Pilih file terlebih dahulu!");
     }
+    setIsParsingModalOpen(true);
+  };
 
-    const formData = new FormData();
-    formData.append("file", selectedFile);
-
+  const handleSaveFromModal = async (parsedSoal) => {
     try {
-      const res = await api.post(`/courses/${id}/upload-soal`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+      await api.post(`/courses/${id}/questions/save`, {
+        soal: parsedSoal,
+        acakSoal,
+        acakJawaban,
       });
-
-      if (res.data.success) {
-        setPreviewQuestions(res.data.soal);
-        setIsPreviewModalOpen(true);
-      } else {
-        toast.error("Gagal membaca soal: " + (res.data.message || "Respons tidak valid"));
-      }
+      toast.success("Soal berhasil diimpor dan disimpan!");
+      setIsParsingModalOpen(false);
+      setSelectedFile(null);
+      fetchSoalFromDB(); // Refresh the question list
     } catch (err) {
-      console.error("Gagal upload:", err);
-      toast.error("Gagal membaca file soal dari server");
+      console.error("Gagal simpan soal dari modal:", err);
+      toast.error("Gagal menyimpan soal yang sudah diparsing.");
     }
   };
 
@@ -619,6 +618,13 @@ function ManageCoursePage() {
           </form>
         </div>
 
+        <ParsingModal 
+          isOpen={isParsingModalOpen}
+          onClose={() => setIsParsingModalOpen(false)}
+          file={selectedFile}
+          onSave={handleSaveFromModal}
+        />
+
         {isPreviewModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg shadow-xl max-w-3xl w-full">
@@ -670,7 +676,7 @@ function ManageCoursePage() {
                   disabled={!selectedFile}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  Proses File
+                  Parse Soal
                 </button>
               </div>
             </div>
