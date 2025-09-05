@@ -12,9 +12,6 @@ import * as docx from 'docx';
 import { saveAs } from 'file-saver';
 import { convert } from 'html-to-text';
 
-// KOMPONEN MODAL SUDAH TIDAK DIPERLUKAN
-// import ParsingModal from "../components/ParsingModal";
-
 window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
 
 function ManageCoursePage() {
@@ -50,13 +47,7 @@ function ManageCoursePage() {
   const [acakJawaban, setAcakJawaban] = useState(false);
   const [activeSoalIndex, setActiveSoalIndex] = useState(null);
   const [activeOpsiIndex, setActiveOpsiIndex] = useState({ soal: null, opsi: null });
-  
-  // --- STATE BARU UNTUK PARSING --- 
   const [selectedFile, setSelectedFile] = useState(null);
-  const [isParsing, setIsParsing] = useState(false);
-  const [parsedSoal, setParsedSoal] = useState([]); // State untuk menampung hasil parse
-  // --- END STATE BARU ---
-
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [previewQuestions, setPreviewQuestions] = useState([]);
 
@@ -197,69 +188,44 @@ function ManageCoursePage() {
     }
   };
 
-  // --- FUNGSI PARSING BARU ---
-  const handleProcessFile = async () => {
+  const handleUploadAndProcessZip = async () => {
     if (!selectedFile) {
       return toast.error("Pilih file .zip terlebih dahulu!");
     }
-    setIsParsing(true);
-    setParsedSoal([]); // Kosongkan hasil sebelumnya
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
 
     try {
-      const formData = new FormData();
-      formData.append("file", selectedFile, selectedFile.name);
-
-      const response = await api.post("/upload/parse-zip", formData, {
+      const res = await api.post("/upload/parse-zip", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
-
-      // Tampilkan teks mentah dari backend untuk debugging
-      console.log("--- RAW TEXT FROM BACKEND ---", response.data.text);
-      toast.info("Proses selesai. Cek konsol browser (F12) untuk melihat teks mentah.");
-      
-      // Logika parsing dan preview untuk sementara dinonaktifkan
-      // const structuredQuestions = response.data;
-      // if (structuredQuestions && structuredQuestions.length > 0) { ... }
+      setPreviewQuestions(res.data);
+      setIsPreviewModalOpen(true);
+      toast.success("Soal berhasil diparsing! Tinjau sebelum menerapkan.");
     } catch (err) {
-      console.error("Zip parse error:", err);
-      const errorMessage = err.response?.data?.message || "Gagal memproses file di server.";
-      toast.error(errorMessage);
-    } finally {
-      setIsParsing(false);
+      console.error("Gagal memproses file .zip:", err);
+      toast.error("Gagal memproses file .zip.");
     }
   };
 
-  // --- FUNGSI UNTUK MENERAPKAN & LANGSUNG SIMPAN SOAL HASIL PARSE ---
-  const handleApplyParsedSoal = async () => {
-    if (parsedSoal.length === 0) {
-      return toast.error("Tidak ada soal hasil parsing untuk diterapkan.");
-    }
-
-    // Gabungkan soal yang ada dengan soal hasil parsing
-    const combinedSoalList = [...soalList, ...parsedSoal];
-
+  const handleApplyPreview = async () => {
     try {
-      // Langsung kirim gabungan soal ke server untuk disimpan
       await api.post(`/courses/${id}/questions/save`, {
-        soal: combinedSoalList,
-        acakSoal, // Kirim juga konfigurasi acak
+        soal: previewQuestions,
+        acakSoal,
         acakJawaban,
       });
-
-      toast.success("Soal berhasil diimpor dan langsung disimpan ke database!");
-      
-      // Kosongkan area preview dan input file
-      setParsedSoal([]); 
+      toast.success("Soal berhasil ditambahkan!");
+      setIsPreviewModalOpen(false);
+      setPreviewQuestions([]);
       setSelectedFile(null);
-      
-      // Muat ulang (re-fetch) daftar soal dari database untuk menampilkan data terbaru
-      fetchSoalFromDB(); 
-
+      fetchSoalFromDB();
     } catch (err) {
-      console.error("Gagal simpan soal dari parse:", err);
-      toast.error("Gagal menyimpan soal yang sudah diparsing ke database.");
+      console.error("Gagal simpan soal:", err);
+      toast.error("Gagal menyimpan soal");
     }
   };
 
@@ -281,15 +247,33 @@ function ManageCoursePage() {
     }
   };  
 
+  const handleDeleteSoal = async (questionId) => {
+    if (window.confirm("Apakah Anda yakin ingin menghapus soal ini?")) {
+      try {
+        await api.delete(`/courses/${id}/questions/${questionId}`);
+        toast.success("Soal berhasil dihapus!");
+        fetchSoalFromDB();
+      } catch (err) {
+        console.error("Gagal hapus soal:", err);
+        toast.error("Gagal menghapus soal.");
+      }
+    }
+  };
+
   function isImageOnly(html) {
     return html.includes("<img");
   }
 
   function toAbsoluteImageSrc(html) {
     const rawBaseURL = api.defaults.baseURL || "http://localhost:5000/api";
+  
+    // Pastikan baseURL tidak berakhiran /
     const baseURL = rawBaseURL.replace(/\/$/, "");
+  
+    // Ubah src="/uploads/... → src="http://localhost:5000/api/uploads/..."
     return html.replace(/src="\/uploads/g, `src="${baseURL}/uploads`);
   }
+  
   
   const handleSoalChange = (index, htmlContent) => {
     const updated = [...soalList];
@@ -305,6 +289,7 @@ function ManageCoursePage() {
 
   const hapusLabelHuruf = (teks) => {
     if (!teks) return '';
+    // Hilangkan label seperti "A. " atau "B. "
     return teks.replace(/^[A-Z]\.\s*/, '');
   };
 
@@ -313,19 +298,101 @@ function ManageCoursePage() {
     const editorOpsiRef = useRef(null);
 
   const handleDownloadDocx = async () => {
-    // ... (fungsi ini tetap sama)
+    const doc = new docx.Document({
+      sections: [
+        {
+          properties: {},
+          children: await createDocxContent(soalList),
+        },
+      ],
+    });
+
+        docx.Packer.toBlob(doc).then(blob => {
+      saveAs(blob, `Soal_${form.nama.replace(/ /g, "_")}.docx`);
+    });
   };
 
   const getImageBuffer = async (url) => {
-    // ... (fungsi ini tetap sama)
+    try {
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      const buffer = await response.arrayBuffer();
+      return buffer;
+    } catch (error) {
+      console.error(`Gagal fetch gambar: ${url}`, error);
+      return null;
+    }
   };
 
     const createDocxContent = async (soalList) => {
-    // ... (fungsi ini tetap sama)
+    const children = [];
+    for (let i = 0; i < soalList.length; i++) {
+      const item = soalList[i];
+      const questionNumber = i + 1;
+
+      // Process question
+      const questionParagraphs = await processHtml(`${questionNumber}. ${item.soal}`);
+      children.push(...questionParagraphs);
+
+      // Process options
+      for (let j = 0; j < item.opsi.length; j++) {
+        const opsiHtml = item.opsi[j];
+        const optionLetter = String.fromCharCode(65 + j);
+        const optionParagraphs = await processHtml(`  ${optionLetter}. ${opsiHtml}`);
+        children.push(...optionParagraphs);
+      }
+
+      // Add correct answer info and spacing
+      const jawabanText = `Jawaban: ${item.jawaban}`;
+      children.push(new docx.Paragraph({ text: jawabanText, style: "strong" }));
+      children.push(new docx.Paragraph({ text: "" }));
+    }
+    return children;
   };
 
   const processHtml = async (html) => {
-    // ... (fungsi ini tetap sama)
+    const paragraphs = [];
+    // 1. Convert HTML to plain text, removing image tags first to avoid placeholders
+    const textOnlyHtml = html.replace(/<img[^>]*>/g, "");
+    const text = convert(textOnlyHtml, {
+      wordwrap: false,
+      selectors: [
+        { selector: 'a', options: { ignoreHref: true } },
+        { selector: 'img', format: 'skip' },
+      ]
+    });
+
+    if (text.trim()) {
+      paragraphs.push(new docx.Paragraph({ text }));
+    }
+
+    // 2. Find all images and add them after the text
+    const imgRegex = /<img[^>]+src="([^">]+)"/g;
+    let match;
+    while ((match = imgRegex.exec(html)) !== null) {
+      const imageUrl = toAbsoluteImageSrc(match[1]); // Use the helper to get absolute URL
+      const imageBuffer = await getImageBuffer(imageUrl);
+      if (imageBuffer) {
+        try {
+          paragraphs.push(
+            new docx.Paragraph({
+              children: [
+                new docx.ImageRun({
+                  data: imageBuffer,
+                  transformation: {
+                    width: 450,
+                    height: 300,
+                  },
+                }),
+              ],
+            })
+          );
+        } catch (e) {
+          console.error("Gagal memproses gambar untuk DOCX:", e);
+        }
+      }
+    }
+    return paragraphs;
   };
 
   return (
@@ -340,74 +407,318 @@ function ManageCoursePage() {
 
         <div className="bg-white p-8 rounded-lg shadow-md mb-10">
           <h2 className="text-xl font-semibold text-gray-700 mb-6 border-b pb-4">Konfigurasi Ujian</h2>
-          {/* FORM KONFIGURASI TETAP SAMA */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* ... semua elemen form ... */}
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="nama-ujian" className="block text-sm font-medium text-gray-600 mb-1">Nama Ujian / Mapel</label>
+                <input type="text" id="nama-ujian" name="nama" value={form.nama} onChange={handleChange} required className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Kelas (boleh lebih dari 1)</label>
+                <div className="w-full border border-gray-300 rounded-md p-3 h-40 overflow-y-auto bg-gray-50">
+                  {kelasList.map((k) => (
+                    <div key={k.id} className="flex items-center mb-2">
+                      <input
+                        type="checkbox"
+                        id={`kelas-${k.id}`}
+                        value={k.nama_kelas}
+                        checked={form.kelas.includes(k.nama_kelas)}
+                        onChange={(e) => {
+                          const { checked, value } = e.target;
+                          setForm((prev) => ({
+                            ...prev,
+                            kelas: checked
+                              ? [...prev.kelas, value]
+                              : prev.kelas.filter((item) => item !== value),
+                          }));
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label htmlFor={`kelas-${k.id}`} className="ml-3 text-sm text-gray-700">
+                        {k.nama_kelas}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Tanggal & Waktu Mulai</label>
+                <div className="flex gap-2">
+                  <input type="date" name="tanggalMulai" value={form.tanggalMulai} onChange={handleChange} required className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                  <input type="time" name="waktuMulai" value={form.waktuMulai} onChange={handleChange} required className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="flex items-center text-sm font-medium text-gray-600 mb-1">
+                  <input type="checkbox" name="enableTanggalSelesai" checked={form.enableTanggalSelesai} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2" />
+                  Tanggal & Waktu Selesai
+                </label>
+                <div className="flex gap-2">
+                  <input type="date" name="tanggalSelesai" value={form.tanggalSelesai} onChange={handleChange} disabled={!form.enableTanggalSelesai} className="w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100 disabled:cursor-not-allowed" />
+                  <input type="time" name="waktuSelesai" value={form.waktuSelesai} onChange={handleChange} disabled={!form.enableTanggalSelesai} className="w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100 disabled:cursor-not-allowed" />
+                </div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="waktu-ujian" className="block text-sm font-medium text-gray-600 mb-1">Waktu Ujian</label>
+                <select id="waktu-ujian" name="waktuMode" value={form.waktuMode} onChange={handleChange} className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                  <option value="30">30 Menit</option>
+                  <option value="45">45 Menit</option>
+                  <option value="60">60 Menit</option>
+                  <option value="120">120 Menit</option>
+                  <option value="custom">Custom</option>
+                  <option value="unlimited">Tanpa Batas</option>
+                </select>
+                {form.waktuMode === "custom" && (
+                  <input type="number" name="waktuCustom" value={form.waktuCustom} placeholder="Masukkan durasi (menit)" onChange={handleChange} className="w-full mt-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                )}
+              </div>
+              <div>
+                <label htmlFor="deskripsi" className="block text-sm font-medium text-gray-600 mb-1">Deskripsi</label>
+                <textarea id="deskripsi" name="deskripsi" value={form.deskripsi} onChange={handleChange} rows="3" className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+            </div>
+
+            <div className="border-t pt-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div>
+                  <label htmlFor="max-percobaan" className="block text-sm font-medium text-gray-700">
+                    Maksimal Percobaan
+                  </label>
+                  <input
+                    id="max-percobaan"
+                    type="number"
+                    min="1"
+                    value={form.maxPercobaan}
+                    onChange={(e) => setForm({ ...form, maxPercobaan: parseInt(e.target.value) })}
+                    className="mt-1 block w-full md:w-1/2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={form.useToken}
+                      onChange={(e) => setForm({ ...form, useToken: e.target.checked, tokenValue: "" })}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-sm text-gray-800">Gunakan Token untuk Memulai Ujian</span>
+                  </label>
+                  {form.useToken && (
+                    <div className="pl-7">
+                      <label htmlFor="token-quiz" className="block text-xs font-medium text-gray-600">
+                        Token (maks 6 karakter, kedaluwarsa 15 menit)
+                      </label>
+                      <input
+                        id="token-quiz"
+                        type="text"
+                        maxLength={6}
+                        value={form.tokenValue}
+                        onChange={(e) => setForm({ ...form, tokenValue: e.target.value.toUpperCase() })}
+                        className="mt-1 block w-full md:w-1/2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 uppercase"
+                        placeholder="Contoh: ABC123"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t">
+                <h3 className="text-base font-medium text-gray-800">Opsi Tambahan</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={form.acakSoal}
+                      onChange={(e) => setForm((prev) => ({ ...prev, acakSoal: e.target.checked }))}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-sm text-gray-800">Acak Urutan Soal</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={form.acakJawaban}
+                      onChange={(e) => setForm((prev) => ({ ...prev, acakJawaban: e.target.checked }))}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-sm text-gray-800">Acak Urutan Jawaban</span>
+                  </label>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={form.tampilkanHasil}
+                      onChange={(e) => setForm({ ...form, tampilkanHasil: e.target.checked })}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-sm text-gray-800">Tampilkan Hasil ke Siswa Setelah Ujian</span>
+                  </label>
+                  {form.tampilkanHasil && (
+                    <div className="pl-7">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={form.analisisJawaban}
+                          onChange={(e) => setForm((prev) => ({ ...prev, analisisJawaban: e.target.checked }))}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="ml-3 text-sm text-gray-800">Tampilkan Analisis Jawaban ke Siswa</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={form.minWaktuSubmit}
+                      onChange={(e) => setForm((prev) => ({ ...prev, minWaktuSubmit: e.target.checked, minWaktuSubmitValue: e.target.checked ? "1" : "" }))}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-sm text-gray-800">Batas Minimal Waktu Submit</span>
+                  </label>
+                  {form.minWaktuSubmit && (
+                    <div className="pl-7">
+                      <label htmlFor="min-waktu-submit" className="block text-xs font-medium text-gray-600">
+                        Waktu tersisa minimal (menit)
+                      </label>
+                      <input
+                        id="min-waktu-submit"
+                        type="number"
+                        min="1"
+                        name="minWaktuSubmitValue"
+                        value={form.minWaktuSubmitValue}
+                        onChange={handleChange}
+                        className="mt-1 block w-full md:w-1/3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        placeholder="Contoh: 5"
+                      />
+                    </div>
+                  )}
+                </div>
+                
+                <label className="flex items-center pt-2">
+                    <input
+                      type="checkbox"
+                      checked={form.logPengerjaan}
+                      onChange={(e) => setForm((prev) => ({ ...prev, logPengerjaan: e.target.checked }))}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-sm text-gray-800">Aktifkan Log Pengerjaan Siswa</span>
+                  </label>
+              </div>
+            </div>
+
+            <div className="text-right pt-4">
+              <button type="submit" className="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Simpan Konfigurasi
+              </button>
+            </div>
           </form>
         </div>
 
-        {/* MODAL DIHAPUS DARI SINI */}
+        {isPreviewModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-50 p-6 sm:p-8 rounded-2xl shadow-2xl max-w-5xl w-full transform transition-all duration-300 scale-95 opacity-0 animate-fade-in-scale">
+              <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-6">
+                <h3 className="text-2xl font-bold text-gray-800">Tinjau Soal yang Diimpor</h3>
+                <button onClick={() => setIsPreviewModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="max-h-[70vh] overflow-y-auto pr-4 -mr-4">
+                <div className="space-y-8">
+                  {previewQuestions.map((soal, index) => (
+                    <div key={index} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                      <div className="flex items-start">
+                        <span className="text-xl font-bold text-white bg-blue-600 rounded-full w-10 h-10 flex-shrink-0 flex items-center justify-center mr-5">{index + 1}</span>
+                        <div className="prose max-w-none text-gray-800" dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(soal.soal) }} />
+                      </div>
+                      <div className="pl-14 mt-6 space-y-3">
+                        {soal.opsi.map((opsi, i) => {
+                          const isCorrect = String.fromCharCode(65 + i) === soal.jawaban.toUpperCase();
+                          return (
+                            <div
+                              key={i}
+                              className={`flex items-start p-4 rounded-lg border-2 transition-all ${
+                                isCorrect
+                                  ? 'bg-green-50 border-green-400'
+                                  : 'bg-gray-50 border-gray-200'
+                              }`}
+                            >
+                              <span className={`font-bold text-lg mr-4 ${isCorrect ? 'text-green-700' : 'text-gray-600'}`}>
+                                {String.fromCharCode(65 + i)}.
+                              </span>
+                              <div className="prose max-w-none flex-1" dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(opsi) }} />
+                              {isCorrect && (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle-2 text-green-600 ml-4 flex-shrink-0">
+                                  <circle cx="12" cy="12" r="10"/>
+                                  <path d="m9 12 2 2 4-4"/>
+                                </svg>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-sm text-green-800 font-bold mt-5 pl-14 bg-green-100 px-3 py-1 rounded-md inline-block">
+                        Kunci Jawaban: {soal.jawaban.toUpperCase()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-8 flex justify-end gap-4 border-t border-gray-200 pt-6">
+                <button onClick={() => setIsPreviewModalOpen(false)} className="px-6 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">
+                  Batal
+                </button>
+                <button onClick={handleApplyPreview} className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                  Terapkan & Simpan Soal
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white p-8 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold text-gray-700 mb-2">Manajemen Soal</h2>
-          <p className="text-sm text-gray-500 mb-6">Upload soal dari file atau tambahkan soal secara manual.</p>
+          <p className="text-sm text-gray-500 mb-6">Upload soal dari file Word atau tambahkan soal secara manual.</p>
           
-          {/* --- AREA PARSING BARU -- */}
-          <div className="border rounded-lg p-4 mb-8 bg-gray-50">
-             <h3 className="text-lg font-semibold text-gray-800 mb-4">Import Soal dari File</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                <div>
-                <label htmlFor="upload-soal" className="block text-sm font-medium text-gray-600 mb-2">
-                    📤 Upload File (.zip dari "Save as Web Page, Filtered")
-                </label>
-                <div className="flex items-center gap-4">
-                    <input
-                    id="upload-soal"
-                    type="file"
-                    accept=".zip"
-                    onChange={handleFileChange}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                    />
-                    <button
-                    onClick={handleProcessFile}
-                    disabled={!selectedFile || isParsing}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                    >
-                    {isParsing ? 'Memproses...' : 'Parse Soal'}
-                    </button>
-                </div>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center border rounded-lg p-4 mb-8 bg-gray-50">
+            <div>
+              <label htmlFor="upload-soal" className="block text-sm font-medium text-gray-600 mb-2">
+                📤 Upload Soal (.zip)
+              </label>
+              <div className="flex items-center gap-4">
+                <input
+                  id="upload-soal"
+                  type="file"
+                  accept=".zip"
+                  onChange={handleFileChange}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                <button
+                  onClick={handleUploadAndProcessZip}
+                  disabled={!selectedFile}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  Parse Soal
+                </button>
+              </div>
             </div>
-
-            {/* --- AREA PREVIEW HASIL PARSING --- */}
-            {parsedSoal.length > 0 && (
-                <div className="mt-6 border-t pt-6">
-                    <h4 className="text-md font-semibold text-gray-700">Preview Hasil Parsing ({parsedSoal.length} soal)</h4>
-                    <div className="mt-4 max-h-96 overflow-y-auto space-y-4 p-4 bg-white rounded-md border">
-                        {parsedSoal.map((soal, index) => (
-                        <div key={index} className="border-b pb-2">
-                            <div className="font-semibold" dangerouslySetInnerHTML={{ __html: `${index + 1}. ${soal.soal}` }} />
-                            <ul className="list-disc ml-8 mt-2">
-                            {soal.opsi.map((opsi, i) => (
-                                <li key={i} dangerouslySetInnerHTML={{ __html: opsi }} />
-                            ))}
-                            </ul>
-                            <p className="text-sm text-green-600 mt-1">Jawaban: {soal.jawaban}</p>
-                        </div>
-                        ))}
-                    </div>
-                    <div className="mt-4 text-right">
-                        <button 
-                            onClick={handleApplyParsedSoal}
-                            className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                        >
-                            Terapkan Soal Ini
-                        </button>
-                    </div>
-                </div>
-            )}
           </div>
-          {/* --- END AREA PARSING BARU --- */}
 
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-gray-800">📝 Daftar Soal ({soalList.length})</h3>
@@ -424,14 +735,304 @@ function ManageCoursePage() {
             </button>
           </div>
 
-          {/* TAMPILAN DAFTAR SOAL UTAMA TETAP SAMA */}
           {soalList.length > 0 && (
-            <div className="space-y-6">
-              {soalList.map((item, index) => {
-                // ... JSX untuk render setiap soal di soalList
-              })}
+        <div className="space-y-6">
+          {soalList.map((item, index) => {
+            return (
+              <div
+                key={index}
+                className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-6 transition-all duration-300 hover:shadow-lg hover:border-blue-300"
+              >
+                <div className="flex justify-between items-center p-4 bg-slate-50 border-b border-slate-200">
+                  <div className="flex items-center gap-4">
+                    <h3 className="font-bold text-lg text-slate-800">
+                      Soal #{index + 1}
+                    </h3>
+                    <select
+                      value={item.tipe_soal || 'pilihan_ganda'}
+                      onChange={(e) => {
+                        const updated = [...soalList];
+                        updated[index].tipe_soal = e.target.value;
+                        setSoalList(updated);
+                      }}
+                      className="block w-full max-w-xs pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                    >
+                      <option value="pilihan_ganda">Pilihan Ganda</option>
+                      <option value="esai">Esai</option>
+                    </select>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteSoal(item.id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-500 hover:bg-red-100 hover:text-red-700 transition-all"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                    Hapus Soal
+                  </button>
+                </div>
+
+                <div className="p-5 md:p-6">
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-slate-600 mb-2">
+                      Pertanyaan
+                    </label>
+                    <div className="prose max-w-none">
+                      {activeSoalIndex === index ? (
+                        <JoditEditor
+                          ref={editorSoalRef}
+                          value={toAbsoluteImageSrc(item.soal)}
+                          config={{
+                            readonly: false,
+                            height: 300,
+                            toolbar: true,
+                            toolbarAdaptive: false,
+                            toolbarSticky: false,
+                            buttons: ['bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'image', '|', 'undo', 'redo'],
+                            enter: 'P',
+                            tabIndex: 1,
+                            allowTabNavigation: true,
+                            placeholder: 'Tuliskan pertanyaan di sini...'
+                          }}
+                          onBlur={(newContent) => {
+                            const updated = [...soalList];
+                            updated[index].soal = newContent;
+                            setSoalList(updated);
+                            setActiveSoalIndex(null);
+                          }}
+                        />
+                      ) : (
+                        <div
+                          className="border border-slate-200 rounded-lg p-3 cursor-text hover:border-blue-400"
+                          onClick={() => setActiveSoalIndex(index)}
+                          dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(item.soal) || "<p class='text-slate-400'>Klik untuk menulis pertanyaan...</p>" }}
+                        />
+                      )}
+                    </div>
+
+                    <label htmlFor={`soal-img-upload-${index}`} className="mt-3 inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 cursor-pointer font-medium">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-image-plus"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><line x1="16" x2="22" y1="5" y2="5"/><line x1="19" x2="19" y1="2" y2="8"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                      Sisipkan Gambar
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id={`soal-img-upload-${index}`}
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        try {
+                          const imgPath = await uploadImageToServer(file);
+                          const updated = [...soalList];
+                          updated[index].soal = `<img src="${imgPath}" class="max-h-60 mb-2 rounded-md"><br/>` + (item.soal || '');
+                          setSoalList(updated);
+                        } catch {
+                          alert("❌ Gagal upload gambar soal.");
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {item.tipe_soal === 'pilihan_ganda' && (
+                  <div>
+                    <label className="block text-base font-semibold text-slate-700 mb-3">
+                      Pilihan Jawaban
+                    </label>
+                    <div className="space-y-4">
+                      {item.opsi.map((opsi, opsiIdx) => {
+                        const huruf = labelHuruf(opsiIdx);
+                        const isChecked = item.jawaban === huruf;
+
+                        // Pastikan opsi selalu bersih dari label lama
+                        const opsiBersih = hapusLabelHuruf(
+                          typeof opsi === 'string' ? opsi : opsi?.html || opsi?.text || ''
+                        );
+
+                        return (
+                          <div
+                      key={opsiIdx}
+                      className={`flex items-start gap-4 p-4 rounded-lg border transition-all ${
+                        isChecked ? 'bg-green-50 border-green-400 shadow-sm' : 'bg-slate-50 border-slate-200'
+                      }`}
+                    >
+                      <label
+                        htmlFor={`jawaban-${index}-${opsiIdx}`}
+                        className="flex-shrink-0 cursor-pointer"
+                      >
+                        {(() => {
+                          const hurufBersih = huruf.replace(/\./g, "").trim(); 
+                          const jawabanBersih = (item.jawaban || "").replace(/\./g, "").trim(); 
+                          const isChecked = jawabanBersih === hurufBersih;
+
+                          return (
+                            <>
+                              <input
+                                type="radio"
+                                id={`jawaban-${index}-${opsiIdx}`}
+                                name={`jawaban-${index}`}
+                                value={hurufBersih}
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const updated = [...soalList];
+                                  updated[index].jawaban = e.target.value;
+                                  setSoalList(updated);
+                                }}
+                                className="hidden peer"
+                              />
+                              <div className="w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-slate-300 font-bold text-slate-500 peer-checked:bg-green-600 peer-checked:border-green-600 peer-checked:text-white transition-all">
+                                {hurufBersih}
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </label>
+
+
+        <div className="flex-1">
+          <div className="prose max-w-none">
+            {activeOpsiIndex.soal === index && activeOpsiIndex.opsi === opsiIdx ? (
+              <JoditEditor
+              ref={editorOpsiRef}
+              value={toAbsoluteImageSrc(opsiBersih)} // tanpa label huruf di sini
+              config={{
+                readonly: false,
+                height: 100,
+                toolbar: true,
+                toolbarAdaptive: false,
+                toolbarSticky: false,
+                buttons: ['bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'image', '|', 'undo', 'redo'],
+                enter: 'BR',
+                defaultBlock: 'span',
+                tabIndex: 1,
+                allowTabNavigation: true,
+                placeholder: 'Tuliskan pilihan jawaban...'
+              }}
+              onBlur={(newContent) => {
+                // Pastikan hanya isi opsi, tanpa label huruf dan tanpa <p> pembungkus
+                const cleanedContent = newContent
+                  .replace(/^<p>(.*)<\/p>$/i, '$1')  // hapus <p> pembungkus
+                  .trim();
+            
+                const updated = [...soalList];
+                updated[index].opsi[opsiIdx] = cleanedContent; // simpan tanpa label huruf
+                setSoalList(updated);
+                setActiveOpsiIndex({ soal: null, opsi: null });
+              }}
+            />            
+            ) : (
+              <div
+                className="border border-slate-200 rounded-lg p-2 cursor-text hover:border-blue-400"
+                onClick={() => setActiveOpsiIndex({ soal: index, opsi: opsiIdx })}
+                dangerouslySetInnerHTML={{
+                  __html: toAbsoluteImageSrc(opsiBersih) || "<p class='text-slate-400'>Klik untuk menulis jawaban...</p>"
+                }}
+              />
+            )}
+          </div>
+
+          <label
+            htmlFor={`opsi-img-upload-${index}-${opsiIdx}`}
+            className="mt-2 inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 cursor-pointer font-medium"
+          >
+            {/* Ikon gambar */}
+            Sisipkan Gambar
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            id={`opsi-img-upload-${index}-${opsiIdx}`}
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              try {
+                const imgPath = await uploadImageToServer(file);
+                const updated = [...soalList];
+                updated[index].opsi[opsiIdx] =
+                  `<img src="${imgPath}" class="max-h-28 mb-2 rounded-md"><br/>` +
+                  hapusLabelHuruf(item.opsi[opsiIdx] || '');
+                setSoalList(updated);
+              } catch {
+                alert('❌ Gagal upload gambar opsi.');
+              }
+            }}
+          />
+        </div>
+
+        <button
+          className="flex-shrink-0 text-slate-400 hover:text-red-600 transition-colors"
+          onClick={() => {
+            const updated = [...soalList];
+            updated[index].opsi.splice(opsiIdx, 1);
+            if (updated[index].jawaban === huruf) {
+              updated[index].jawaban = '';
+            }
+            setSoalList(updated);
+          }}
+          title="Hapus opsi ini"
+        >
+          ❌
+        </button>
+      </div>
+    );
+  })}
+</div>
+
+                    <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <button
+  onClick={() => {
+    const updated = [...soalList];
+    // Tambahkan opsi baru yang berupa span kosong (struktur konsisten)
+    updated[index].opsi.push('<span class="inline-option"></span>');
+    setSoalList(updated);
+  }}
+  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 hover:text-blue-800 transition-all"
+>
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+  Tambah Pilihan
+</button>
+
+
+                      {(item.opsi.length < 2 || !item.jawaban) && (
+                        <div className="text-xs text-red-700 p-2 bg-red-100 rounded-lg flex items-center gap-2">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-alert-triangle"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+                          <span>Soal harus memiliki min. 2 pilihan & 1 jawaban.</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+                    <div className="sticky bottom-0 z-10 bg-white/90 backdrop-blur-sm py-4 border-t -mx-8 -mb-8 mt-8">
+            <div className="max-w-7xl mx-auto px-8">
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={handleDownloadDocx}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition border border-green-700"
+                >
+                  Download Soal (Word)
+                </button>
+                <button
+                  onClick={() => navigate(`/courses/${courseId}/preview`)}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition border border-gray-300"
+                >
+                  <FiEye />
+                  Preview Soal
+                </button>
+                <button
+                  onClick={handleSimpanSoal}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                >
+                  💾 Simpan Semua Soal
+                </button>
+              </div>
             </div>
-          )}
+          </div>
+        </div>
+      )}
         </div>
       </div>
     </div>

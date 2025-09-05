@@ -5,70 +5,124 @@ const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
 const { Readable } = require('stream');
 
-// VERSI AMAN DAN SEDERHANA UNTUK MENGHENTIKAN ERROR
+// Definisikan Regex di scope atas
+const questionNumberRegex = /^\d+[\.\)]/;
+const optionRegex = /^[A-Ea-e][\.\)]/;
+const answerRegex = /^(?:ANS|JAWABAN)\s*:\s*([A-Ea-e])/i;
+
+// Fungsi untuk membersihkan string HTML
+const cleanHtml = (html) => {
+  if (!html) {
+    return '';
+  }
+  // Hapus karakter \uFFFD (replacement character) dan spasi non-breaking
+  return html.replace(/\uFFFD/g, '').replace(/&nbsp;/g, ' ');
+};
+
 const parseZip = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: "Tidak ada file .zip yang diunggah." });
   }
 
   const tempDir = path.join(__dirname, "..", "temp", uuidv4());
+  const publicUploadsDir = path.join(__dirname, "..", "public", "uploads", "images");
 
   try {
-    // 1. Buat direktori temporer utama
     await fs.promises.mkdir(tempDir, { recursive: true });
+    await fs.promises.mkdir(publicUploadsDir, { recursive: true });
 
-    // 2. Gunakan unzipper.Extract yang lebih andal dengan mengubah buffer ke stream
     const stream = Readable.from(req.file.buffer);
     await new Promise((resolve, reject) => {
-        stream.pipe(unzipper.Extract({ path: tempDir }))
-            .on('finish', resolve)
-            .on('error', reject);
+      stream.pipe(unzipper.Extract({ path: tempDir }))
+        .on('finish', () => resolve())
+        .on('error', (err) => reject(err));
     });
 
-    // 3. Cari file .htm/.html
-    const files = await fs.promises.readdir(tempDir);
-    const htmlFile = files.find(f => f.endsWith('.htm') || f.endsWith('.html'));
+    let htmlFile = '';
+    const filesInTemp = await fs.promises.readdir(tempDir);
+    let baseDir = tempDir;
+
+    htmlFile = filesInTemp.find(f => f.endsWith('.htm') || f.endsWith('.html'));
 
     if (!htmlFile) {
-      // Cek subdirektori jika ada
-      let foundHtml = null;
-      for (const file of files) {
-          const subDirPath = path.join(tempDir, file);
-          if (fs.statSync(subDirPath).isDirectory()) {
-              const subFiles = await fs.promises.readdir(subDirPath);
-              foundHtml = subFiles.find(f => f.endsWith('.htm') || f.endsWith('.html'));
-              if (foundHtml) {
-                  htmlFile = path.join(file, foundHtml);
-                  break;
-              }
-          }
+      const subDir = filesInTemp.find(f => fs.statSync(path.join(tempDir, f)).isDirectory());
+      if (subDir) {
+        baseDir = path.join(tempDir, subDir);
+        const subFiles = await fs.promises.readdir(baseDir);
+        htmlFile = subFiles.find(f => f.endsWith('.htm') || f.endsWith('.html'));
       }
-      if (!htmlFile) throw new Error("File .htm atau .html tidak ditemukan di dalam zip.");
     }
 
-    // 4. Baca file HTML dan ekstrak semua teks mentah
-    const htmlPath = path.join(tempDir, htmlFile);
-    const htmlContent = await fs.promises.readFile(htmlPath, "utf-8");
-    const $ = cheerio.load(htmlContent);
-    const rawText = $('body').text();
+    if (!htmlFile) {
+      throw new Error("File .htm atau .html tidak ditemukan di dalam zip.");
+    }
 
-    // 5. Kirim kembali HANYA teks mentah
-    res.status(200).json({ text: rawText });
+    const htmlPath = path.join(baseDir, htmlFile);
+    let htmlContent = await fs.promises.readFile(htmlPath, "utf-8");
+    const $ = cheerio.load(htmlContent);
+
+    for (const img of $("img").toArray()) {
+      const imgSrc = $(img).attr('src');
+      if (!imgSrc) continue;
+
+      const originalImagePath = path.join(baseDir, imgSrc);
+      if (fs.existsSync(originalImagePath)) {
+        const newFileName = `${uuidv4()}${path.extname(originalImagePath)}`;
+        const newImagePath = path.join(publicUploadsDir, newFileName);
+        await fs.promises.copyFile(originalImagePath, newImagePath);
+        $(img).attr('src', `/uploads/images/${newFileName}`);
+      }
+    }
+
+    const questions = [];
+    let currentQuestion = null;
+
+    $("body").find("p, li").each((_, element) => {
+      const el = $(element);
+      const text = cleanHtml(el.text().trim());
+      const html = cleanHtml(el.html());
+
+      if (!text) return;
+
+      if (questionNumberRegex.test(text) && !currentQuestion) {
+        currentQuestion = {
+          soal: html.replace(questionNumberRegex, "").trim(),
+          opsi: [],
+          jawaban: "",
+          tipe_soal: 'pilihan_ganda'
+        };
+      } else if (currentQuestion) {
+        if (answerRegex.test(text)) {
+          const match = text.match(answerRegex);
+          currentQuestion.jawaban = match[1].toUpperCase();
+          questions.push(currentQuestion);
+          currentQuestion = null;
+        } else if (optionRegex.test(text)) {
+          currentQuestion.opsi.push(html.replace(optionRegex, "").trim());
+        } else {
+          currentQuestion.soal += `<br>${html}`;
+        }
+      }
+    });
+
+    if (currentQuestion && currentQuestion.jawaban) {
+      questions.push(currentQuestion);
+    }
+
+    res.status(200).json(questions);
 
   } catch (error) {
-    console.error("Error parsing zip [SAFE MODE]:", error);
+    console.error("Error parsing zip:", error);
     res.status(500).json({ message: "Gagal memproses file zip.", error: error.message });
   } finally {
-    // 6. Hapus direktori temporer
     if (fs.existsSync(tempDir)) {
       await fs.promises.rm(tempDir, { recursive: true, force: true });
     }
   }
 };
 
-// Fungsi lama, tidak digunakan
 const parseDocx = async (req, res) => {
-    res.status(400).json({ message: "Metode ini sudah tidak digunakan." });
+  res.status(400).json({ message: "Metode ini sudah tidak digunakan." });
 };
 
 module.exports = { parseDocx, parseZip };

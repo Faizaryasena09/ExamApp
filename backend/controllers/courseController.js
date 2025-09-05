@@ -964,6 +964,18 @@ exports.uploadSoal = async (req, res) => {
   }
 };
 
+exports.deleteQuestion = async (req, res) => {
+  const { questionId } = req.params;
+  try {
+    const pool = await poolPromise;
+    await pool.query("DELETE FROM questions WHERE id = ?", [questionId]);
+    res.json({ message: "Soal berhasil dihapus!" });
+  } catch (err) {
+    console.error("Gagal hapus soal:", err.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 exports.getMaxAttempts = async (req, res) => {
   const { courseId } = req.params;
   const { className } = req.query;

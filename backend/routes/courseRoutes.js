@@ -20,6 +20,7 @@ router.post("/:id/questions/import", onlyRole(["admin", "guru"]), courseControll
 router.get("/:id/questions/get", courseController.ambilSoal);
 router.get("/:id/questions", courseController.getQuestions);
 router.post("/:id/questions/save", onlyRole(["admin", "guru"]), courseController.saveOrUpdateQuestions);
+router.delete("/:id/questions/:questionId", onlyRole(["admin", "guru"]), courseController.deleteQuestion);
 
 router.post("/:id/upload-soal", upload.single("file"), courseController.uploadSoal);
 
