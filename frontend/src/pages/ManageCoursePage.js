@@ -629,68 +629,114 @@ function ManageCoursePage() {
         </div>
 
         {isPreviewModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-50 p-6 sm:p-8 rounded-2xl shadow-2xl max-w-5xl w-full transform transition-all duration-300 scale-95 opacity-0 animate-fade-in-scale">
-              <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-6">
-                <h3 className="text-2xl font-bold text-gray-800">Tinjau Soal yang Diimpor</h3>
-                <button onClick={() => setIsPreviewModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="max-h-[70vh] overflow-y-auto pr-4 -mr-4">
-                <div className="space-y-8">
-                  {previewQuestions.map((soal, index) => (
-                    <div key={index} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                      <div className="flex items-start">
-                        <span className="text-xl font-bold text-white bg-blue-600 rounded-full w-10 h-10 flex-shrink-0 flex items-center justify-center mr-5">{index + 1}</span>
-                        <div className="prose max-w-none text-gray-800" dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(soal.soal) }} />
-                      </div>
-                      <div className="pl-14 mt-6 space-y-3">
-                        {soal.opsi.map((opsi, i) => {
-                          const isCorrect = String.fromCharCode(65 + i) === soal.jawaban.toUpperCase();
-                          return (
-                            <div
-                              key={i}
-                              className={`flex items-start p-4 rounded-lg border-2 transition-all ${
-                                isCorrect
-                                  ? 'bg-green-50 border-green-400'
-                                  : 'bg-gray-50 border-gray-200'
-                              }`}
-                            >
-                              <span className={`font-bold text-lg mr-4 ${isCorrect ? 'text-green-700' : 'text-gray-600'}`}>
-                                {String.fromCharCode(65 + i)}.
-                              </span>
-                              <div className="prose max-w-none flex-1" dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(opsi) }} />
-                              {isCorrect && (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle-2 text-green-600 ml-4 flex-shrink-0">
-                                  <circle cx="12" cy="12" r="10"/>
-                                  <path d="m9 12 2 2 4-4"/>
-                                </svg>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <p className="text-sm text-green-800 font-bold mt-5 pl-14 bg-green-100 px-3 py-1 rounded-md inline-block">
-                        Kunci Jawaban: {soal.jawaban.toUpperCase()}
-                      </p>
-                    </div>
-                  ))}
+  <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="bg-gray-50 p-6 sm:p-8 rounded-2xl shadow-2xl max-w-5xl w-full transform transition-all duration-300 scale-100 opacity-100">
+      {/* Header */}
+      <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-6">
+        <h3 className="text-2xl font-bold text-gray-800">Tinjau Soal yang Diimpor</h3>
+        <button
+          onClick={() => setIsPreviewModalOpen(false)}
+          className="text-gray-400 hover:text-gray-600 transition-colors rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="max-h-[70vh] overflow-y-auto pr-4 -mr-4">
+        {previewQuestions && previewQuestions.length > 0 ? (
+          <div className="space-y-8">
+            {previewQuestions.map((soal, index) => (
+              <div key={index} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-shadow hover:shadow-md">
+                {/* Soal */}
+                <div className="flex items-start">
+                  <span className="text-xl font-bold text-white bg-blue-600 rounded-full w-10 h-10 flex-shrink-0 flex items-center justify-center mr-5">
+                    {index + 1}
+                  </span>
+                  <div
+                    className="prose max-w-none text-gray-800"
+                    dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(soal.soal) }}
+                  />
                 </div>
+
+                {/* Opsi */}
+                <div className="pl-14 mt-6 space-y-3">
+                  {soal.opsi.map((opsi, i) => {
+                    const isCorrect = String.fromCharCode(65 + i) === soal.jawaban.toUpperCase();
+                    return (
+                      <div
+                        key={i}
+                        className={`flex items-start p-4 rounded-lg border-2 transition-all ${
+                          isCorrect
+                            ? 'bg-green-50 border-green-400 shadow-sm'
+                            : 'bg-gray-50 border-gray-200 hover:bg-gray-100 hover:border-gray-300'
+                        }`}
+                      >
+                        <span className={`font-bold text-lg mr-4 ${isCorrect ? 'text-green-700' : 'text-gray-600'}`}>
+                          {String.fromCharCode(65 + i)}.
+                        </span>
+                        <div
+                          className="prose max-w-none flex-1"
+                          dangerouslySetInnerHTML={{ __html: toAbsoluteImageSrc(opsi) }}
+                        />
+                        {isCorrect && (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                            className="lucide lucide-check-circle-2 text-green-600 ml-4 flex-shrink-0">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="m9 12 2 2 4-4" />
+                          </svg>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Kunci jawaban */}
+                {soal.jawaban && (
+                  <div className="pl-14 mt-5">
+                    <p className="text-sm font-semibold text-green-800 inline-flex items-center bg-green-100 px-3 py-1.5 rounded-full">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                        className="lucide lucide-key-round mr-2">
+                        <path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/>
+                        <circle cx="16.5" cy="7.5" r=".5"/>
+                      </svg>
+                      Kunci Jawaban: {soal.jawaban.toUpperCase()}
+                    </p>
+                  </div>
+                )}
               </div>
-              <div className="mt-8 flex justify-end gap-4 border-t border-gray-200 pt-6">
-                <button onClick={() => setIsPreviewModalOpen(false)} className="px-6 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">
-                  Batal
-                </button>
-                <button onClick={handleApplyPreview} className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                  Terapkan & Simpan Soal
-                </button>
-              </div>
-            </div>
+            ))}
           </div>
+        ) : (
+          <p className="text-center text-gray-500 py-10">Belum ada soal yang bisa ditinjau.</p>
         )}
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 flex justify-end gap-4 border-t border-gray-200 pt-6">
+        <button
+          onClick={() => setIsPreviewModalOpen(false)}
+          className="px-6 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
+        >
+          Batal
+        </button>
+        <button
+          onClick={handleApplyPreview}
+          className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          Terapkan & Simpan Soal
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
 
         <div className="bg-white p-8 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold text-gray-700 mb-2">Manajemen Soal</h2>
