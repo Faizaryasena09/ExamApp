@@ -1,19 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { renderAsync } from "docx-preview";
 import { toast } from "../utils/toast";
-import html2canvas from "html2canvas";
-import api from "../api"; // Menggunakan instance axios yang sudah dikonfigurasi
+import api from "../api";
 
-// Komponen untuk loading overlay
 const LoadingOverlay = () => (
   <div className="absolute inset-0 bg-gray-900 bg-opacity-75 flex flex-col items-center justify-center z-10">
     <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-blue-400"></div>
-    <p className="text-white text-lg mt-4 font-semibold">
-      Menganalisis Teks dengan AI...
-    </p>
-    <p className="text-gray-300 mt-1">
-      Mendukung multi-bahasa, tulisan Arab, dan formula.
-    </p>
+    <p className="text-white text-lg mt-4 font-semibold">Menganalisis Dokumen...</p>
   </div>
 );
 
@@ -26,7 +19,7 @@ function ParsingModal({ isOpen, onClose, file, onSave }) {
   });
   const [selectionMode, setSelectionMode] = useState("soal");
   const [editingIndex, setEditingIndex] = useState(null);
-  const [isParsing, setIsParsing] = useState(false); // State untuk loading OCR
+  const [isParsing, setIsParsing] = useState(false);
   const contentRef = useRef(null);
 
   const processFile = useCallback(async () => {
@@ -71,119 +64,42 @@ function ParsingModal({ isOpen, onClose, file, onSave }) {
     }
   }, [selections, isOpen, file]);
 
-  // Logika parsing yang akan digunakan pada teks hasil OCR
-  const parseOcrText = (rawText) => {
-    const lines = rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    const foundSoal = [];
-    let currentSoal = null;
-    let state = "find_question"; // states: find_question, find_options, find_answer
-
-    const questionNumberRegex = /^\d+[\.\)]\s*/;
-    const optionRegex = /^[A-Ea-e][\.\)]\s*/;
-    const answerRegex = /^(?:ANS|JAWABAN)\s*:\s*([A-Ea-e])/i;
-
-    lines.forEach((line) => {
-      const isQuestionStart = questionNumberRegex.test(line);
-      const isOption = optionRegex.test(line);
-      const isAnswer = answerRegex.test(line);
-
-      if (isQuestionStart) {
-        if (currentSoal) {
-          if (currentSoal.jawaban) {
-            foundSoal.push(currentSoal);
-          }
-        }
-        currentSoal = {
-          soal: line.replace(questionNumberRegex, "").trim(),
-          opsi: [],
-          jawaban: "",
-        };
-        state = "find_options";
-      } else if (currentSoal) {
-        if (isOption) {
-          currentSoal.opsi.push(line.replace(optionRegex, "").trim());
-          state = "find_options";
-        } else if (isAnswer) {
-          const match = line.match(answerRegex);
-          if (match) {
-            currentSoal.jawaban = match[1].toUpperCase();
-            foundSoal.push(currentSoal);
-            currentSoal = null;
-            state = "find_question";
-          }
-        } else {
-          if (state === "find_options" && currentSoal.opsi.length > 0) {
-            const lastOptionIndex = currentSoal.opsi.length - 1;
-            currentSoal.opsi[lastOptionIndex] += "\n" + line;
-          } else {
-            currentSoal.soal += "\n" + line;
-          }
-        }
-      }
-    });
-
-    if (currentSoal && currentSoal.jawaban) {
-      foundSoal.push(currentSoal);
-    }
-    
-    foundSoal.forEach(s => {
-        s.opsi = s.opsi.filter(o => o.trim() !== "");
-    });
-
-    return foundSoal;
-  };
-
   const handleAutoParse = async () => {
-    if (!contentRef.current) return;
+    if (!file) {
+      toast.warn("Tidak ada file yang dipilih.");
+      return;
+    }
     setIsParsing(true);
 
     try {
-      const canvas = await html2canvas(contentRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: null,
-      });
-
-      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-
       const formData = new FormData();
-      formData.append("image", blob, "screenshot.png");
+      formData.append("file", file, file.name);
 
-      const response = await api.post("/ocr/parse-image", formData, {
+      // Panggil endpoint backend yang baru untuk zip
+      const response = await api.post("/upload/parse-zip", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
 
-      const { text } = response.data;
-      // Log ini kita pertahankan untuk debugging jika diperlukan
-      console.log("--- RAW OCR TEXT FROM BACKEND ---", text);
-      if (!text) {
-        toast.error("OCR tidak dapat mendeteksi teks apa pun.");
-        return;
-      }
+      const structuredQuestions = response.data;
 
-      const parsedSoal = parseOcrText(text);
-
-      if (parsedSoal.length > 0) {
-        setSelections(parsedSoal);
-        toast.success(`${parsedSoal.length} soal berhasil diparsing dengan AI!`);
+      if (structuredQuestions && structuredQuestions.length > 0) {
+        setSelections(structuredQuestions);
+        toast.success(`${structuredQuestions.length} soal berhasil diparsing dari dokumen!`);
       } else {
-        toast.warn(
-          "Tidak ada soal yang terdeteksi dengan format yang benar. Periksa kembali format penulisan soal."
-        );
+        toast.warn("Tidak ada soal yang ditemukan dalam dokumen dengan format yang benar.");
       }
     } catch (err) {
-      console.error("OCR error:", err);
+      console.error("Docx parse error:", err);
       const errorMessage =
-        err.response?.data?.message || "Gagal melakukan OCR via server.";
+        err.response?.data?.message || "Gagal memproses file di server.";
       toast.error(errorMessage);
     } finally {
       setIsParsing(false);
     }
   };
 
-  // Sisa kode tidak berubah...
   const markTextAsParsed = (textToMark) => {
     if (contentRef.current && textToMark) {
       const content = contentRef.current.innerHTML;
@@ -336,10 +252,10 @@ function ParsingModal({ isOpen, onClose, file, onSave }) {
                 disabled={isParsing}
                 className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-semibold disabled:bg-purple-300 flex items-center gap-2"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                 </svg>
-                Parse Cerdas (AI)
+                Parse Dokumen
               </button>
             </div>
             <div

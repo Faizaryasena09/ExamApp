@@ -1,14 +1,13 @@
 PS D:\Hasil Coding\ExamApp\backend> node server.js
-node:internal/modules/run_main:91
-  const type = getNearestParentPackageJSONType(mainPath);
-               ^
-
-Error: Invalid package config \\?\D:\Hasil Coding\ExamApp\backend\package.json.
-    at shouldUseESMLoader (node:internal/modules/run_main:91:16)
-    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:163:20)
-    at node:internal/main/run_main_module:36:49 {
-  code: 'ERR_INVALID_PACKAGE_CONFIG'
+Server berjalan pada port 5000
+✅ Database dicek/dibuat
+ℹ️ User admin sudah ada
+Error parsing zip [SAFE MODE]: Error: EEXIST: file already exists, mkdir 'D:\Hasil Coding\ExamApp\backend\temp\74c634b6-d227-4d25-9860-324184ee46bd\aaa_files'
+    at async Object.mkdir (node:internal/fs/promises:857:10)
+    at async parseZip (D:\Hasil Coding\ExamApp\backend\controllers\uploadController.js:24:7) {
+  errno: -4075,
+  code: 'EEXIST',
+  syscall: 'mkdir',
+  path: 'D:\\Hasil Coding\\ExamApp\\backend\\temp\\74c634b6-d227-4d25-9860-324184ee46bd\\aaa_files'
 }
-
-Node.js v22.14.0
 PS D:\Hasil Coding\ExamApp\backend> 

@@ -1,103 +1,74 @@
-const mammoth = require("mammoth");
+const unzipper = require("unzipper");
+const cheerio = require("cheerio");
+const path = require("path");
+const fs = require("fs");
+const { v4: uuidv4 } = require("uuid");
+const { Readable } = require('stream');
 
-// Logika ini dipindahkan dari frontend (ParsingModal.js) ke backend
-const parseExamText = (rawText) => {
-  const lines = rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  const foundSoal = [];
-  let currentSoal = null;
-  let state = "find_question"; // states: find_question, find_options, find_answer
-
-  const questionNumberRegex = /^\d+[\.\)]\s*/;
-  const optionRegex = /^[A-Ea-e][\.\)]\s*/;
-  const answerRegex = /^(?:ANS|JAWABAN)\s*:\s*([A-Ea-e])/i;
-
-  lines.forEach((line) => {
-    const isQuestionStart = questionNumberRegex.test(line);
-    const isOption = optionRegex.test(line);
-    const isAnswer = answerRegex.test(line);
-
-    if (isQuestionStart) {
-      if (currentSoal) {
-        // Simpan soal sebelumnya jika valid (memiliki jawaban)
-        if (currentSoal.jawaban) {
-          foundSoal.push(currentSoal);
-        }
-      }
-      currentSoal = {
-        soal: line.replace(questionNumberRegex, "").trim(),
-        opsi: [],
-        jawaban: "",
-      };
-      state = "find_options";
-    } else if (currentSoal) {
-      if (isOption) {
-        currentSoal.opsi.push(line.replace(optionRegex, "").trim());
-        state = "find_options";
-      } else if (isAnswer) {
-        const match = line.match(answerRegex);
-        if (match) {
-          currentSoal.jawaban = match[1].toUpperCase();
-          foundSoal.push(currentSoal);
-          currentSoal = null;
-          state = "find_question";
-        }
-      } else {
-        // Teks ini adalah kelanjutan dari item sebelumnya (soal atau opsi)
-        if (state === "find_options" && currentSoal.opsi.length > 0) {
-          // Lanjutan dari opsi terakhir
-          const lastOptionIndex = currentSoal.opsi.length - 1;
-          currentSoal.opsi[lastOptionIndex] += "\n" + line;
-        } else {
-          // Lanjutan dari soal (sebelum opsi pertama atau jika tidak ada opsi)
-          currentSoal.soal += "\n" + line;
-        }
-      }
-    }
-  });
-
-  // Simpan soal terakhir jika ada dan valid
-  if (currentSoal && currentSoal.jawaban) {
-    foundSoal.push(currentSoal);
-  }
-
-  // Membersihkan opsi kosong di akhir
-  foundSoal.forEach(s => {
-      s.opsi = s.opsi.filter(o => o.trim() !== "");
-  });
-
-  return foundSoal;
-};
-
-
-const parseDocx = async (req, res) => {
+// VERSI AMAN DAN SEDERHANA UNTUK MENGHENTIKAN ERROR
+const parseZip = async (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ message: "Tidak ada file yang diunggah." });
+    return res.status(400).json({ message: "Tidak ada file .zip yang diunggah." });
   }
+
+  const tempDir = path.join(__dirname, "..", "temp", uuidv4());
 
   try {
-    const buffer = req.file.buffer;
-    
-    // Ekstrak teks mentah dari buffer file .docx
-    const { value } = await mammoth.extractRawText({ buffer });
+    // 1. Buat direktori temporer utama
+    await fs.promises.mkdir(tempDir, { recursive: true });
 
-    if (!value) {
-        return res.status(500).json({ message: "Tidak dapat mengekstrak teks dari dokumen." });
+    // 2. Gunakan unzipper.Extract yang lebih andal dengan mengubah buffer ke stream
+    const stream = Readable.from(req.file.buffer);
+    await new Promise((resolve, reject) => {
+        stream.pipe(unzipper.Extract({ path: tempDir }))
+            .on('finish', resolve)
+            .on('error', reject);
+    });
+
+    // 3. Cari file .htm/.html
+    const files = await fs.promises.readdir(tempDir);
+    const htmlFile = files.find(f => f.endsWith('.htm') || f.endsWith('.html'));
+
+    if (!htmlFile) {
+      // Cek subdirektori jika ada
+      let foundHtml = null;
+      for (const file of files) {
+          const subDirPath = path.join(tempDir, file);
+          if (fs.statSync(subDirPath).isDirectory()) {
+              const subFiles = await fs.promises.readdir(subDirPath);
+              foundHtml = subFiles.find(f => f.endsWith('.htm') || f.endsWith('.html'));
+              if (foundHtml) {
+                  htmlFile = path.join(file, foundHtml);
+                  break;
+              }
+          }
+      }
+      if (!htmlFile) throw new Error("File .htm atau .html tidak ditemukan di dalam zip.");
     }
 
-    // Parse teks mentah menjadi struktur soal
-    const structuredQuestions = parseExamText(value);
+    // 4. Baca file HTML dan ekstrak semua teks mentah
+    const htmlPath = path.join(tempDir, htmlFile);
+    const htmlContent = await fs.promises.readFile(htmlPath, "utf-8");
+    const $ = cheerio.load(htmlContent);
+    const rawText = $('body').text();
 
-    if (structuredQuestions.length === 0) {
-        return res.status(404).json({ message: "Tidak ada soal dengan format yang benar ditemukan dalam dokumen." });
-    }
-
-    // Kirim hasil yang sudah terstruktur ke frontend
-    res.status(200).json(structuredQuestions);
+    // 5. Kirim kembali HANYA teks mentah
+    res.status(200).json({ text: rawText });
 
   } catch (error) {
-    console.error("Error parsing docx:", error);
-    res.status(500).json({ message: "Terjadi kesalahan di server saat memproses file.", error: error.message });
+    console.error("Error parsing zip [SAFE MODE]:", error);
+    res.status(500).json({ message: "Gagal memproses file zip.", error: error.message });
+  } finally {
+    // 6. Hapus direktori temporer
+    if (fs.existsSync(tempDir)) {
+      await fs.promises.rm(tempDir, { recursive: true, force: true });
+    }
   }
 };
 
-module.exports = { parseDocx };
+// Fungsi lama, tidak digunakan
+const parseDocx = async (req, res) => {
+    res.status(400).json({ message: "Metode ini sudah tidak digunakan." });
+};
+
+module.exports = { parseDocx, parseZip };
