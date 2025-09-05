@@ -1,20 +1,14 @@
-1. Perubahan wujud benda dari padat menjadi cair disebut...?
-A. Mencair
-B. Menguap
-C. Mengembun
-D. Membeku
-ANS: A
+PS D:\Hasil Coding\ExamApp\backend> node server.js
+node:internal/modules/run_main:91
+  const type = getNearestParentPackageJSONType(mainPath);
+               ^
 
-2. Planet yang memiliki cincin paling besar adalah...?
-A. Bumi
-B. Mars
-C. Saturnus
-D. Uranus
-ANS: C
+Error: Invalid package config \\?\D:\Hasil Coding\ExamApp\backend\package.json.
+    at shouldUseESMLoader (node:internal/modules/run_main:91:16)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:163:20)
+    at node:internal/main/run_main_module:36:49 {
+  code: 'ERR_INVALID_PACKAGE_CONFIG'
+}
 
-3. Alat untuk mengukur suhu adalah...?
-A. Barometer
-B. Termometer
-C. Anemometer
-D. Hygrometer
-ANS: B
+Node.js v22.14.0
+PS D:\Hasil Coding\ExamApp\backend> 

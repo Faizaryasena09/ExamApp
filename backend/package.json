@@ -19,6 +19,7 @@
     "express": "^5.1.0",
     "fs": "^0.0.1-security",
     "gm": "^1.25.1",
+    "jimp": "^0.22.12",
     "jsonwebtoken": "^9.0.2",
     "mammoth": "^1.9.1",
     "multer": "^2.0.1",
@@ -28,6 +29,7 @@
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
     "pdfjs-dist": "^2.16.105",
+    "tesseract.js": "^5.1.0",
     "unzipper": "^0.12.3",
     "uuid": "^11.1.0"
   },

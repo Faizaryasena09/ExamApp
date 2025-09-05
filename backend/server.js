@@ -45,6 +45,7 @@ const examRoutes = require("./routes/examRoutes");
 const guruRoutes = require("./routes/guruRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const webMngRoutes = require("./routes/webMngRoutes");
+const ocrRoutes = require("./routes/ocrRoutes");
 
 app.use("/api/exam", examRoutes);
 app.use("/api/studentworklog", studentworklog);
@@ -62,6 +63,7 @@ app.use("/api", resultRoutes);
 app.use("/api", webMngRoutes);
 app.use("/api/subfolders", subfolderRoutes);
 app.use("/api", uploadRoutes);
+app.use("/api", ocrRoutes);
 
 const sessionController = require("./controllers/sessionController");
 sessionController.startAutoSessionChecker();
