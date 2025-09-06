@@ -195,6 +195,15 @@ function LoginPage() {
               </button>
             </div>
           </form>
+          <div className="text-center mt-4">
+              <button
+                type="button"
+                onClick={() => alert("Silahkan hubungi Admin ujian untuk mereset password")}
+                className="text-sm text-indigo-600 hover:text-indigo-500"
+              >
+                Lupa password?
+              </button>
+            </div>
         </div>
       </div>
     </div>
