@@ -24,6 +24,24 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
+exports.getUserById = async (req, res) => {
+  const { id } = req.params;
+  const connection = await db;
+
+  try {
+    const [rows] = await connection.query("SELECT id, name, username, role, kelas FROM users WHERE id = ?", [id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "User tidak ditemukan" });
+    }
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("❌ Gagal ambil data user:", err.message);
+    res.status(500).json({ error: "Gagal ambil data user" });
+  }
+};
+
 exports.createUser = async (req, res) => {
   const { name, username, password, role, kelas } = req.body;
   const connection = await db;
@@ -50,6 +68,46 @@ exports.updateUser = async (req, res) => {
   }
 
   res.json({ message: "User diperbarui" });
+};
+
+exports.changePassword = async (req, res) => {
+  const { id } = req.params;
+  const { oldPassword, newPassword } = req.body;
+  const userIdFromToken = req.user.userId; // from authMiddleware
+
+  // Ensure users can only change their own password
+  if (parseInt(id, 10) !== userIdFromToken) {
+    return res.status(403).json({ message: "Anda tidak diizinkan untuk melakukan tindakan ini." });
+  }
+
+  if (!oldPassword || !newPassword) {
+    return res.status(400).json({ message: "Password lama dan baru diperlukan." });
+  }
+
+  const connection = await db;
+
+  try {
+    // Verify old password
+    const [users] = await connection.query(
+      "SELECT * FROM users WHERE id = ? AND password = SHA2(?, 256)",
+      [id, oldPassword]
+    );
+
+    if (users.length === 0) {
+      return res.status(401).json({ message: "Password lama salah." });
+    }
+
+    // Update with new password
+    await connection.query(
+      "UPDATE users SET password = SHA2(?, 256) WHERE id = ?",
+      [newPassword, id]
+    );
+
+    res.json({ message: "Password berhasil diubah." });
+  } catch (error) {
+    console.error("Gagal mengubah password:", error);
+    res.status(500).json({ message: "Terjadi kesalahan pada server." });
+  }
 };
 
 exports.deleteUser = async (req, res) => {

@@ -42,6 +42,8 @@ function DoExamPage() {
   const [totalWaktu, setTotalWaktu] = useState(0);
   const [showSidebar, setShowSidebar] = useState(false);
   const [courseTitle, setCourseTitle] = useState("");
+  const [pgQuestions, setPgQuestions] = useState([]);
+  const [essayQuestions, setEssayQuestions] = useState([]);
   
   const currentSoal = soalList[currentIndex];
   
@@ -375,8 +377,11 @@ const bersihkanOpsi = (opsi) => {
   
       const soalRes = await api.get(`/courses/${id}/questions`);
       const rawSoal = soalRes.data;
-  
-      const soalFinal = (acakSoalFromServer ? shuffleArray(rawSoal) : rawSoal).map((soal, index) => {
+
+      const pg = rawSoal.filter(s => s.tipe_soal === 'pilihan_ganda');
+      const essay = rawSoal.filter(s => s.tipe_soal === 'esai');
+
+      const pgFinal = (acakSoalFromServer ? shuffleArray(pg) : pg).map((soal, index) => {
         if (soal.tipe_soal === 'pilihan_ganda') {
           const opsiOriginal = typeof soal.opsi === "string" ? JSON.parse(soal.opsi) : soal.opsi;
           const opsiFinal = acakJawabanFromServer ? shuffleArray([...opsiOriginal]) : [...opsiOriginal];
@@ -417,10 +422,15 @@ const bersihkanOpsi = (opsi) => {
             opsiMapping,
           };
         }
-        return soal; // Return as is for essay questions
+        return soal;
       });
-  
-      setSoalList(soalFinal);
+
+      const essayFinal = acakSoalFromServer ? shuffleArray(essay) : essay;
+
+      setPgQuestions(pgFinal);
+      setEssayQuestions(essayFinal);
+      setSoalList([...pgFinal, ...essayFinal]);
+
     } catch (err) {
       console.error("❌ Gagal ambil soal:", err);
     } finally {
@@ -724,29 +734,63 @@ useEffect(() => {
   const renderSidebarContent = () => (
     <>
       <div className="flex-1 overflow-y-auto">
-        <div className="grid grid-cols-5 gap-2 mb-4">
-          {soalList.map((soal, index) => {
-            const isCurrent = index === currentIndex;
-            const isAnswered = jawabanSiswa[soal.id];
-            const isMarked = raguRagu[soal.id];
-            let btnClass = 'bg-gray-200 text-gray-700 hover:bg-gray-300';
-            if (isAnswered) btnClass = 'bg-green-500 text-white hover:bg-green-600';
-            if (isMarked) btnClass = 'bg-yellow-400 text-white hover:bg-yellow-500';
-            if (isCurrent) btnClass = 'bg-blue-600 text-white ring-2 ring-blue-300 ring-offset-1';
-            return (
-              <button
-                key={soal.id}
-                onClick={() => {
-                  setCurrentIndex(index);
-                  setShowSidebar(false);
-                }}
-                className={`w-10 h-10 rounded-md font-bold text-sm transition-all duration-200 flex items-center justify-center ${btnClass}`}
-              >
-                {index + 1}
-              </button>
-            );
-          })}
-        </div>
+        {pgQuestions.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-md font-semibold text-gray-700 mb-2">Pilihan Ganda</h4>
+            <div className="grid grid-cols-5 gap-2">
+              {pgQuestions.map((soal, index) => {
+                const isCurrent = index === currentIndex;
+                const isAnswered = jawabanSiswa[soal.id];
+                const isMarked = raguRagu[soal.id];
+                let btnClass = 'bg-gray-200 text-gray-700 hover:bg-gray-300';
+                if (isAnswered) btnClass = 'bg-green-500 text-white hover:bg-green-600';
+                if (isMarked) btnClass = 'bg-yellow-400 text-white hover:bg-yellow-500';
+                if (isCurrent) btnClass = 'bg-blue-600 text-white ring-2 ring-blue-300 ring-offset-1';
+                return (
+                  <button
+                    key={soal.id}
+                    onClick={() => {
+                      setCurrentIndex(index);
+                      setShowSidebar(false);
+                    }}
+                    className={`w-10 h-10 rounded-md font-bold text-sm transition-all duration-200 flex items-center justify-center ${btnClass}`}
+                  >
+                    {index + 1}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {essayQuestions.length > 0 && (
+          <div>
+            <h4 className="text-md font-semibold text-gray-700 mb-2">Soal Esai</h4>
+            <div className="grid grid-cols-5 gap-2">
+              {essayQuestions.map((soal, index) => {
+                const overallIndex = pgQuestions.length + index;
+                const isCurrent = overallIndex === currentIndex;
+                const isAnswered = jawabanSiswa[soal.id];
+                const isMarked = raguRagu[soal.id];
+                let btnClass = 'bg-gray-200 text-gray-700 hover:bg-gray-300';
+                if (isAnswered) btnClass = 'bg-green-500 text-white hover:bg-green-600';
+                if (isMarked) btnClass = 'bg-yellow-400 text-white hover:bg-yellow-500';
+                if (isCurrent) btnClass = 'bg-blue-600 text-white ring-2 ring-blue-300 ring-offset-1';
+                return (
+                  <button
+                    key={soal.id}
+                    onClick={() => {
+                      setCurrentIndex(overallIndex);
+                      setShowSidebar(false);
+                    }}
+                    className={`w-10 h-10 rounded-md font-bold text-sm transition-all duration-200 flex items-center justify-center ${btnClass}`}
+                  >
+                    {overallIndex + 1}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
       <div className="mt-4 border-t pt-3">
         <h4 className="text-sm font-semibold text-gray-600 mb-3">Legenda:</h4>
@@ -876,7 +920,9 @@ useEffect(() => {
       <header className="flex items-center justify-between p-4 bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Ujian {examTitle}</h1>
-          <p className="text-sm text-gray-500">Soal {currentIndex + 1} dari {soalList.length}</p>
+          <p className="text-sm text-gray-500">
+            {currentSoal.tipe_soal === 'pilihan_ganda' ? 'Soal Pilihan Ganda' : 'Soal Esai'} No. {currentIndex + 1} dari {soalList.length}
+          </p>
         </div>
         <div className="flex items-center gap-4 bg-gray-100 border border-gray-200 p-2 rounded-lg">
           <FiClock className="text-blue-600" size={20} />

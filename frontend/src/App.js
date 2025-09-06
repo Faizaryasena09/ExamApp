@@ -28,6 +28,7 @@ import ManageGuruPage from "./pages/ManageGuruPage";
 import PreviewPage from "./pages/PreviewPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import WebSettingsPage from "./pages/WebSettingsPage";
+import ProfilePage from "./pages/ProfilePage";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
@@ -180,6 +181,7 @@ function AppLayout() {
           <Routes>
             <Route path="/" element={<PublicRoute element={<LoginPage />} />} />
             <Route path="/home" element={<PrivateRoute element={<HomePage />} />} />
+            <Route path="/profile" element={<PrivateRoute element={<ProfilePage />} />} />
             <Route path="/courses" element={<PrivateRoute element={<CoursesPage />} />} />
             <Route path="/courses/:id/do" element={<PrivateRoute element={<DoExamPage />} />} />
             <Route path="/courses/:id/preview" element={<PrivateRoute element={<PreviewPage />} />} />

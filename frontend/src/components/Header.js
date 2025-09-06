@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiLogOut, FiChevronDown } from "react-icons/fi";
+import { FiLogOut, FiChevronDown, FiUser } from "react-icons/fi";
 import { FiArrowLeft, FiArrowRight, FiRefreshCw } from "react-icons/fi";
 import Cookies from "js-cookie";
 import api from "../api";
@@ -250,6 +250,13 @@ function Header({ onToggleSidebar }) {
             <p className="font-semibold">Masuk sebagai</p>
             <p className="truncate">{userName}</p>
           </div>
+          <button
+            onClick={() => navigate('/profile')}
+            className="flex items-center w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 group"
+          >
+            <FiUser className="mr-3 text-gray-500 group-hover:text-blue-500" />
+            <span className="group-hover:text-gray-900">Profil</span>
+          </button>
           <button
             onClick={handleLogout}
             className="flex items-center w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 group"
