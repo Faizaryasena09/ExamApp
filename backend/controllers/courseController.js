@@ -500,13 +500,19 @@ if (!userId || isNaN(userId)) {
   }
   
   function replaceBase64Images(html) {
-    return html.replace(/<img[^>]+src=["'](data:image\/[^"']+)["'][^>]*>/g, (match, base64) => {
+    // Handle base64 images
+    let result = html.replace(/<img[^>]+src=["'](data:image\/[^"']+)["'][^>]*>/g, (match, base64) => {
       const newSrc = saveBase64Image(base64);
       if (newSrc) {
         return match.replace(base64, newSrc);
       }
       return match;
     });
+    
+    // Handle relative paths from ZIP (convert /uploads/images/ to /uploads/)
+    result = result.replace(/src="\/uploads\/images\//g, 'src="/uploads/');
+    
+    return result;
   }
   
   function cleanOptionsArray(rawOpsi) {

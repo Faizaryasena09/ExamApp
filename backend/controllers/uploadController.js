@@ -25,7 +25,7 @@ const parseZip = async (req, res) => {
   }
 
   const tempDir = path.join(__dirname, "..", "temp", uuidv4());
-  const publicUploadsDir = path.join(__dirname, "..", "public", "uploads", "images");
+  const publicUploadsDir = path.join(__dirname, "..", "public", "uploads");
 
   try {
     await fs.promises.mkdir(tempDir, { recursive: true });
@@ -70,7 +70,7 @@ const parseZip = async (req, res) => {
         const newFileName = `${uuidv4()}${path.extname(originalImagePath)}`;
         const newImagePath = path.join(publicUploadsDir, newFileName);
         await fs.promises.copyFile(originalImagePath, newImagePath);
-        $(img).attr('src', `/uploads/images/${newFileName}`);
+        $(img).attr('src', `/uploads/${newFileName}`);
       }
     }
 
