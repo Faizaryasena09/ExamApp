@@ -3,20 +3,25 @@ const cheerio = require("cheerio");
 const path = require("path");
 const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
-const { Readable } = require('stream');
+const { Readable } = require("stream");
 
-// Definisikan Regex di scope atas
-const questionNumberRegex = /^\d+[\.\)]/;
-const optionRegex = /^[A-Ea-e][\.\)]/;
-const answerRegex = /^(?:ANS|JAWABAN)\s*:\s*([A-Ea-e])/i;
+// Regex fleksibel
+const questionNumberRegex = /^\s*\d+[\.\)]?\s*/;  
+const optionRegex = /^\s*[A-Ea-e][\.\)]?\s*/;  
+const answerRegex = /^\s*(ANS|ANSWER|JAWABAN)\s*[:\-]?\s*([A-Ea-e])/i;  
 
-// Fungsi untuk membersihkan string HTML
+// Fallback keyword
+const keywordQuestionRegex = /\b(soal|pertanyaan|question)\b[:\-]?\s*/i;  
+const keywordOptionRegex = /\b(pilihan|opsi|option)\b[:\-]?\s*/i;  
+
+// Fungsi bersihin html/text
 const cleanHtml = (html) => {
-  if (!html) {
-    return '';
-  }
-  // Hapus karakter \uFFFD (replacement character) dan spasi non-breaking
-  return html.replace(/\uFFFD/g, '').replace(/&nbsp;/g, ' ');
+  if (!html) return "";
+  return html
+    .replace(/\uFFFD/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 };
 
 const parseZip = async (req, res) => {
@@ -25,87 +30,123 @@ const parseZip = async (req, res) => {
   }
 
   const tempDir = path.join(__dirname, "..", "temp", uuidv4());
-  const publicUploadsDir = path.join(__dirname, "..", "public", "uploads");
+  const publicUploadsDir = path.join(__dirname, "..", "public", "uploads", "images");
 
   try {
     await fs.promises.mkdir(tempDir, { recursive: true });
     await fs.promises.mkdir(publicUploadsDir, { recursive: true });
 
+    // Extract zip
     const stream = Readable.from(req.file.buffer);
     await new Promise((resolve, reject) => {
       stream.pipe(unzipper.Extract({ path: tempDir }))
-        .on('finish', () => resolve())
-        .on('error', (err) => reject(err));
+        .on("finish", resolve)
+        .on("error", reject);
     });
 
-    let htmlFile = '';
+    // Cari file HTML
+    let htmlFile = "";
     const filesInTemp = await fs.promises.readdir(tempDir);
     let baseDir = tempDir;
 
-    htmlFile = filesInTemp.find(f => f.endsWith('.htm') || f.endsWith('.html'));
-
+    htmlFile = filesInTemp.find(f => f.endsWith(".htm") || f.endsWith(".html"));
     if (!htmlFile) {
-      const subDir = filesInTemp.find(f => fs.statSync(path.join(tempDir, f)).isDirectory());
+      const subDir = filesInTemp.find(f =>
+        fs.statSync(path.join(tempDir, f)).isDirectory()
+      );
       if (subDir) {
         baseDir = path.join(tempDir, subDir);
         const subFiles = await fs.promises.readdir(baseDir);
-        htmlFile = subFiles.find(f => f.endsWith('.htm') || f.endsWith('.html'));
+        htmlFile = subFiles.find(f => f.endsWith(".htm") || f.endsWith(".html"));
       }
     }
-
     if (!htmlFile) {
       throw new Error("File .htm atau .html tidak ditemukan di dalam zip.");
     }
 
+    // Load HTML
     const htmlPath = path.join(baseDir, htmlFile);
     let htmlContent = await fs.promises.readFile(htmlPath, "utf-8");
     const $ = cheerio.load(htmlContent);
 
-    for (const img of $("img").toArray()) {
-      const imgSrc = $(img).attr('src');
-      if (!imgSrc) continue;
+    // Proses gambar
+    await Promise.all(
+      $("img").map(async (_, img) => {
+        const imgSrc = $(img).attr("src");
+        if (!imgSrc) return;
 
-      const originalImagePath = path.join(baseDir, imgSrc);
-      if (fs.existsSync(originalImagePath)) {
-        const newFileName = `${uuidv4()}${path.extname(originalImagePath)}`;
-        const newImagePath = path.join(publicUploadsDir, newFileName);
-        await fs.promises.copyFile(originalImagePath, newImagePath);
-        $(img).attr('src', `/uploads/${newFileName}`);
-      }
-    }
+        const originalImagePath = path.join(baseDir, imgSrc);
+        if (fs.existsSync(originalImagePath)) {
+          const newFileName = `${uuidv4()}${path.extname(originalImagePath)}`;
+          const newImagePath = path.join(publicUploadsDir, newFileName);
+          await fs.promises.copyFile(originalImagePath, newImagePath);
+          $(img).attr("src", `/uploads/images/${newFileName}`);
+        }
+      }).get()
+    );
 
+    // Parsing soal
     const questions = [];
     let currentQuestion = null;
 
-    $("body").find("p, li").each((_, element) => {
+    $("body").find("p, li, div").each((_, element) => {
       const el = $(element);
-      const text = cleanHtml(el.text().trim());
+      const rawText = el.text().trim();
+      const text = cleanHtml(rawText);
       const html = cleanHtml(el.html());
 
-      if (!text) return;
+      // Skip kosong (kecuali ada gambar)
+      if (!text && !el.find("img").length) return;
 
-      if (questionNumberRegex.test(text) && !currentQuestion) {
+      // 1️⃣ Deteksi soal
+      if ((questionNumberRegex.test(text) || keywordQuestionRegex.test(text)) && !currentQuestion) {
+        // Push soal lama tanpa jawaban
+        if (currentQuestion) {
+          questions.push(currentQuestion);
+        }
+
         currentQuestion = {
-          soal: html.replace(questionNumberRegex, "").trim(),
+          soal: html
+            .replace(questionNumberRegex, "")
+            .replace(keywordQuestionRegex, "")
+            .trim(),
           opsi: [],
           jawaban: "",
-          tipe_soal: 'pilihan_ganda'
+          tipe_soal: "pilihan_ganda",
+          detected_by: questionNumberRegex.test(text) ? "regex" : "keyword"
         };
-      } else if (currentQuestion) {
+      }
+
+      // 2️⃣ Dalam soal aktif
+      else if (currentQuestion) {
+        // Jawaban
         if (answerRegex.test(text)) {
           const match = text.match(answerRegex);
-          currentQuestion.jawaban = match[1].toUpperCase();
+          currentQuestion.jawaban = match[2].toUpperCase();
           questions.push(currentQuestion);
           currentQuestion = null;
-        } else if (optionRegex.test(text)) {
-          currentQuestion.opsi.push(html.replace(optionRegex, "").trim());
-        } else {
+        }
+        // Opsi
+        else if (optionRegex.test(text) || keywordOptionRegex.test(text)) {
+          currentQuestion.opsi.push(
+            html.replace(optionRegex, "").replace(keywordOptionRegex, "").trim()
+          );
+        }
+        // Tambahan isi soal
+        else {
           currentQuestion.soal += `<br>${html}`;
         }
       }
+
+      // 3️⃣ Kalau belum ada soal tapi ada jawaban → fallback
+      else if (answerRegex.test(text) && questions.length > 0) {
+        const match = text.match(answerRegex);
+        questions[questions.length - 1].jawaban = match[2].toUpperCase();
+      }
     });
 
-    if (currentQuestion && currentQuestion.jawaban) {
+    // Auto-close terakhir
+    if (currentQuestion) {
       questions.push(currentQuestion);
     }
 
@@ -121,8 +162,10 @@ const parseZip = async (req, res) => {
   }
 };
 
+// Dummy parseDocx
 const parseDocx = async (req, res) => {
   res.status(400).json({ message: "Metode ini sudah tidak digunakan." });
 };
 
 module.exports = { parseDocx, parseZip };
+  
