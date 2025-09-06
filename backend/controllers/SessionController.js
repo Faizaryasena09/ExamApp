@@ -56,7 +56,7 @@ exports.startAutoSessionChecker = () => {
         }
       }
     } catch (err) {
-      console.error("❌ Gagal auto update session:", err.message);
+      console.error(" Gagal auto update session:", err.message);
     }
   }, 5 * 60 * 1000);
 };
