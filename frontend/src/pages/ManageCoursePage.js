@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import api from "../api";
 import Cookies from "js-cookie";
@@ -394,6 +394,55 @@ function ManageCoursePage() {
     }
     return paragraphs;
   };
+
+  const editorConfig = useMemo(() => ({
+    readonly: false,
+    height: 300,
+    toolbar: true,
+    toolbarAdaptive: false,
+    toolbarSticky: false,
+    buttons: ['bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'image', '|', 'undo', 'redo'],
+    enter: 'P',
+    tabIndex: 1,
+    allowTabNavigation: true,
+    placeholder: 'Tuliskan pertanyaan di sini...',
+    uploader: {
+        url: `${api.defaults.baseURL}/upload-image`,
+        format: 'json',
+        method: 'POST',
+        filesVariableName: () => 'image',
+        process: function (resp) {
+            const fullUrl = `${api.defaults.baseURL.replace(/\/api\/?$/, '')}/api${resp.path}`;
+            return {
+                success: true,
+                files: [ fullUrl ],
+            };
+        },
+        defaultHandlerSuccess: function (data) {
+            const editor = this;
+            if (data.files && data.files.length) {
+                data.files.forEach(url => {
+                    editor.s.insertImage(url);
+                });
+            }
+        },
+        isSuccess: function (resp) {
+            return resp && resp.path;
+        },
+        defaultHandlerError: function (err) {
+            toast.error('Gagal mengunggah gambar.');
+            console.error('Jodit upload error:', err);
+        }
+    }
+  }), []);
+
+  const optionsEditorConfig = useMemo(() => ({
+    ...editorConfig,
+    height: 100,
+    enter: 'BR',
+    defaultBlock: 'span',
+    placeholder: 'Tuliskan pilihan jawaban...',
+  }), [editorConfig]);
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -826,18 +875,7 @@ function ManageCoursePage() {
                         <JoditEditor
                           ref={editorSoalRef}
                           value={toAbsoluteImageSrc(item.soal)}
-                          config={{
-                            readonly: false,
-                            height: 300,
-                            toolbar: true,
-                            toolbarAdaptive: false,
-                            toolbarSticky: false,
-                            buttons: ['bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'image', '|', 'undo', 'redo'],
-                            enter: 'P',
-                            tabIndex: 1,
-                            allowTabNavigation: true,
-                            placeholder: 'Tuliskan pertanyaan di sini...'
-                          }}
+                          config={editorConfig}
                           onBlur={(newContent) => {
                             const updated = [...soalList];
                             updated[index].soal = newContent;
@@ -939,19 +977,7 @@ function ManageCoursePage() {
               <JoditEditor
               ref={editorOpsiRef}
               value={toAbsoluteImageSrc(opsiBersih)} // tanpa label huruf di sini
-              config={{
-                readonly: false,
-                height: 100,
-                toolbar: true,
-                toolbarAdaptive: false,
-                toolbarSticky: false,
-                buttons: ['bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'image', '|', 'undo', 'redo'],
-                enter: 'BR',
-                defaultBlock: 'span',
-                tabIndex: 1,
-                allowTabNavigation: true,
-                placeholder: 'Tuliskan pilihan jawaban...'
-              }}
+              config={optionsEditorConfig}
               onBlur={(newContent) => {
                 // Pastikan hanya isi opsi, tanpa label huruf dan tanpa <p> pembungkus
                 const cleanedContent = newContent

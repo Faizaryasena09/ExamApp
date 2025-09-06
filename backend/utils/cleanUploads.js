@@ -3,7 +3,7 @@ const path = require("path");
 const dbPromise = require("../models/database");
 
 async function cleanUnusedUploads() {
-  const uploadDir = path.join(__dirname, "../uploads");
+  const uploadDir = path.join(__dirname, "../public/uploads");
   if (!fs.existsSync(uploadDir)) return;
 
   const filesInUpload = fs.readdirSync(uploadDir);
@@ -45,10 +45,15 @@ async function cleanUnusedUploads() {
 
   const deleted = [];
   filesInUpload.forEach(file => {
-    if (!usedImages.has(file)) {
-      const filePath = path.join(uploadDir, file);
-      fs.unlinkSync(filePath);
-      deleted.push(file);
+    const filePath = path.join(uploadDir, file);
+    try {
+      const stat = fs.statSync(filePath);
+      if (stat.isFile() && !usedImages.has(file)) {
+        fs.unlinkSync(filePath);
+        deleted.push(file);
+      }
+    } catch (err) {
+      console.error(`Gagal memproses ${filePath}: ${err.message}`);
     }
   });
 

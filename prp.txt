@@ -1,2 +1,18 @@
-Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
-ManageCoursePage.js:208 Gagal memproses file .zip: AxiosError
+node:fs:1953
+  binding.unlink(getValidatedPath(path));
+          ^
+
+Error: EPERM: operation not permitted, unlink 'D:\Hasil Coding\ExamApp\backend\public\uploads\images'
+    at Object.unlinkSync (node:fs:1953:11)
+    at D:\Hasil Coding\ExamApp\backend\utils\cleanUploads.js:50:10
+    at Array.forEach (<anonymous>)
+    at cleanUnusedUploads (D:\Hasil Coding\ExamApp\backend\utils\cleanUploads.js:47:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  errno: -4048,
+  code: 'EPERM',
+  syscall: 'unlink',
+  path: 'D:\\Hasil Coding\\ExamApp\\backend\\public\\uploads\\images'
+}
+
+Node.js v22.14.0
+PS D:\Hasil Coding\ExamApp\backend> 

@@ -27,7 +27,9 @@ app.use(cors({
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cookieParser());
-app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Sajikan file statis dari folder public/uploads
+app.use("/api/uploads", express.static(path.join(__dirname, "public", "uploads")));
 
 const authRoutes = require("./routes/authRoutes");
 const sessionRoutes = require("./routes/sessionRoutes");

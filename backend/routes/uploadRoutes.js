@@ -7,7 +7,7 @@ const protect = require('../middlewares/authMiddleware');
 
 // Konfigurasi multer untuk upload gambar ke disk
 const diskStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
+  destination: (req, file, cb) => cb(null, 'public/uploads/'),
   filename: (req, file, cb) => {
     const uniqueName = `${Date.now()}-${Math.floor(Math.random() * 1e6)}${path.extname(file.originalname)}`;
     cb(null, uniqueName);
