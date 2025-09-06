@@ -4,12 +4,12 @@ import api from '../api';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
-const ScoreCard = ({ score, totalQuestions }) => {
+const ScoreCard = ({ score, totalQuestions, studentName }) => {
   const persen = Math.round((score / totalQuestions) * 100);
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 text-center space-y-4">
-      <h3 className="text-xl font-semibold text-gray-600">Nilai Siswa</h3>
+      <h3 className="text-xl font-semibold text-gray-600">Nilai {studentName}</h3>
 
       <p className="text-5xl font-extrabold text-blue-600">
         {persen} <span className="text-3xl text-gray-400">/ 100</span>
@@ -35,7 +35,7 @@ function toAbsoluteImageSrc(html) {
   return html.replace(/src="\/uploads/g, `src="${baseURL}/uploads`);
 }
 
-const QuestionCard = ({ question, index }) => {
+const QuestionCard = ({ question, index, studentName }) => {
   const isEssay = question.tipe_soal === 'esai';
 
   const opsi = useMemo(() => {
@@ -71,6 +71,7 @@ const QuestionCard = ({ question, index }) => {
               text={opsiText}
               isCorrect={String.fromCharCode(65 + i) === question.jawaban_benar}
               isSelected={question.jawaban_siswa && question.jawaban_siswa.toUpperCase() === String.fromCharCode(65 + i)}
+              studentName={studentName}
             />
           ))}
         </ul>
@@ -79,19 +80,20 @@ const QuestionCard = ({ question, index }) => {
   );
 };
 
-const Option = ({ index, text, isCorrect, isSelected }) => {
+const Option = ({ index, text, isCorrect, isSelected, studentName }) => {
   const getOptionLabel = (idx) => String.fromCharCode(65 + idx);
   const label = getOptionLabel(index);
+  const firstName = studentName ? studentName.split(' ')[0] : 'Siswa';
 
   let style = 'bg-gray-100 border-gray-200 text-gray-700';
   let icon = null;
 
   if (isSelected && isCorrect) {
     style = 'bg-green-100 border-green-300 text-green-800 font-semibold';
-    icon = <span className="text-green-500">✔ Jawaban Anda (Benar)</span>;
+    icon = <span className="text-green-500">✔ Jawaban {firstName} (Benar)</span>;
   } else if (isSelected && !isCorrect) {
     style = 'bg-red-100 border-red-300 text-red-800 font-semibold';
-    icon = <span className="text-red-500">✖ Jawaban Anda (Salah)</span>;
+    icon = <span className="text-red-500">✖ Jawaban {firstName} (Salah)</span>;
   } else if (isCorrect) {
     style = 'bg-green-100 border-green-300 text-green-800';
     icon = <span className="text-green-600">✔ Kunci Jawaban</span>;
@@ -223,7 +225,7 @@ const ExamResultPage = () => {
                 <div className="space-y-6">
                   <h2 class="text-2xl font-bold text-gray-700">Soal Pilihan Ganda</h2>
                   {pgQuestions.map((q, index) => (
-                    <QuestionCard key={q.soal_id} question={q} index={index} />
+                    <QuestionCard key={q.soal_id} question={q} index={index} studentName={examData.studentName} />
                   ))}
                 </div>
               )}
@@ -231,7 +233,7 @@ const ExamResultPage = () => {
                 <div className="space-y-6 mt-8">
                   <h2 class="text-2xl font-bold text-gray-700">Soal Esai</h2>
                   {essayQuestions.map((q, index) => (
-                    <QuestionCard key={q.soal_id} question={q} index={pgQuestions.length + index} />
+                    <QuestionCard key={q.soal_id} question={q} index={pgQuestions.length + index} studentName={examData.studentName} />
                   ))}
                 </div>
               )}
@@ -239,7 +241,7 @@ const ExamResultPage = () => {
 
             <aside className="lg:col-span-1">
               <div className="sticky top-8">
-                <ScoreCard score={score} totalQuestions={pgQuestions.length} />
+                <ScoreCard score={score} totalQuestions={pgQuestions.length} studentName={examData.studentName} />
               </div>
               <button
             onClick={handleDownloadExcel}

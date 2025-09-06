@@ -24,7 +24,18 @@ function UserFormModal({ user, kelasList, onClose, onSubmit }) {
   }, [user]);
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    const newForm = { ...form, [name]: value };
+
+    if (name === "role") {
+      if (value === "guru") {
+        newForm.kelas = "guru";
+      } else if (value === "admin") {
+        newForm.kelas = "admin";
+      }
+    }
+
+    setForm(newForm);
   };
 
   const handleSubmit = async () => {
@@ -92,6 +103,7 @@ function UserFormModal({ user, kelasList, onClose, onSubmit }) {
             name="kelas"
             value={form.kelas}
             onChange={handleChange}
+            disabled={form.role === 'admin' || form.role === 'guru'}
             className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
           >
             <option value="">- Pilih Kelas -</option>

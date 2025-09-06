@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
-
+import { toast } from "../utils/toast";
 function CreateCourses() {
   const [user, setUser] = useState(null);
   const [kelasList, setKelasList] = useState([]);
@@ -109,11 +109,11 @@ function CreateCourses() {
   
     try {
       await api.post("/courses", payload);
-      alert("✅ Course berhasil dibuat!");
+      toast.success("✅ Course berhasil dibuat!");
       navigate("/courses");
     } catch (err) {
       console.error("Gagal simpan course:", err);
-      alert("❌ Gagal menyimpan course");
+      toast.error("❌ Gagal menyimpan course");
     }
   };  
 

@@ -50,22 +50,23 @@ const StudentLogDetailPage = () => {
   // Proses log jadi teks + ikon
   useEffect(() => {
     const answeredSoal = new Map();
+    const firstName = user ? user.name.split(' ')[0] : 'Siswa';
     const newProcessedLogs = logs.map(log => {
       const nomorUrut = soalMap[log.soal_id] || log.soal_id; // fallback id kalau mapping belum ada
-      let actionText = "Siswa menjawab soal";
+      let actionText = `${firstName} menjawab soal`;
       let Icon = FiCheckCircle;
 
       if (log.jawaban === "[COPY DETECTED]") {
-        actionText = `Siswa melakukan Copy teks pada No. ${nomorUrut}`;
+        actionText = `${firstName} melakukan Copy teks pada No. ${nomorUrut}`;
         Icon = FiCopy;
       } else if (log.jawaban === "[PASTE DETECTED]") {
-        actionText = `Siswa melakukan Paste teks pada No. ${nomorUrut}`;
+        actionText = `${firstName} melakukan Paste teks pada No. ${nomorUrut}`;
         Icon = FiClipboard;
       } else if (answeredSoal.has(log.soal_id)) {
-        actionText = `Siswa mengubah jawaban soal No. ${nomorUrut}, dengan jawaban "${log.jawaban || '-'}"`;
+        actionText = `${firstName} mengubah jawaban soal No. ${nomorUrut}, dengan jawaban "${log.jawaban || '-'}"`;
         Icon = FiEdit3;
       } else {
-        actionText = `Siswa menjawab soal No. ${nomorUrut}, dengan jawaban "${log.jawaban || '-'}"`;
+        actionText = `${firstName} menjawab soal No. ${nomorUrut}, dengan jawaban "${log.jawaban || '-'}"`;
       }
 
       answeredSoal.set(log.soal_id, log.jawaban);
@@ -78,7 +79,7 @@ const StudentLogDetailPage = () => {
     });
 
     setProcessedLogs(newProcessedLogs);
-  }, [logs, soalMap]);
+  }, [logs, soalMap, user]);
 
   return (
     <div className="bg-gray-100 min-h-screen">

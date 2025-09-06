@@ -240,10 +240,10 @@ function ManageCoursePage() {
         acakJawaban,
       });
   
-      alert("✅ Soal berhasil disimpan!");
+      toast.success("✅ Soal berhasil disimpan!");
     } catch (err) {
       console.error("❌ Gagal simpan soal:", err);
-      alert("Gagal menyimpan soal");
+      toast.error("Gagal menyimpan soal");
     }
   };  
 
