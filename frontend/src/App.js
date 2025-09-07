@@ -158,6 +158,16 @@ function AppLayout() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  useEffect(() => {
+    api.get("/web-settings").then((res) => {
+      if (res.data && res.data.judul) {
+        document.title = res.data.judul;
+      }
+    }).catch(err => {
+      console.error("Failed to fetch web settings for title", err);
+    });
+  }, []);
+
   return (
     <div className="flex min-h-screen">
       {showHeader && (
