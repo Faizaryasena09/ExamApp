@@ -39,7 +39,7 @@ exports.getSettings = async (req, res) => {
         const current = existing[0];
   
         if (logoPath && current.logo && current.logo.startsWith("/uploads/")) {
-          const oldPath = path.join(__dirname, "..", current.logo);
+          const oldPath = path.join(__dirname, "../public", current.logo);
           if (fs.existsSync(oldPath)) {
             fs.unlinkSync(oldPath);
           }

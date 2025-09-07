@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Dua pilihan baseURL
 const LOCAL_API = "http://localhost:5000/api";
-const PROXY_API = "/api";
+const PROXY_API = "http://localhost:5000/api";
 
 // Buat instance axios default dengan proxy sebagai fallback
 const api = axios.create({

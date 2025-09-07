@@ -8,7 +8,7 @@ const onlyRole = require("../middlewares/onlyRole");
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads");
+    cb(null, "public/uploads");
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -27,11 +27,18 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage, fileFilter });
 
+// Public route
 router.get("/web-settings", webMngController.getSettings);
-router.put("/web-settings", onlyRole("admin"), upload.single("logo"), authMiddleware, webMngController.updateSettings);
-router.get("/db/tables", onlyRole("admin"), authMiddleware, webMngController.getAllTables);
-router.delete("/db/:tableName", onlyRole("admin"), authMiddleware, webMngController.deleteTable);
-router.post("/db/reset", onlyRole("admin"), authMiddleware, webMngController.resetDatabase);
-router.post("/restart-server", onlyRole("admin"), authMiddleware, webMngController.restartServer);
+
+// Apply authentication and authorization to all subsequent routes
+router.use(authMiddleware);
+router.use(onlyRole("admin"));
+
+// Protected routes
+router.put("/web-settings", upload.single("logo"), webMngController.updateSettings);
+router.get("/db/tables", webMngController.getAllTables);
+router.delete("/db/:tableName", webMngController.deleteTable);
+router.post("/db/reset", webMngController.resetDatabase);
+router.post("/restart-server", webMngController.restartServer);
 
 module.exports = router;
