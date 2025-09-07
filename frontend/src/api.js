@@ -1,15 +1,16 @@
 import axios from "axios";
 
-const baseURL =
-  window.location.hostname === "localhost"
-    ? "http://localhost:5000/api"
-    : "/api";
+// Dua pilihan baseURL
+const LOCAL_API = "http://localhost:5000/api";
+const PROXY_API = "/api";
 
+// Buat instance axios default dengan proxy sebagai fallback
 const api = axios.create({
-  baseURL,
+  baseURL: PROXY_API,
   withCredentials: true,
 });
 
+// Request interceptor untuk menambahkan token
 api.interceptors.request.use(
   (config) => {
     try {
@@ -24,34 +25,46 @@ api.interceptors.request.use(
     } catch (error) {
       console.error("Gagal mengambil token dari cookies:", error);
     }
-
     return config;
   },
   (error) => Promise.reject(error)
 );
 
+// Response interceptor untuk handle 401 dan switch URL
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    // Cek apakah token masih ada. Jika tidak, berarti proses logout sudah berjalan.
-    const tokenExists = document.cookie.split('; ').some(item => item.trim().startsWith('token='));
+  async (error) => {
+    const tokenExists = document.cookie.split("; ").some(item => item.trim().startsWith('token='));
 
-    if (
-      error.response &&
-      error.response.status === 401 &&
-      tokenExists // Hanya jalankan jika token masih ada
-    ) {
-      // Hapus semua cookie
+    // Handle 401 logout
+    if (error.response && error.response.status === 401 && tokenExists) {
       const cookies = document.cookie.split(";");
       for (let i = 0; i < cookies.length; i++) {
-          let cookie = cookies[i];
-          let eqPos = cookie.indexOf("=");
-          let name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
-          document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+        let cookie = cookies[i];
+        let eqPos = cookie.indexOf("=");
+        let name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
       }
-      
       alert("Sesi Anda telah berakhir. Silakan login kembali.");
-      window.location.href = "/"; // Arahkan ke halaman utama
+      window.location.href = "/";
+      return Promise.reject(error);
+    }
+
+    // Jika di localhost dan request gagal karena ECONNREFUSED atau 404/500, coba fallback ke /api
+    if (
+      window.location.hostname === "localhost" &&
+      (!error.response || error.response.status === 404 || error.response.status === 500)
+    ) {
+      try {
+        const fallback = axios.create({
+          baseURL: PROXY_API,
+          withCredentials: true,
+          headers: error.config.headers,
+        });
+        return fallback.request(error.config); // retry request ke /api
+      } catch (fallbackError) {
+        return Promise.reject(fallbackError);
+      }
     }
 
     return Promise.reject(error);
