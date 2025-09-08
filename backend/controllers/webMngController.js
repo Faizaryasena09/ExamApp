@@ -114,3 +114,43 @@ exports.restartServer = (req, res) => {
     res.json({ message: "Server berhasil direstart", output: stdout });
   });
 };
+
+exports.getAppMode = async (req, res) => {
+  try {
+    const db = await dbPromise;
+    const [rows] = await db.query("SELECT app_mode FROM web_settings LIMIT 1");
+
+    if (rows.length === 0 || !rows[0].app_mode) {
+      return res.json({ needsSetup: true });
+    }
+
+    res.json({ mode: rows[0].app_mode });
+  } catch (err) {
+    console.error("❌ getAppMode:", err);
+    res.status(500).json({ message: "Gagal mengambil mode aplikasi", error: err.message });
+  }
+};
+
+exports.setAppMode = async (req, res) => {
+  try {
+    const db = await dbPromise;
+    const { mode } = req.body;
+
+    if (!['assessment', 'lesson', 'hybrid'].includes(mode)) {
+      return res.status(400).json({ message: "Mode tidak valid" });
+    }
+
+    const [existing] = await db.query("SELECT * FROM web_settings LIMIT 1");
+
+    if (existing.length > 0) {
+      await db.query("UPDATE web_settings SET app_mode = ? WHERE id = ?", [mode, existing[0].id]);
+    } else {
+      await db.query("INSERT INTO web_settings (app_mode) VALUES (?)", [mode]);
+    }
+
+    res.json({ message: `Mode aplikasi berhasil diatur ke ${mode}` });
+  } catch (err) {
+    console.error("❌ setAppMode:", err);
+    res.status(500).json({ message: "Gagal mengatur mode aplikasi", error: err.message });
+  }
+};

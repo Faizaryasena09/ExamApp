@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
   FiHome, FiUsers, FiBookOpen, FiX,
-  FiFileText, FiSettings, FiUserCheck, FiSliders
+  FiFileText, FiSettings, FiUserCheck, FiSliders, FiBook
 } from "react-icons/fi";
 import api from "../api";
 
@@ -11,7 +11,7 @@ function getCookie(name) {
   return match ? decodeURIComponent(match[2]) : null;
 }
 
-function Sidebar({ isOpen, onClose }) {
+function Sidebar({ isOpen, onClose, appMode }) {
   const [siteTitle, setSiteTitle] = useState("ExamApp"); // ✅ Gunakan di sini
   const role = getCookie("role");
 
@@ -77,6 +77,36 @@ function Sidebar({ isOpen, onClose }) {
               </NavLink>
             </li>
 
+            {/* ASSESSMENT & HYBRID MODE */}
+            {(appMode === 'assessment' || appMode === 'hybrid') && (
+              <li>
+                <NavLink
+                  to="/courses"
+                  onClick={onClose}
+                  style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+                  className="flex items-center px-4 py-2.5 rounded-lg hover:bg-slate-700 hover:text-white transition-colors duration-200"
+                >
+                  <FiFileText className="mr-3 text-lg" />
+                  <span>Manajemen Ujian</span>
+                </NavLink>
+              </li>
+            )}
+
+            {/* LESSON & HYBRID MODE */}
+            {(appMode === 'lesson' || appMode === 'hybrid') && (
+              <li>
+                <NavLink
+                  to="/lessons"
+                  onClick={onClose}
+                  style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+                  className="flex items-center px-4 py-2.5 rounded-lg hover:bg-slate-700 hover:text-white transition-colors duration-200"
+                >
+                  <FiBook className="mr-3 text-lg" />
+                  <span>Manajemen Lesson</span>
+                </NavLink>
+              </li>
+            )}
+
             {role === "admin" && (
               <>
                 <li>
@@ -123,31 +153,22 @@ function Sidebar({ isOpen, onClose }) {
                     <span>Manajemen Web</span>
                   </NavLink>
                 </li>
-                <li>
-                  <NavLink
-                    to="/examcontrol"
-                    onClick={onClose}
-                    style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
-                    className="flex items-center px-4 py-2.5 rounded-lg hover:bg-slate-700 hover:text-white transition-colors duration-200"
-                  >
-                    <FiSliders className="mr-3 text-lg" />
-                    <span>Kontrol Ujian</span>
-                  </NavLink>
-                </li>
+                {/* KONTROL UJIAN HANYA UNTUK ASSESSMENT & HYBRID */}
+                {(appMode === 'assessment' || appMode === 'hybrid') && (
+                  <li>
+                    <NavLink
+                      to="/examcontrol"
+                      onClick={onClose}
+                      style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+                      className="flex items-center px-4 py-2.5 rounded-lg hover:bg-slate-700 hover:text-white transition-colors duration-200"
+                    >
+                      <FiSliders className="mr-3 text-lg" />
+                      <span>Kontrol Ujian</span>
+                    </NavLink>
+                  </li>
+                )}
               </>
             )}
-
-            <li>
-              <NavLink
-                to="/courses"
-                onClick={onClose}
-                style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
-                className="flex items-center px-4 py-2.5 rounded-lg hover:bg-slate-700 hover:text-white transition-colors duration-200"
-              >
-                <FiFileText className="mr-3 text-lg" />
-                <span>Manajemen Ujian</span>
-              </NavLink>
-            </li>
           </ul>
         </nav>
 

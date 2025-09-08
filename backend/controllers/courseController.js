@@ -229,10 +229,10 @@ function shuffleArray(array) {
     }
   };
   
-  exports.getCourseById = async (req, res) => {
+    exports.getCourseById = async (req, res) => {
     const courseId = req.params.id;
-    const { role } = req.cookies;
-  
+    const { role, name } = req.cookies; // Get name for student class lookup
+
     try {
       const pool = await poolPromise;
       const [rows] = await pool.query(`
@@ -243,23 +243,66 @@ function shuffleArray(array) {
         LEFT JOIN subfolders s ON c.subfolder_id = s.id
         WHERE c.id = ?
       `, [courseId]);
-  
+
       if (rows.length === 0) {
         return res.status(404).json({ message: "Course tidak ditemukan" });
       }
-  
+
       const course = rows[0];
-  
+
+      // Permission check for students
+      if (role === "siswa") {
+        if (course.hidden) {
+          return res.status(403).json({ message: "Course tersembunyi." });
+        }
+
+        const [userRows] = await pool.query("SELECT kelas FROM users WHERE name = ?", [name]);
+        if (userRows.length === 0) {
+          return res.status(404).json({ message: "User siswa tidak ditemukan." });
+        }
+        const studentKelas = String(userRows[0].kelas).toLowerCase().trim();
+
+        let courseKelasParsed = [];
+        try {
+          courseKelasParsed = JSON.parse(course.kelas);
+          if (!Array.isArray(courseKelasParsed)) {
+            courseKelasParsed = [String(courseKelasParsed)];
+          }
+        } catch {
+          courseKelasParsed = [String(course.kelas)];
+        }
+
+        const isStudentInCourseClass = courseKelasParsed.map(k => String(k).toLowerCase().trim()).includes(studentKelas);
+        if (!isStudentInCourseClass) {
+          return res.status(403).json({ message: "Siswa tidak terdaftar di kelas ini." });
+        }
+
+        // For exam courses, check dates (assuming 'waktu' implies an exam)
+        if (course.waktu !== null && course.waktu !== undefined) { // Check if it's an exam course
+          const now = new Date();
+          const mulai = new Date(course.tanggal_mulai);
+          const selesai = course.tanggal_selesai ? new Date(course.tanggal_selesai) : null;
+
+          if (now < mulai) {
+            return res.status(403).json({ message: "Ujian belum dimulai." });
+          }
+          if (selesai && now > selesai) {
+            return res.status(403).json({ message: "Ujian sudah berakhir." });
+          }
+        }
+      }
+
+      // Continue with original logic if authorized
       try {
         course.kelas = JSON.parse(course.kelas);
       } catch {
         course.kelas = [String(course.kelas)];
       }
-  
+
       course.subfolder = course.subfolder || null;
-  
+
       course.title = course.nama;
-  
+
       res.json(course);
     } catch (err) {
       console.error("Gagal ambil course by ID:", err.message);

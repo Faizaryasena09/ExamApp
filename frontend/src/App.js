@@ -17,6 +17,7 @@ import CoursesPage from "./pages/Courses";
 import DoExamPage from "./pages/DoExamPage";
 import ExamResultPage from "./pages/ExamResultPage";
 import CreateCoursesPage from "./pages/CreateCourses";
+import CreateLessonCourse from "./pages/CreateLessonCourse"; // <-- Impor halaman buat course lesson
 import UserManage from "./pages/UserManagementPage";
 import KelasManagement from "./pages/KelasManagement";
 import ManageCourse from "./pages/ManageCoursePage";
@@ -25,10 +26,14 @@ import AnswerSummaryPage from "./pages/AnswerSummaryPage";
 import StudentLogDetailPage from "./pages/StudentLogDetailPage";
 import ManageExamPage from "./pages/ManageExamPage";
 import ManageGuruPage from "./pages/ManageGuruPage";
+import ManageLessonPage from "./pages/ManageLessonPage"; // <-- Impor halaman kelola lesson
+import ViewLessonPage from "./pages/ViewLessonPage"; // <-- Impor halaman lihat lesson
 import PreviewPage from "./pages/PreviewPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import WebSettingsPage from "./pages/WebSettingsPage";
 import ProfilePage from "./pages/ProfilePage";
+import LessonsPage from "./pages/LessonsPage"; // <-- Impor halaman lesson
+import SetupPage from "./pages/SetupPage"; // <-- Impor halaman setup
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
@@ -136,7 +141,7 @@ function CourseAccessRoute({ element, type = "general" }) {
   return allowed ? element : <Navigate to="/home" />;
 }
 
-function AppLayout() {
+function AppLayout({ appMode }) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -175,6 +180,7 @@ function AppLayout() {
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           isMobile={isMobile}
+          appMode={appMode}
         />
       )}
 
@@ -193,6 +199,7 @@ function AppLayout() {
             <Route path="/home" element={<PrivateRoute element={<HomePage />} />} />
             <Route path="/profile" element={<PrivateRoute element={<ProfilePage />} />} />
             <Route path="/courses" element={<PrivateRoute element={<CoursesPage />} />} />
+            <Route path="/lessons" element={<PrivateRoute element={<LessonsPage />} />} />
             <Route path="/courses/:id/do" element={<PrivateRoute element={<DoExamPage />} />} />
             <Route path="/courses/:id/preview" element={<PrivateRoute element={<PreviewPage />} />} />
             <Route path="/courses/:courseId/log/:userId/:attemp" element={<StudentLogDetailPage />} />
@@ -210,6 +217,19 @@ function AppLayout() {
                   element={<CourseAccessRoute element={<ManageCourse />} type="manage" />}
                 />
               }
+            />
+            <Route
+              path="/lessons/:id/manage"
+              element={
+                <RoleRoute
+                  allowedRoles={["guru", "admin"]}
+                  element={<ManageLessonPage />} // No CourseAccessRoute needed for now
+                />
+              }
+            />
+            <Route
+              path="/lessons/:id/view"
+              element={<PrivateRoute element={<ViewLessonPage />} />}
             />
             <Route
               path="/examcontrol"
@@ -233,6 +253,11 @@ function AppLayout() {
             <Route
               path="/createcourses"
               element={<RoleRoute allowedRoles={["guru", "admin"]} element={<CreateCoursesPage />} />}
+            />
+
+            <Route
+              path="/create-lesson-course"
+              element={<RoleRoute allowedRoles={["guru", "admin"]} element={<CreateLessonCourse />} />}
             />
 
             <Route
@@ -262,9 +287,44 @@ function AppLayout() {
 }
 
 function App() {
+  const [appMode, setAppMode] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAppMode = async () => {
+      try {
+        const response = await api.get('/mode');
+        if (response.data.needsSetup) {
+          setAppMode('needsSetup');
+        } else {
+          setAppMode(response.data.mode);
+        }
+      } catch (error) {
+        console.error("Gagal mengambil mode aplikasi:", error);
+        setAppMode('error'); 
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAppMode();
+  }, []);
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen bg-gray-100 text-gray-700">Memuat Konfigurasi...</div>;
+  }
+
+  if (appMode === 'needsSetup') {
+    return <SetupPage />;
+  }
+  
+  if (appMode === 'error') {
+    return <div className="flex items-center justify-center min-h-screen bg-red-100 text-red-700">Gagal memuat konfigurasi aplikasi. Pastikan backend berjalan dan coba muat ulang halaman.</div>;
+  }
+
   return (
     <Router>
-      <AppLayout />
+      <AppLayout appMode={appMode} />
       <ToastContainer
         position="top-right"
         autoClose={3000}

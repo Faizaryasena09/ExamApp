@@ -47,6 +47,42 @@ exports.checkCourseAccess = async (req, res) => {
       if (rows[0]?.pengajar_id === user_id) return res.json({ allowed: true });
     }
 
+    if (role === "siswa") {
+      const [courseRows] = await db.query("SELECT kelas, hidden, tanggal_mulai, tanggal_selesai FROM courses WHERE id = ?", [course_id]);
+      if (courseRows.length === 0) return res.json({ allowed: false, msg: "Course tidak ditemukan." });
+
+      const course = courseRows[0];
+      if (course.hidden) return res.json({ allowed: false, msg: "Course tersembunyi." });
+
+      const [studentRows] = await db.query("SELECT kelas FROM users WHERE id = ?", [user_id]);
+      if (studentRows.length === 0) return res.json({ allowed: false, msg: "User siswa tidak ditemukan." });
+      const studentKelas = String(studentRows[0].kelas).toLowerCase().trim();
+
+      let courseKelasParsed = [];
+      try {
+        courseKelasParsed = JSON.parse(course.kelas);
+        if (!Array.isArray(courseKelasParsed)) {
+          courseKelasParsed = [String(courseKelasParsed)];
+        }
+      } catch {
+        courseKelasParsed = [String(course.kelas)];
+      }
+
+      const isStudentInCourseClass = courseKelasParsed.map(k => String(k).toLowerCase().trim()).includes(studentKelas);
+      if (!isStudentInCourseClass) return res.json({ allowed: false, msg: "Siswa tidak terdaftar di kelas ini." });
+
+      if (type === "general" || type === "do") {
+        const now = new Date();
+        const mulai = new Date(course.tanggal_mulai);
+        const selesai = course.tanggal_selesai ? new Date(course.tanggal_selesai) : null;
+
+        if (now < mulai) return res.json({ allowed: false, msg: "Ujian belum dimulai." });
+        if (selesai && now > selesai) return res.json({ allowed: false, msg: "Ujian sudah berakhir." });
+      }
+
+      return res.json({ allowed: true });
+    }
+
     return res.json({ allowed: false });
   } catch (err) {
     console.error("❌ Error check course access:", err.message);

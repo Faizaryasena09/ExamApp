@@ -66,9 +66,18 @@ function LoginPage() {
 
       setMessage("✅ Login berhasil! Mengarahkan...");
       setTimeout(() => {
-        const redirectPath = localStorage.getItem("redirectAfterLogin") || "/home";
+        let redirectPath = localStorage.getItem("redirectAfterLogin");
+
+        // Jika role bukan admin, jangan arahkan ke halaman admin yang mungkin tersimpan.
+        if (role !== 'admin' && redirectPath) {
+          redirectPath = null; // Abaikan path yang tersimpan
+        }
+        
+        // Hapus item dari localStorage setelah dibaca
         localStorage.removeItem("redirectAfterLogin");
-        navigate(redirectPath, { replace: true });
+
+        // Arahkan ke path yang sesuai, atau default ke /home
+        navigate(redirectPath || "/home", { replace: true });
       }, 1500);      
     } catch (err) {
       setMessage(`❌ ${err.response?.data?.message || "Username atau password salah"}`);

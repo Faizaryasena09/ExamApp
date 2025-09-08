@@ -195,6 +195,19 @@ ${DB_NAME}
     `);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS lessons (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        course_id INT NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        content TEXT,
+        section_order INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+      )
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS status_ujian (
         user_id INT,
         course_id INT,
@@ -202,6 +215,13 @@ ${DB_NAME}
         PRIMARY KEY (user_id, course_id)
       )
     `);
+
+    // MIGRASI: Tambah kolom app_mode ke tabel web_settings
+    const [webSettingsColumns] = await pool.query("SHOW COLUMNS FROM web_settings LIKE 'app_mode'");
+    if (webSettingsColumns.length === 0) {
+      await pool.query("ALTER TABLE web_settings ADD COLUMN app_mode VARCHAR(50) DEFAULT NULL");
+      console.log("✅ Migrasi: Kolom 'app_mode' ditambahkan ke tabel 'web_settings'.");
+    }
 
     // MIGRASI: Tambah kolom tipe_soal ke tabel questions
     const [questionsColumns] = await pool.query("SHOW COLUMNS FROM questions LIKE 'tipe_soal'");

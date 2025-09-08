@@ -29,16 +29,17 @@ const upload = multer({ storage, fileFilter });
 
 // Public route
 router.get("/web-settings", webMngController.getSettings);
+router.get("/mode", webMngController.getAppMode);
+router.post("/mode", webMngController.setAppMode);
 
-// Apply authentication and authorization to all subsequent routes
+// Apply authentication to all subsequent routes
 router.use(authMiddleware);
-router.use(onlyRole("admin"));
 
-// Protected routes
-router.put("/web-settings", upload.single("logo"), webMngController.updateSettings);
-router.get("/db/tables", webMngController.getAllTables);
-router.delete("/db/:tableName", webMngController.deleteTable);
-router.post("/db/reset", webMngController.resetDatabase);
-router.post("/restart-server", webMngController.restartServer);
+// Protected routes are now individually authorized
+router.put("/web-settings", onlyRole("admin"), upload.single("logo"), webMngController.updateSettings);
+router.get("/db/tables", onlyRole("admin"), webMngController.getAllTables);
+router.delete("/db/:tableName", onlyRole("admin"), webMngController.deleteTable);
+router.post("/db/reset", onlyRole("admin"), webMngController.resetDatabase);
+router.post("/restart-server", onlyRole("admin"), webMngController.restartServer);
 
 module.exports = router;
