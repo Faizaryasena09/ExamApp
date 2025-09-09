@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Cookies from "js-cookie";
 import api from "../api";
@@ -48,7 +48,12 @@ function LessonsPage() {
   const handleManageClick = (id) => navigate(`/lessons/${id}/manage`);
   const handleViewClick = (id) => navigate(`/lessons/${id}/view`);
 
-  const filteredCourses = courses.filter((course) =>
+  const lessonCourses = useMemo(() => {
+    // A course is considered a "lesson" if it does not have a specific time limit (waktu).
+    return courses.filter(course => !course.waktu || course.waktu === 0);
+  }, [courses]);
+
+  const filteredCourses = lessonCourses.filter((course) =>
     course.nama.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -96,7 +101,7 @@ function LessonsPage() {
           <div className="text-center py-20 bg-white rounded-lg shadow-sm border">
             <FiAlertCircle className="mx-auto text-5xl text-slate-400 mb-4" />
             <h3 className="text-xl font-semibold text-slate-700">Tidak Ada Lesson Ditemukan</h3>
-            <p className="text-slate-500 mt-2">Belum ada materi atau lesson yang dibuat.</p>
+            <p className="text-slate-500 mt-2">Belum ada materi atau lesson yang dibuat untuk kategori ini.</p>
           </div>
         ) : (
           <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 p-4 sm:p-6">

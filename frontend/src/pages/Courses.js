@@ -327,13 +327,16 @@ function CoursesPage() {
   };
 
   const filteredCourses = courses.filter((course) => {
+    // An exam course must have a time limit (waktu). Lesson courses do not.
+    const isExamCourse = course.waktu && course.waktu > 0;
+
     const matchKelas =
       selectedKelas === "all" ||
       (Array.isArray(course.kelas)
         ? course.kelas.includes(selectedKelas)
         : course.kelas === selectedKelas);
     const matchSearch = course.nama.toLowerCase().includes(search.toLowerCase());
-    return matchKelas && matchSearch;
+    return isExamCourse && matchKelas && matchSearch;
   });
 
   const grouped = {};

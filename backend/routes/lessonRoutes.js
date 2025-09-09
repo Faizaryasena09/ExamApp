@@ -11,4 +11,7 @@ router.post('/', authMiddleware, onlyRole(["admin", "guru"]), lessonController.c
 router.put('/:lessonId', authMiddleware, onlyRole(["admin", "guru"]), lessonController.updateLesson);
 router.delete('/:lessonId', authMiddleware, onlyRole(["admin", "guru"]), lessonController.deleteLesson);
 
+// Rute baru untuk reordering
+router.post('/reorder', authMiddleware, onlyRole(["admin", "guru"]), lessonController.reorderLessons);
+
 module.exports = router;

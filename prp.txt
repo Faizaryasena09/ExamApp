@@ -1,4 +1,6 @@
-Login.js:57 
- POST http://localhost:5000/api/auth/login 403 (Forbidden)
-
-﻿
+TypeError: db.rollback is not a function
+    at exports.createLesson (D:\Hasil Coding\ExamApp\backend\controllers\lessonController.js:41:22)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+TypeError: db.rollback is not a function
+    at exports.createLesson (D:\Hasil Coding\ExamApp\backend\controllers\lessonController.js:41:22)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)

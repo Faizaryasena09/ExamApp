@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { toast } from '../utils/toast';
 import JoditEditor from 'jodit-react';
-import { FiPlus, FiEdit, FiTrash2, FiChevronLeft, FiLoader } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiChevronLeft, FiLoader, FiArrowUp, FiArrowDown, FiSave } from 'react-icons/fi';
 
 const ManageLessonPage = () => {
   const { id: courseId } = useParams();
@@ -12,10 +12,12 @@ const ManageLessonPage = () => {
   const [course, setCourse] = useState(null);
   const [lessons, setLessons] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isOrderChanged, setIsOrderChanged] = useState(false);
   
   const [currentLesson, setCurrentLesson] = useState(null);
   const [editorContent, setEditorContent] = useState('');
   const [lessonTitle, setLessonTitle] = useState('');
+  const [displayMode, setDisplayMode] = useState('accordion'); // State for display mode
 
   const editorConfig = useMemo(() => ({
     readonly: false,
@@ -23,35 +25,38 @@ const ManageLessonPage = () => {
     height: 400,
   }), []);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const courseRes = await api.get(`/courses/${courseId}`);
-        setCourse(courseRes.data);
+  const fetchData = useCallback(async () => {
+    try {
+      const courseRes = await api.get(`/courses/${courseId}`);
+      setCourse(courseRes.data);
 
-        const lessonsRes = await api.get(`/lessons/course/${courseId}`);
-        setLessons(lessonsRes.data);
-      } catch (error) {
-        console.error("Gagal mengambil data lesson", error);
-        toast.error("Gagal memuat data. Kembali ke halaman sebelumnya.");
-        navigate('/lessons');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+      const lessonsRes = await api.get(`/lessons/course/${courseId}`);
+      setLessons(lessonsRes.data);
+    } catch (error) {
+      console.error("Gagal mengambil data lesson", error);
+      toast.error("Gagal memuat data. Kembali ke halaman sebelumnya.");
+      navigate('/lessons');
+    } finally {
+      setLoading(false);
+    }
   }, [courseId, navigate]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleSelectLesson = (lesson) => {
     setCurrentLesson(lesson);
     setLessonTitle(lesson.title);
     setEditorContent(lesson.content);
+    setDisplayMode(lesson.display_mode || 'accordion'); // Set display mode on select
   };
 
   const handleAddNew = () => {
     setCurrentLesson(null);
     setLessonTitle('');
     setEditorContent('');
+    setDisplayMode('accordion'); // Reset to default
   };
 
   const handleSave = async () => {
@@ -63,23 +68,19 @@ const ManageLessonPage = () => {
       course_id: courseId,
       title: lessonTitle,
       content: editorContent,
-      section_order: currentLesson ? currentLesson.section_order : lessons.length,
+      display_mode: displayMode, // Include display mode in payload
     };
 
     try {
       if (currentLesson) {
-        // Update lesson yang ada
         await api.put(`/lessons/${currentLesson.id}`, payload);
         toast.success('Materi berhasil diperbarui');
       } else {
-        // Buat lesson baru
         await api.post('/lessons', payload);
         toast.success('Materi baru berhasil disimpan');
       }
-      // Refresh data
-      const lessonsRes = await api.get(`/lessons/course/${courseId}`);
-      setLessons(lessonsRes.data);
-      handleAddNew(); // Reset form
+      await fetchData();
+      handleAddNew();
     } catch (error) {
       console.error("Gagal menyimpan materi", error);
       toast.error('Gagal menyimpan materi.');
@@ -102,6 +103,29 @@ const ManageLessonPage = () => {
     }
   };
 
+  const handleMove = (index, direction) => {
+    const newLessons = [...lessons];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+
+    if (targetIndex < 0 || targetIndex >= newLessons.length) return;
+
+    [newLessons[index], newLessons[targetIndex]] = [newLessons[targetIndex], newLessons[index]];
+    setLessons(newLessons);
+    setIsOrderChanged(true);
+  };
+
+  const handleSaveOrder = async () => {
+    const orderedIds = lessons.map(l => l.id);
+    try {
+      await api.post('/lessons/reorder', { course_id: courseId, orderedIds });
+      toast.success('Urutan materi berhasil disimpan.');
+      setIsOrderChanged(false);
+    } catch (error) {
+      console.error("Gagal menyimpan urutan", error);
+      toast.error('Gagal menyimpan urutan materi.');
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-screen"><FiLoader className="animate-spin text-4xl" /></div>;
   }
@@ -113,24 +137,33 @@ const ManageLessonPage = () => {
           <FiChevronLeft /> Kembali ke Daftar Lesson
         </button>
         <h1 className="text-3xl font-bold text-gray-800">Kelola Materi untuk: {course?.nama}</h1>
-        <p className="text-gray-500 mt-1">Tambah, edit, atau hapus materi/section untuk course ini.</p>
+        <p className="text-gray-500 mt-1">Tambah, edit, atau urutkan materi/section untuk course ini.</p>
 
         <div className="flex flex-col md:flex-row gap-8 mt-8">
           {/* Daftar Section */}
           <div className="md:w-1/3 bg-white p-6 rounded-lg shadow-sm border">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">Daftar Materi</h2>
-              <button onClick={handleAddNew} className="p-2 rounded-full hover:bg-gray-200">
-                <FiPlus />
-              </button>
+              <div className="flex items-center gap-2">
+                {isOrderChanged && (
+                  <button onClick={handleSaveOrder} className="p-2 rounded-full bg-green-100 text-green-600 hover:bg-green-200" title="Simpan Urutan">
+                    <FiSave />
+                  </button>
+                )}
+                <button onClick={handleAddNew} className="p-2 rounded-full hover:bg-gray-200" title="Tambah Materi Baru">
+                  <FiPlus />
+                </button>
+              </div>
             </div>
             <ul className="space-y-2">
-              {lessons.map(lesson => (
-                <li key={lesson.id} className={`p-3 rounded-lg cursor-pointer flex justify-between items-center ${currentLesson?.id === lesson.id ? 'bg-indigo-100' : 'hover:bg-gray-100'}`}>
-                  <span onClick={() => handleSelectLesson(lesson)} className="flex-grow">{lesson.title}</span>
-                  <button onClick={() => handleDelete(lesson.id)} className="text-red-500 hover:text-red-700 p-1">
-                    <FiTrash2 size={16} />
-                  </button>
+              {lessons.map((lesson, index) => (
+                <li key={lesson.id} className={`p-3 rounded-lg flex justify-between items-center group ${currentLesson?.id === lesson.id ? 'bg-indigo-100' : 'hover:bg-gray-100'}`}>
+                  <span onClick={() => handleSelectLesson(lesson)} className="flex-grow cursor-pointer">{lesson.title}</span>
+                  <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => handleMove(index, 'up')} disabled={index === 0} className="p-1 disabled:opacity-20 disabled:cursor-not-allowed"><FiArrowUp size={16} /></button>
+                    <button onClick={() => handleMove(index, 'down')} disabled={index === lessons.length - 1} className="p-1 disabled:opacity-20 disabled:cursor-not-allowed"><FiArrowDown size={16} /></button>
+                    <button onClick={() => handleDelete(lesson.id)} className="text-red-500 hover:text-red-700 p-1 ml-2"><FiTrash2 size={16} /></button>
+                  </div>
                 </li>
               ))}
               {lessons.length === 0 && <p className="text-sm text-gray-400 text-center py-4">Belum ada materi.</p>}
@@ -140,16 +173,30 @@ const ManageLessonPage = () => {
           {/* Editor */}
           <div className="md:w-2/3 bg-white p-6 rounded-lg shadow-sm border">
             <h2 className="text-2xl font-bold mb-4">{currentLesson ? 'Edit Materi' : 'Tambah Materi Baru'}</h2>
-            <div className="mb-4">
-              <label htmlFor="lessonTitle" className="block text-sm font-medium text-gray-700 mb-1">Judul Materi</label>
-              <input 
-                type="text"
-                id="lessonTitle"
-                value={lessonTitle}
-                onChange={e => setLessonTitle(e.target.value)}
-                className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                placeholder="Contoh: Bab 1 - Pengenalan"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label htmlFor="lessonTitle" className="block text-sm font-medium text-gray-700 mb-1">Judul Materi</label>
+                <input 
+                  type="text"
+                  id="lessonTitle"
+                  value={lessonTitle}
+                  onChange={e => setLessonTitle(e.target.value)}
+                  className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Contoh: Bab 1 - Pengenalan"
+                />
+              </div>
+              <div>
+                <label htmlFor="displayMode" className="block text-sm font-medium text-gray-700 mb-1">Mode Tampilan</label>
+                <select
+                  id="displayMode"
+                  value={displayMode}
+                  onChange={e => setDisplayMode(e.target.value)}
+                  className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
+                >
+                  <option value="accordion">Akordeon (Semua materi satu halaman)</option>
+                  <option value="paginated">Per Halaman (Navigasi Next/Prev)</option>
+                </select>
+              </div>
             </div>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Konten Materi</label>

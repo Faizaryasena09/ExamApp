@@ -2,13 +2,13 @@ import React, { useEffect, useState, useMemo } from "react";
 import api from "../api";
 import Cookies from "js-cookie";
 import { Link } from "react-router-dom";
-import { FiBookOpen, FiCheckSquare, FiTrendingUp, FiClock, FiArrowRight, FiActivity } from 'react-icons/fi';
+import { FiBookOpen, FiCheckSquare, FiFileText, FiPlayCircle, FiArrowRight, FiActivity } from 'react-icons/fi';
 
-const StatCard = ({ icon, title, value, color, loading }) => {
+const StatCard = ({ icon, title, value, color }) => {
   const colorClasses = {
     blue: 'bg-blue-100 text-blue-600',
     green: 'bg-green-100 text-green-600',
-    yellow: 'bg-yellow-100 text-yellow-600',
+    purple: 'bg-purple-100 text-purple-600',
   };
 
   return (
@@ -24,18 +24,59 @@ const StatCard = ({ icon, title, value, color, loading }) => {
   );
 };
 
+const ContentList = ({ title, items, type }) => {
+  const linkPath = type === 'assessment' ? (id) => `/courses/${id}/do` : (id) => `/lessons/${id}/view`;
+  const icon = type === 'assessment' ? <FiFileText className="text-indigo-500" /> : <FiPlayCircle className="text-green-500" />;
+
+  return (
+    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">{title}</h3>
+      {items.length > 0 ? (
+        <ul className="space-y-3">
+          {items.slice(0, 5).map(item => (
+            <li key={item.id}>
+              <Link to={linkPath(item.id)} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                <div className="flex items-center gap-4">
+                  {icon}
+                  <span className="font-medium text-gray-700">{item.nama}</span>
+                </div>
+                <FiArrowRight className="text-gray-400" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="text-center py-10 bg-gray-50 rounded-lg">
+          <FiActivity size={32} className="mx-auto text-gray-400" />
+          <p className="mt-2 text-gray-500">Belum ada {type === 'assessment' ? 'ujian' : 'materi'} yang tersedia.</p>
+        </div>
+      )}
+      {items.length > 5 && (
+        <Link to={type === 'assessment' ? '/courses' : '/lessons'} className="block text-center mt-4 text-indigo-600 font-semibold hover:underline">
+          Lihat Semua
+        </Link>
+      )}
+    </div>
+  );
+};
+
 const DashboardSkeleton = () => (
   <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 animate-pulse">
     <div className="max-w-7xl mx-auto">
+      {/* Header Skeleton */}
       <div className="h-8 bg-gray-200 rounded-md w-1/3 mb-2"></div>
-      <div className="h-5 bg-gray-200 rounded-md w-1/2"></div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+      <div className="h-5 bg-gray-200 rounded-md w-1/2 mb-8"></div>
+
+      {/* Stat Cards Skeleton */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="h-24 bg-gray-200 rounded-xl"></div>
         <div className="h-24 bg-gray-200 rounded-xl"></div>
         <div className="h-24 bg-gray-200 rounded-xl"></div>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-        <div className="lg:col-span-2 h-48 bg-gray-200 rounded-xl"></div>
+
+      {/* Content Lists Skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+        <div className="h-48 bg-gray-200 rounded-xl"></div>
         <div className="h-48 bg-gray-200 rounded-xl"></div>
       </div>
     </div>
@@ -44,9 +85,9 @@ const DashboardSkeleton = () => (
 
 function HomePage() {
   const [user, setUser] = useState({});
-  const [recentExam, setRecentExam] = useState(null);
-  const [stats, setStats] = useState({ completed: 0, averageScore: 0 });
-  const [totalCourses, setTotalCourses] = useState(0);
+  const [assessments, setAssessments] = useState([]);
+  const [lessons, setLessons] = useState([]);
+  const [stats, setStats] = useState({ completed: 0 });
   const [loading, setLoading] = useState(true);
 
   const userId = Cookies.get("user_id");
@@ -54,17 +95,22 @@ function HomePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [userRes, recentRes, statsRes, allCourseRes] = await Promise.all([
+        const [userRes, statsRes, allCourseRes] = await Promise.all([
           api.get("/user", { params: { id: userId } }),
-          api.get("/dashboard/recent", { params: { user_id: userId } }),
           api.get("/dashboard/summary", { params: { user_id: userId } }),
           api.get("/courses")
         ]);
 
         setUser(userRes.data);
-        setRecentExam(recentRes.data);
         setStats(statsRes.data);
-        setTotalCourses(allCourseRes.data.length || 0);
+
+        const allCourses = allCourseRes.data || [];
+        const assessmentCourses = allCourses.filter(course => course.waktu !== null && course.waktu > 0);
+        const lessonCourses = allCourses.filter(course => course.waktu === null || course.waktu === 0);
+
+        setAssessments(assessmentCourses);
+        setLessons(lessonCourses);
+
       } catch (error) {
         console.error("❌ Gagal load data dashboard:", error);
       } finally {
@@ -75,19 +121,6 @@ function HomePage() {
     fetchData();
   }, [userId]);
 
-  const formattedRecentDate = useMemo(() => {
-    if (!recentExam?.date) return null;
-    try {
-      const date = new Date(recentExam.date);
-      return new Intl.DateTimeFormat('id-ID', {
-        dateStyle: 'long',
-        timeStyle: 'short',
-      }).format(date);
-    } catch (e) {
-      return recentExam.date;
-    }
-  }, [recentExam]);
-
   if (loading) {
     return <DashboardSkeleton />;
   }
@@ -95,7 +128,7 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-gray-50 font-sans p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        <header>
+        <header className="mb-8">
           <h1 className="text-3xl font-bold text-gray-800">
             Selamat Datang, {user.name}!
           </h1>
@@ -104,12 +137,18 @@ function HomePage() {
           </p>
         </header>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 mt-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <StatCard
+            icon={<FiFileText size={22} />}
+            title="Ujian Tersedia"
+            value={assessments.length}
+            color="blue"
+          />
           <StatCard
             icon={<FiBookOpen size={22} />}
-            title="Course Tersedia"
-            value={totalCourses}
-            color="blue"
+            title="Materi Tersedia"
+            value={lessons.length}
+            color="purple"
           />
           <StatCard
             icon={<FiCheckSquare size={22} />}
@@ -119,40 +158,9 @@ function HomePage() {
           />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-          <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-3">
-              <FiClock className="text-gray-500" />
-              Aktivitas Terakhir Anda
-            </h3>
-            {recentExam ? (
-              <div className="mt-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <p className="font-semibold text-gray-800">{recentExam.title}</p>
-                <div className="text-sm text-gray-500 mt-2 flex items-center gap-4">
-                </div>
-              </div>
-            ) : (
-              <div className="mt-4 text-center py-10 bg-gray-50 rounded-lg">
-                <FiActivity size={32} className="mx-auto text-gray-400" />
-                <p className="mt-2 text-gray-500">Belum ada aktivitas ujian yang tercatat.</p>
-              </div>
-            )}
-          </div>
-
-          <Link to="/courses" className="block bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 text-white flex flex-col justify-between">
-            <div>
-              <h3 className="text-lg font-bold">
-                Mulai Ujian Baru
-              </h3>
-              <p className="mt-1 text-blue-100 text-sm">
-                Tantang diri Anda dan tingkatkan pengetahuan Anda sekarang.
-              </p>
-            </div>
-            <div className="mt-4 text-md font-semibold flex items-center gap-2">
-              Lihat Daftar Ujian
-              <FiArrowRight />
-            </div>
-          </Link>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+          <ContentList title="Ujian Terbaru" items={assessments} type="assessment" />
+          <ContentList title="Materi Terbaru" items={lessons} type="lesson" />
         </div>
       </div>
     </div>
