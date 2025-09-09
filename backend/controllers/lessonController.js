@@ -8,39 +8,39 @@ exports.createLesson = async (req, res) => {
     return res.status(400).json({ message: 'Course ID dan title wajib diisi.' });
   }
 
-  let db;
+  let connection;
   try {
-    db = await dbPromise;
-    await db.beginTransaction();
+    const db = await dbPromise;
+    connection = await db.getConnection();
+    await connection.beginTransaction();
 
-    // Get the new section order
-    const [maxOrderRow] = await db.query(
+    const [maxOrderRow] = await connection.query(
       'SELECT MAX(section_order) as max_order FROM lessons WHERE course_id = ?',
       [course_id]
     );
     const newOrder = (maxOrderRow[0].max_order === null ? -1 : maxOrderRow[0].max_order) + 1;
 
-    // Insert into lessons table (without content)
-    const [lessonResult] = await db.query(
+    const [lessonResult] = await connection.query(
       'INSERT INTO lessons (course_id, title, section_order, display_mode) VALUES (?, ?, ?, ?)',
       [course_id, title, newOrder, display_mode || 'accordion']
     );
     const newLessonId = lessonResult.insertId;
 
-    // Insert into lesson_pages table with the content, if content is provided
     if (content && content.trim() !== '') {
-      await db.query(
+      await connection.query(
         'INSERT INTO lesson_pages (lesson_id, title, content, page_order) VALUES (?, ?, ?, ?)',
-        [newLessonId, title, content, 0] // Use lesson title as page title, page_order 0
+        [newLessonId, title, content, 0]
       );
     }
 
-    await db.commit();
+    await connection.commit();
     res.status(201).json({ message: 'Lesson berhasil dibuat', lessonId: newLessonId });
   } catch (err) {
-    if (db) await db.rollback();
+    if (connection) await connection.rollback();
     console.error('❌ Gagal membuat lesson:', err);
     res.status(500).json({ message: 'Gagal membuat lesson', error: err.message });
+  } finally {
+    if (connection) connection.release();
   }
 };
 
@@ -129,24 +129,58 @@ exports.updateLesson = async (req, res) => {
   const { lessonId } = req.params;
   const { title, content, display_mode } = req.body;
 
-  if (!title || !content) {
-    return res.status(400).json({ message: 'Title dan content wajib diisi.' });
+  if (!title) {
+    return res.status(400).json({ message: 'Title wajib diisi.' });
   }
 
+  let connection;
   try {
     const db = await dbPromise;
-    const [result] = await db.query(
-      'UPDATE lessons SET title = ?, content = ?, display_mode = ? WHERE id = ?',
-      [title, content, display_mode || 'accordion', lessonId]
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    // 1. Update the lesson title and display mode in the lessons table
+    const [lessonResult] = await connection.query(
+      'UPDATE lessons SET title = ?, display_mode = ? WHERE id = ?',
+      [title, display_mode || 'accordion', lessonId]
     );
 
-    if (result.affectedRows === 0) {
+    if (lessonResult.affectedRows === 0) {
+      await connection.rollback();
       return res.status(404).json({ message: 'Lesson tidak ditemukan' });
     }
+
+    // 2. Update or Insert the content in the lesson_pages table
+    if (content !== undefined) {
+      // Check if a page for this lesson (at page_order 0) already exists
+      const [pageRows] = await connection.query(
+        'SELECT id FROM lesson_pages WHERE lesson_id = ? AND page_order = 0',
+        [lessonId]
+      );
+
+      if (pageRows.length > 0) {
+        // If page exists, UPDATE it
+        await connection.query(
+          'UPDATE lesson_pages SET title = ?, content = ? WHERE lesson_id = ? AND page_order = 0',
+          [title, content, lessonId]
+        );
+      } else {
+        // If page does not exist, INSERT it
+        await connection.query(
+          'INSERT INTO lesson_pages (lesson_id, title, content, page_order) VALUES (?, ?, ?, 0)',
+          [lessonId, title, content]
+        );
+      }
+    }
+
+    await connection.commit();
     res.json({ message: 'Lesson berhasil diperbarui' });
   } catch (err) {
+    if (connection) await connection.rollback();
     console.error('❌ Gagal memperbarui lesson:', err);
     res.status(500).json({ message: 'Gagal memperbarui lesson', error: err.message });
+  } finally {
+    if (connection) connection.release();
   }
 };
 
