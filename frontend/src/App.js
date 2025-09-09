@@ -34,6 +34,7 @@ import WebSettingsPage from "./pages/WebSettingsPage";
 import ProfilePage from "./pages/ProfilePage";
 import LessonsPage from "./pages/LessonsPage"; // <-- Impor halaman lesson
 import SetupPage from "./pages/SetupPage"; // <-- Impor halaman setup
+
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
@@ -276,6 +277,7 @@ function AppLayout({ appMode }) {
               path="/webmng"
               element={<RoleRoute allowedRoles={["admin"]} element={<WebSettingsPage />} />}
             />
+            
             <Route path="/courses/:courseId/:userId/:attemp/summary" element={<AnswerSummaryPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

@@ -10,6 +10,41 @@ const ensureUploadDir = () => {
   }
 };
 
+exports.getAppConfig = (req, res) => {
+  try {
+    const envPath = path.resolve(__dirname, '../.env');
+    const envFileContent = fs.readFileSync(envPath, { encoding: 'utf8' });
+    const webIp = envFileContent.match(/^WEB_IP=(.*)$/m);
+    const webPort = envFileContent.match(/^WEB_PORT=(.*)$/m);
+
+    res.json({
+      webIp: webIp ? webIp[1] : 'localhost',
+      webPort: webPort ? webPort[1] : '3000',
+    });
+  } catch (err) {
+    console.error("❌ getAppConfig:", err);
+    res.status(500).json({ message: "Gagal mengambil konfigurasi aplikasi", error: err.message });
+  }
+};
+
+exports.updateAppConfig = (req, res) => {
+  try {
+    const { webIp, webPort } = req.body;
+    const envPath = path.resolve(__dirname, '../.env');
+    let envFileContent = fs.readFileSync(envPath, { encoding: 'utf8' });
+
+    envFileContent = envFileContent.replace(/^WEB_IP=.*$/m, `WEB_IP=${webIp}`);
+    envFileContent = envFileContent.replace(/^WEB_PORT=.*$/m, `WEB_PORT=${webPort}`);
+
+    fs.writeFileSync(envPath, envFileContent);
+
+    res.json({ message: "Konfigurasi aplikasi berhasil diperbarui. Restart server agar perubahan diterapkan." });
+  } catch (err) {
+    console.error("❌ updateAppConfig:", err);
+    res.status(500).json({ message: "Gagal memperbarui konfigurasi aplikasi", error: err.message });
+  }
+};
+
 exports.getSettings = async (req, res) => {
     try {
       const db = await dbPromise;

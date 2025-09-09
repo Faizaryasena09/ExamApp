@@ -7,8 +7,10 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const webOrigin = `http://${process.env.WEB_IP || 'localhost'}:${process.env.WEB_PORT || 3000}`;
+
 const allowedOrigins = [
-  "http://localhost:3000",
+  webOrigin,
   "http://192.168.0.8:89",
   "http://10.221.102.192:89"
 ];

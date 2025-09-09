@@ -153,6 +153,7 @@ function Sidebar({ isOpen, onClose, appMode }) {
                     <span>Manajemen Web</span>
                   </NavLink>
                 </li>
+                
                 {/* KONTROL UJIAN HANYA UNTUK ASSESSMENT & HYBRID */}
                 {(appMode === 'assessment' || appMode === 'hybrid') && (
                   <li>

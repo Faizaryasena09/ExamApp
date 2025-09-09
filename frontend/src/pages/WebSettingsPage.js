@@ -13,11 +13,21 @@ const WebSettingsPage = () => {
   const [logoFile, setLogoFile] = useState(null);
   const [logoFromServer, setLogoFromServer] = useState("");
   const [tables, setTables] = useState([]);
+  const [webIp, setWebIp] = useState("");
+  const [webPort, setWebPort] = useState("");
 
   useEffect(() => {
     fetchWebSettings();
     fetchTables();
+    fetchAppConfig();
   }, []);
+
+  const fetchAppConfig = () => {
+    api.get("/app-config").then((res) => {
+      setWebIp(res.data.webIp || "");
+      setWebPort(res.data.webPort || "");
+    });
+  };
 
   const fetchWebSettings = () => {
     api.get("/web-settings").then((res) => {
@@ -39,9 +49,11 @@ const WebSettingsPage = () => {
 
     try {
       await api.put("/web-settings", formData);
-      toast.success("Pengaturan berhasil disimpan");
+      await api.post("/app-config", { webIp, webPort });
+      toast.success("Pengaturan berhasil disimpan. Restart server jika ada perubahan pada IP/Port.");
       setLogoFile(null);
       fetchWebSettings();
+      fetchAppConfig();
     } catch (err) {
       toast.error("Gagal menyimpan pengaturan");
     }
@@ -97,6 +109,26 @@ const WebSettingsPage = () => {
                 className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
                 value={judul}
                 onChange={(e) => setJudul(e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="webIp" className="block text-sm font-medium text-gray-700 mb-1">IP Web</label>
+              <input
+                id="webIp"
+                type="text"
+                className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+                value={webIp}
+                onChange={(e) => setWebIp(e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="webPort" className="block text-sm font-medium text-gray-700 mb-1">Port Web</label>
+              <input
+                id="webPort"
+                type="text"
+                className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+                value={webPort}
+                onChange={(e) => setWebPort(e.target.value)}
               />
             </div>
             <div>
