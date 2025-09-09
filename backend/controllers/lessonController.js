@@ -2,7 +2,6 @@ const path = require('path');
 const fs = require('fs');
 const dbPromise = require('../models/database');
 function saveBase64Image(base64String) {
-  // Contoh: data:image/png;base64,iVBORw0...
   const matches = base64String.match(/^data:(image\/\w+);base64,(.+)$/);
   if (!matches) return null;
 
@@ -11,10 +10,13 @@ function saveBase64Image(base64String) {
   const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
   const filePath = path.join(__dirname, '../public/uploads/images', filename);
 
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, buffer);
 
-  return `/uploads/images/${filename}`;
+  const BASE_URL = process.env.BASE_URL || "http://localhost:5000"; 
+  return `${BASE_URL}/api/uploads/images/${filename}`;
 }
+
 
 // Ganti semua base64 image di HTML jadi link file
 function processContentImages(content) {

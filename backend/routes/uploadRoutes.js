@@ -7,7 +7,7 @@ const protect = require('../middlewares/authMiddleware');
 
 // Konfigurasi multer untuk upload gambar ke disk
 const diskStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'public/uploads/'),
+  destination: (req, file, cb) => cb(null, 'public/uploads/images/'),
   filename: (req, file, cb) => {
     const uniqueName = `${Date.now()}-${Math.floor(Math.random() * 1e6)}${path.extname(file.originalname)}`;
     cb(null, uniqueName);
@@ -23,7 +23,7 @@ const uploadMemory = multer({ storage: memoryStorage });
 // Endpoint untuk upload gambar (tetap seperti sebelumnya)
 router.post('/upload-image', uploadDisk.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-  const filePath = `/uploads/${req.file.filename}`;
+  const filePath = `/api/uploads/images/${req.file.filename}`;
   res.json({ path: filePath });
 });
 

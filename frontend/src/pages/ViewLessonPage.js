@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { toast } from '../utils/toast';
 import { FiChevronLeft, FiChevronDown, FiLoader, FiBookOpen } from 'react-icons/fi';
+import DOMPurify from 'dompurify';
 
 const ViewLessonPage = () => {
   const { id: courseId } = useParams(); // Changed from lessonId to courseId
@@ -90,7 +91,7 @@ const ViewLessonPage = () => {
                         {openLessonId === lesson.id && (
                             <div className="p-5 border-t border-gray-200 prose lg:prose-lg max-w-none">
                                 {lesson.content ? (
-                                    <div dangerouslySetInnerHTML={{ __html: lesson.content }} />
+                                    <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(lesson.content, { ADD_TAGS: ['img'], ADD_ATTR: ['src'] }) }} />
                                 ) : (
                                     <p>Konten untuk materi ini tidak tersedia atau masih kosong.</p>
                                 )}
