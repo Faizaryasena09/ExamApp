@@ -1,4 +1,20 @@
-Compiled with problems:
-×
-ERROR in ./src/pages/ViewLessonPage.js 10:0-34
-Module not found: Error: Can't resolve 'dompurify' in 'D:\Hasil Coding\ExamApp\frontend\src\pages'
+❌ resetDatabase: Error: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '\`answertrail_timer\`' at line 1
+    at PromisePool.query (D:\Hasil Coding\ExamApp\backend\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at exports.resetDatabase (D:\Hasil Coding\ExamApp\backend\controllers\webMngController.js:104:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ER_PARSE_ERROR',
+  errno: 1064,
+  sql: 'TRUNCATE TABLE \\`answertrail_timer\\`',
+  sqlState: '42000',
+  sqlMessage: "You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '\\`answertrail_timer\\`' at line 1"
+}
+❌ resetDatabase: Error: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '\`answertrail_timer\`' at line 1
+    at PromisePool.query (D:\Hasil Coding\ExamApp\backend\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at exports.resetDatabase (D:\Hasil Coding\ExamApp\backend\controllers\webMngController.js:104:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ER_PARSE_ERROR',
+  errno: 1064,
+  sql: 'TRUNCATE TABLE \\`answertrail_timer\\`',
+  sqlState: '42000',
+  sqlMessage: "You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '\\`answertrail_timer\\`' at line 1"
+}

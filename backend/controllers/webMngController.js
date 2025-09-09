@@ -92,13 +92,29 @@ exports.resetDatabase = async (req, res) => {
   try {
     const db = await dbPromise;
     const [tables] = await db.query("SHOW TABLES");
-    const tableNames = tables.map((row) => Object.values(row)[0]);
+    let tableNames = tables.map((row) => Object.values(row)[0]);
+
+    // Exclude web_settings from being truncated
+    tableNames = tableNames.filter(table => table !== 'web_settings');
+
+    await db.query("SET FOREIGN_KEY_CHECKS = 0;");
 
     for (const table of tableNames) {
-      await db.query(`DROP TABLE IF EXISTS \`${table}\``);
+      // Use TRUNCATE TABLE to empty the table
+      await db.query(`TRUNCATE TABLE 
+${table}
+`);
     }
 
-    res.json({ message: "Database berhasil direset" });
+    await db.query("SET FOREIGN_KEY_CHECKS = 1;");
+
+    // Re-insert the default admin user
+    await db.query(`
+      INSERT INTO users (username, password, role, name)
+      VALUES ('admin', SHA2('admin', 256), 'admin', 'Administrator')
+    `);
+
+    res.json({ message: "Database berhasil direset (data dikosongkan)" });
   } catch (err) {
     console.error("❌ resetDatabase:", err);
     res.status(500).json({ message: "Gagal reset database", error: err.message });
