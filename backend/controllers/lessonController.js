@@ -1,4 +1,32 @@
+const path = require('path');
+const fs = require('fs');
 const dbPromise = require('../models/database');
+function saveBase64Image(base64String) {
+  // Contoh: data:image/png;base64,iVBORw0...
+  const matches = base64String.match(/^data:(image\/\w+);base64,(.+)$/);
+  if (!matches) return null;
+
+  const ext = matches[1].split('/')[1];
+  const buffer = Buffer.from(matches[2], 'base64');
+  const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
+  const filePath = path.join(__dirname, '../public/uploads/images', filename);
+
+  fs.writeFileSync(filePath, buffer);
+
+  return `/uploads/images/${filename}`;
+}
+
+// Ganti semua base64 image di HTML jadi link file
+function processContentImages(content) {
+  if (!content) return content;
+  return content.replace(/<img[^>]+src="([^">]+)"/g, (match, src) => {
+    if (src.startsWith('data:image')) {
+      const newPath = saveBase64Image(src);
+      return match.replace(src, newPath);
+    }
+    return match;
+  });
+}
 
 // Membuat lesson baru dalam sebuah course
 exports.createLesson = async (req, res) => {
@@ -27,9 +55,10 @@ exports.createLesson = async (req, res) => {
     const newLessonId = lessonResult.insertId;
 
     if (content && content.trim() !== '') {
+      const processedContent = processContentImages(content);
       await connection.query(
         'INSERT INTO lesson_pages (lesson_id, title, content, page_order) VALUES (?, ?, ?, ?)',
-        [newLessonId, title, content, 0]
+        [newLessonId, title, processedContent, 0]
       );
     }
 
@@ -139,36 +168,28 @@ exports.updateLesson = async (req, res) => {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // 1. Update the lesson title and display mode in the lessons table
-    const [lessonResult] = await connection.query(
+    await connection.query(
       'UPDATE lessons SET title = ?, display_mode = ? WHERE id = ?',
       [title, display_mode || 'accordion', lessonId]
     );
 
-    if (lessonResult.affectedRows === 0) {
-      await connection.rollback();
-      return res.status(404).json({ message: 'Lesson tidak ditemukan' });
-    }
-
-    // 2. Update or Insert the content in the lesson_pages table
     if (content !== undefined) {
-      // Check if a page for this lesson (at page_order 0) already exists
+      const processedContent = processContentImages(content);
+
       const [pageRows] = await connection.query(
         'SELECT id FROM lesson_pages WHERE lesson_id = ? AND page_order = 0',
         [lessonId]
       );
 
       if (pageRows.length > 0) {
-        // If page exists, UPDATE it
         await connection.query(
           'UPDATE lesson_pages SET title = ?, content = ? WHERE lesson_id = ? AND page_order = 0',
-          [title, content, lessonId]
+          [title, processedContent, lessonId]
         );
       } else {
-        // If page does not exist, INSERT it
         await connection.query(
           'INSERT INTO lesson_pages (lesson_id, title, content, page_order) VALUES (?, ?, ?, 0)',
-          [lessonId, title, content]
+          [lessonId, title, processedContent]
         );
       }
     }

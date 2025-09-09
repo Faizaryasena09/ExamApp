@@ -12,12 +12,10 @@ const ManageLessonPage = () => {
   const [course, setCourse] = useState(null);
   const [lessons, setLessons] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isOrderChanged, setIsOrderChanged] = useState(false);
-  
+
   const [currentLesson, setCurrentLesson] = useState(null);
   const [editorContent, setEditorContent] = useState('');
   const [lessonTitle, setLessonTitle] = useState('');
-  const [displayMode, setDisplayMode] = useState('accordion'); // State for display mode
 
   const editorConfig = useMemo(() => ({
     readonly: false,
@@ -27,6 +25,7 @@ const ManageLessonPage = () => {
 
   const fetchData = useCallback(async () => {
     try {
+      setLoading(true);
       const courseRes = await api.get(`/courses/${courseId}`);
       setCourse(courseRes.data);
 
@@ -49,14 +48,12 @@ const ManageLessonPage = () => {
     setCurrentLesson(lesson);
     setLessonTitle(lesson.title);
     setEditorContent(lesson.content);
-    setDisplayMode(lesson.display_mode || 'accordion'); // Set display mode on select
   };
 
   const handleAddNew = () => {
     setCurrentLesson(null);
     setLessonTitle('');
     setEditorContent('');
-    setDisplayMode('accordion'); // Reset to default
   };
 
   const handleSave = async () => {
@@ -68,7 +65,6 @@ const ManageLessonPage = () => {
       course_id: courseId,
       title: lessonTitle,
       content: editorContent,
-      display_mode: displayMode, // Include display mode in payload
     };
 
     try {
@@ -103,6 +99,18 @@ const ManageLessonPage = () => {
     }
   };
 
+  const handleSaveOrder = useCallback(async (reorderedLessons) => {
+    const orderedIds = reorderedLessons.map(l => l.id);
+    try {
+      await api.post('/lessons/reorder', { course_id: courseId, orderedIds });
+      toast.success('Urutan materi berhasil disimpan.');
+    } catch (error) {
+      console.error("Gagal menyimpan urutan", error);
+      toast.error('Gagal menyimpan urutan materi.');
+      fetchData(); // Revert UI on failure
+    }
+  }, [courseId, fetchData]);
+
   const handleMove = (index, direction) => {
     const newLessons = [...lessons];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
@@ -111,19 +119,7 @@ const ManageLessonPage = () => {
 
     [newLessons[index], newLessons[targetIndex]] = [newLessons[targetIndex], newLessons[index]];
     setLessons(newLessons);
-    setIsOrderChanged(true);
-  };
-
-  const handleSaveOrder = async () => {
-    const orderedIds = lessons.map(l => l.id);
-    try {
-      await api.post('/lessons/reorder', { course_id: courseId, orderedIds });
-      toast.success('Urutan materi berhasil disimpan.');
-      setIsOrderChanged(false);
-    } catch (error) {
-      console.error("Gagal menyimpan urutan", error);
-      toast.error('Gagal menyimpan urutan materi.');
-    }
+    handleSaveOrder(newLessons);
   };
 
   if (loading) {
@@ -145,11 +141,6 @@ const ManageLessonPage = () => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">Daftar Materi</h2>
               <div className="flex items-center gap-2">
-                {isOrderChanged && (
-                  <button onClick={handleSaveOrder} className="p-2 rounded-full bg-green-100 text-green-600 hover:bg-green-200" title="Simpan Urutan">
-                    <FiSave />
-                  </button>
-                )}
                 <button onClick={handleAddNew} className="p-2 rounded-full hover:bg-gray-200" title="Tambah Materi Baru">
                   <FiPlus />
                 </button>
@@ -173,7 +164,7 @@ const ManageLessonPage = () => {
           {/* Editor */}
           <div className="md:w-2/3 bg-white p-6 rounded-lg shadow-sm border">
             <h2 className="text-2xl font-bold mb-4">{currentLesson ? 'Edit Materi' : 'Tambah Materi Baru'}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 gap-4 mb-4">
               <div>
                 <label htmlFor="lessonTitle" className="block text-sm font-medium text-gray-700 mb-1">Judul Materi</label>
                 <input 
@@ -184,18 +175,6 @@ const ManageLessonPage = () => {
                   className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500"
                   placeholder="Contoh: Bab 1 - Pengenalan"
                 />
-              </div>
-              <div>
-                <label htmlFor="displayMode" className="block text-sm font-medium text-gray-700 mb-1">Mode Tampilan</label>
-                <select
-                  id="displayMode"
-                  value={displayMode}
-                  onChange={e => setDisplayMode(e.target.value)}
-                  className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
-                >
-                  <option value="accordion">Akordeon (Semua materi satu halaman)</option>
-                  <option value="paginated">Per Halaman (Navigasi Next/Prev)</option>
-                </select>
               </div>
             </div>
             <div className="mb-4">
