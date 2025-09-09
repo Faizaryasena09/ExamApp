@@ -1,6 +1,6 @@
 TypeError: db.rollback is not a function
-    at exports.createLesson (D:\Hasil Coding\ExamApp\backend\controllers\lessonController.js:41:22)
+    at exports.reorderLessons (D:\Hasil Coding\ExamApp\backend\controllers\lessonController.js:230:24)
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
 TypeError: db.rollback is not a function
-    at exports.createLesson (D:\Hasil Coding\ExamApp\backend\controllers\lessonController.js:41:22)
+    at exports.reorderLessons (D:\Hasil Coding\ExamApp\backend\controllers\lessonController.js:230:24)
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)

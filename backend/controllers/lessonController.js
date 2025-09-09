@@ -210,25 +210,30 @@ exports.reorderLessons = async (req, res) => {
       return res.status(400).json({ message: 'Course ID dan array orderedIds wajib diisi.' });
     }
   
-    let db;
+    let connection;
     try {
-      db = await dbPromise;
-      await db.beginTransaction();
+      const db = await dbPromise;
+      connection = await db.getConnection();
+      await connection.beginTransaction();
   
-      for (let i = 0; i < orderedIds.length; i++) {
-        const lessonId = orderedIds[i];
-        const newOrder = i;
-        await db.query(
+      // Use Promise.all to run all updates in parallel for efficiency
+      const updatePromises = orderedIds.map((lessonId, index) => {
+        const newOrder = index;
+        return connection.query(
           'UPDATE lessons SET section_order = ? WHERE id = ? AND course_id = ?',
           [newOrder, lessonId, course_id]
         );
-      }
+      });
+      
+      await Promise.all(updatePromises);
   
-      await db.commit();
+      await connection.commit();
       res.json({ message: 'Urutan lesson berhasil diperbarui.' });
     } catch (err) {
-      if (db) await db.rollback();
+      if (connection) await connection.rollback();
       console.error('❌ Gagal mengurutkan lesson:', err);
       res.status(500).json({ message: 'Gagal mengurutkan lesson', error: err.message });
+    } finally {
+      if (connection) connection.release();
     }
   };
