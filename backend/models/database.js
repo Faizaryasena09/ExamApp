@@ -238,6 +238,15 @@ ${DB_NAME}
       )
     `);
 
+     await pool.query(`
+  CREATE TABLE IF NOT EXISTS app_config (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    web_ip VARCHAR(100) NOT NULL DEFAULT 'localhost',
+    web_port INT NOT NULL DEFAULT 3000,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  )
+`);
+
     // ... (existing migrations remain the same) ...
 
     const [rows] = await pool.query("SELECT * FROM users WHERE username = 'admin'");

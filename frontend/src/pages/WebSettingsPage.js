@@ -51,7 +51,7 @@ const WebSettingsPage = () => {
     api.get("/db/tables").then((res) => setTables(res.data.tables));
   };
 
-  const handleSave = async () => {
+  const handleSaveSettings = async () => {
     const formData = new FormData();
     formData.append("judul", judul);
     if (logoFile) {
@@ -60,15 +60,23 @@ const WebSettingsPage = () => {
 
     try {
       await api.put("/web-settings", formData);
-      await api.post("/app-config", { webIp, webPort });
-      toast.success(
-        "Pengaturan berhasil disimpan. Restart server jika ada perubahan pada IP/Port."
-      );
+      toast.success("Pengaturan website berhasil disimpan.");
       setLogoFile(null);
       fetchWebSettings();
+    } catch (err) {
+      toast.error("Gagal menyimpan pengaturan website");
+    }
+  };
+
+  const handleSaveNetwork = async () => {
+    try {
+      await api.post("/app-config", { webIp, webPort });
+      toast.success(
+        "Pengaturan jaringan berhasil disimpan. Server akan direstart secara otomatis."
+      );
       fetchAppConfig();
     } catch (err) {
-      toast.error("Gagal menyimpan pengaturan");
+      toast.error("Gagal menyimpan pengaturan jaringan");
     }
   };
 
@@ -147,40 +155,6 @@ const WebSettingsPage = () => {
               />
             </div>
 
-            {/* GRID UNTUK IP DAN PORT */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label
-                  htmlFor="webIp"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  IP Web
-                </label>
-                <input
-                  id="webIp"
-                  type="text"
-                  className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
-                  value={webIp}
-                  onChange={(e) => setWebIp(e.target.value)}
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="webPort"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Port Web
-                </label>
-                <input
-                  id="webPort"
-                  type="text"
-                  className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
-                  value={webPort}
-                  onChange={(e) => setWebPort(e.target.value)}
-                />
-              </div>
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Logo Website
@@ -235,10 +209,59 @@ const WebSettingsPage = () => {
           </div>
           <div className="mt-8 text-right">
             <button
-              onClick={handleSave}
+              onClick={handleSaveSettings}
               className="bg-blue-600 text-white px-5 py-2.5 rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out"
             >
               Simpan Perubahan
+            </button>
+          </div>
+        </div>
+
+        {/* PENGATURAN JARINGAN */}
+        <div className="bg-white p-6 shadow-md rounded-lg border border-gray-200">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">
+            Pengaturan Jaringan
+          </h2>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label
+                  htmlFor="webIp"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  IP Web
+                </label>
+                <input
+                  id="webIp"
+                  type="text"
+                  className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+                  value={webIp}
+                  onChange={(e) => setWebIp(e.target.value)}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="webPort"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Port Web
+                </label>
+                <input
+                  id="webPort"
+                  type="text"
+                  className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+                  value={webPort}
+                  onChange={(e) => setWebPort(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="mt-8 text-right">
+            <button
+              onClick={handleSaveNetwork}
+              className="bg-green-600 text-white px-5 py-2.5 rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out"
+            >
+              Simpan & Restart Server
             </button>
           </div>
         </div>

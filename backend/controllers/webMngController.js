@@ -1,7 +1,11 @@
-const dbPromise = require("../models/database");
 const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
+const dbPromise = require("../models/database");
+
+const apacheConfPath = "/etc/apache2/sites-available/000-default.conf";
+const apachePortsPath = "/etc/apache2/ports.conf";
+const envPath = path.resolve(__dirname, "../.env")
 
 const ensureUploadDir = () => {
   const dir = path.join(__dirname, "../public/uploads");
@@ -10,16 +14,78 @@ const ensureUploadDir = () => {
   }
 };
 
+// 🔹 Generator file Apache
+function generateApacheConf(webIp, webPort) {
+  return `
+ServerName ${webIp}
+
+LoadModule proxy_module modules/mod_proxy.so
+LoadModule proxy_http_module modules/mod_proxy_http.so
+LoadModule rewrite_module modules/mod_rewrite.so
+
+<VirtualHost *:${webPort}>
+    DocumentRoot "/var/www/html"
+
+    <Directory "/var/www/html">
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+        LimitRequestBody 104857600
+        RewriteEngine On
+        RewriteCond %{REQUEST_URI} !^/api
+        RewriteCond %{REQUEST_FILENAME} !-f
+        RewriteCond %{REQUEST_FILENAME} !-d
+        RewriteRule . /index.html [L]
+    </Directory>
+
+    ProxyPreserveHost On
+    ProxyPass /api http://localhost:5000/api
+    ProxyPassReverse /api http://localhost:5000/api
+
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+  `;
+}
+
+// Fungsi generate ports.conf
+function generatePortsConf(webPort) {
+  return `
+Listen ${webPort}
+<IfModule ssl_module>
+    Listen 443
+</IfModule>
+<IfModule mod_gnutls.c>
+    Listen 443
+</IfModule>
+  `;
+}
+
+// 🔹 Update Dockerfile EXPOSE
+function updateDockerExpose(webPort) {
+  if (!fs.existsSync(dockerfilePath)) return;
+
+  let dockerfileContent = fs.readFileSync(dockerfilePath, "utf8");
+
+  if (dockerfileContent.match(/^EXPOSE\s+\d+/m)) {
+    dockerfileContent = dockerfileContent.replace(/^EXPOSE\s+\d+/m, `EXPOSE ${webPort}`);
+  } else {
+    dockerfileContent += `\nEXPOSE ${webPort}\n`;
+  }
+
+  fs.writeFileSync(dockerfilePath, dockerfileContent);
+}
+
 exports.getAppConfig = (req, res) => {
   try {
-    const envPath = path.resolve(__dirname, '../.env');
-    const envFileContent = fs.readFileSync(envPath, { encoding: 'utf8' });
+    const envPath = path.resolve(__dirname, "../.env");
+    const envFileContent = fs.readFileSync(envPath, { encoding: "utf8" });
     const webIp = envFileContent.match(/^WEB_IP=(.*)$/m);
     const webPort = envFileContent.match(/^WEB_PORT=(.*)$/m);
 
     res.json({
-      webIp: webIp ? webIp[1] : 'localhost',
-      webPort: webPort ? webPort[1] : '3000',
+      webIp: webIp ? webIp[1] : "localhost",
+      webPort: webPort ? webPort[1] : "3000",
     });
   } catch (err) {
     console.error("❌ getAppConfig:", err);
@@ -27,77 +93,120 @@ exports.getAppConfig = (req, res) => {
   }
 };
 
-exports.updateAppConfig = (req, res) => {
+exports.updateAppConfig = async (req, res) => {
   try {
     const { webIp, webPort } = req.body;
-    const envPath = path.resolve(__dirname, '../.env');
-    let envFileContent = fs.readFileSync(envPath, { encoding: 'utf8' });
+    const envPath = path.resolve(__dirname, "../.env");
+    const db = await dbPromise;
 
-    envFileContent = envFileContent.replace(/^WEB_IP=.*$/m, `WEB_IP=${webIp}`);
-    envFileContent = envFileContent.replace(/^WEB_PORT=.*$/m, `WEB_PORT=${webPort}`);
+    // Simpan ke DB
+    const [rows] = await db.query("SELECT * FROM app_config LIMIT 1");
+    if (rows.length > 0) {
+      await db.query("UPDATE app_config SET web_ip = ?, web_port = ? WHERE id = ?", [
+        webIp, webPort, rows[0].id
+      ]);
+    } else {
+      await db.query("INSERT INTO app_config (web_ip, web_port) VALUES (?, ?)", [
+        webIp, webPort
+      ]);
+    }
 
+    // Simpan ke .env
+    let envFileContent = fs.readFileSync(envPath, "utf8");
+    if (envFileContent.match(/^WEB_IP=.*$/m)) {
+      envFileContent = envFileContent.replace(/^WEB_IP=.*$/m, `WEB_IP=${webIp}`);
+    } else {
+      envFileContent += `\nWEB_IP=${webIp}`;
+    }
+    if (envFileContent.match(/^WEB_PORT=.*$/m)) {
+      envFileContent = envFileContent.replace(/^WEB_PORT=.*$/m, `WEB_PORT=${webPort}`);
+    } else {
+      envFileContent += `\nWEB_PORT=${webPort}`;
+    }
     fs.writeFileSync(envPath, envFileContent);
 
-    res.json({ message: "Konfigurasi aplikasi berhasil diperbarui. Restart server agar perubahan diterapkan." });
+    // Restart Apache + PM2 + Docker container
+    const restartCmd = `
+      systemctl restart apache2 && \
+      pm2 reload server && \
+      docker-compose up -d --force-recreate
+    `;
+
+    exec(restartCmd, (error, stdout, stderr) => {
+      if (error) {
+        console.error("❌ restart error:", error);
+        return res.status(200).json({
+          message: "Config tersimpan, tapi restart otomatis gagal. Restart manual diperlukan.",
+          error: error.message,
+          stderr
+        });
+      }
+
+      res.json({
+        message: `✅ Config tersimpan & Rushlesserver jalan di ${webIp}:${webPort}`,
+        output: stdout
+      });
+    });
   } catch (err) {
     console.error("❌ updateAppConfig:", err);
-    res.status(500).json({ message: "Gagal memperbarui konfigurasi aplikasi", error: err.message });
+    res.status(500).json({ message: "Gagal update config", error: err.message });
   }
 };
 
+
 exports.getSettings = async (req, res) => {
-    try {
-      const db = await dbPromise;
-      const [rows] = await db.query("SELECT * FROM web_settings LIMIT 1");
-      res.json(rows[0] || {});
-    } catch (err) {
-      console.error("❌ getSettings:", err);
-      res.status(500).json({ message: "Gagal mengambil pengaturan", error: err.message });
+  try {
+    const db = await dbPromise;
+    const [rows] = await db.query("SELECT * FROM web_settings LIMIT 1");
+    res.json(rows[0] || {});
+  } catch (err) {
+    console.error("❌ getSettings:", err);
+    res.status(500).json({ message: "Gagal mengambil pengaturan", error: err.message });
+  }
+};
+
+exports.updateSettings = async (req, res) => {
+  try {
+    const db = await dbPromise;
+    const { judul } = req.body;
+    let logoPath = null;
+
+    ensureUploadDir();
+
+    if (req.file && req.file.filename) {
+      logoPath = `/uploads/${req.file.filename}`;
     }
-  };
-  
-  exports.updateSettings = async (req, res) => {
-    try {
-      const db = await dbPromise;
-      const { judul } = req.body;
-      let logoPath = null;
-  
-      ensureUploadDir();
-  
-      if (req.file && req.file.filename) {
-        logoPath = `/uploads/${req.file.filename}`;
-      }
-  
-      const [existing] = await db.query("SELECT * FROM web_settings LIMIT 1");
-  
-      if (existing.length > 0) {
-        const current = existing[0];
-  
-        if (logoPath && current.logo && current.logo.startsWith("/uploads/")) {
-          const oldPath = path.join(__dirname, "../public", current.logo);
-          if (fs.existsSync(oldPath)) {
-            fs.unlinkSync(oldPath);
-          }
+
+    const [existing] = await db.query("SELECT * FROM web_settings LIMIT 1");
+
+    if (existing.length > 0) {
+      const current = existing[0];
+
+      if (logoPath && current.logo && current.logo.startsWith("/uploads/")) {
+        const oldPath = path.join(__dirname, "../public", current.logo);
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
         }
-  
-        await db.query("UPDATE web_settings SET judul = ?, logo = ? WHERE id = ?", [
-          judul,
-          logoPath || current.logo,
-          current.id,
-        ]);
-      } else {
-        await db.query("INSERT INTO web_settings (judul, logo) VALUES (?, ?)", [
-          judul,
-          logoPath,
-        ]);
       }
-  
-      res.json({ message: "Pengaturan berhasil disimpan" });
-    } catch (err) {
-      console.error("❌ updateSettings:", err);
-      res.status(500).json({ message: "Gagal menyimpan pengaturan", error: err.message });
+
+      await db.query("UPDATE web_settings SET judul = ?, logo = ? WHERE id = ?", [
+        judul,
+        logoPath || current.logo,
+        current.id,
+      ]);
+    } else {
+      await db.query("INSERT INTO web_settings (judul, logo) VALUES (?, ?)", [
+        judul,
+        logoPath,
+      ]);
     }
-  };
+
+    res.json({ message: "Pengaturan berhasil disimpan" });
+  } catch (err) {
+    console.error("❌ updateSettings:", err);
+    res.status(500).json({ message: "Gagal menyimpan pengaturan", error: err.message });
+  }
+};
 
 exports.getAllTables = async (req, res) => {
   try {
