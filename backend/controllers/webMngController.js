@@ -187,7 +187,7 @@ exports.setAppMode = async (req, res) => {
     const db = await dbPromise;
     const { mode } = req.body;
 
-    if (!['assessment', 'lesson', 'hybrid'].includes(mode)) {
+    if (!['assessment', 'lesson', 'multi'].includes(mode)) {
       return res.status(400).json({ message: "Mode tidak valid" });
     }
 

@@ -77,8 +77,8 @@ function Sidebar({ isOpen, onClose, appMode }) {
               </NavLink>
             </li>
 
-            {/* ASSESSMENT & HYBRID MODE */}
-            {(appMode === 'assessment' || appMode === 'hybrid') && (
+            {/* ASSESSMENT & MULTI MODE */}
+            {(appMode === 'assessment' || appMode === 'multi') && (
               <li>
                 <NavLink
                   to="/courses"
@@ -92,8 +92,8 @@ function Sidebar({ isOpen, onClose, appMode }) {
               </li>
             )}
 
-            {/* LESSON & HYBRID MODE */}
-            {(appMode === 'lesson' || appMode === 'hybrid') && (
+            {/* LESSON & MULTI MODE */}
+            {(appMode === 'lesson' || appMode === 'multi') && (
               <li>
                 <NavLink
                   to="/lessons"
@@ -154,8 +154,8 @@ function Sidebar({ isOpen, onClose, appMode }) {
                   </NavLink>
                 </li>
                 
-                {/* KONTROL UJIAN HANYA UNTUK ASSESSMENT & HYBRID */}
-                {(appMode === 'assessment' || appMode === 'hybrid') && (
+                {/* KONTROL UJIAN HANYA UNTUK ASSESSMENT & MULTI */}
+                {(appMode === 'assessment' || appMode === 'multi') && (
                   <li>
                     <NavLink
                       to="/examcontrol"
