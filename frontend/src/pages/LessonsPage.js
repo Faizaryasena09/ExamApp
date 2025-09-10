@@ -48,6 +48,19 @@ function LessonsPage() {
   const handleManageClick = (id) => navigate(`/lessons/${id}/manage`);
   const handleViewClick = (id) => navigate(`/lessons/${id}/view`);
 
+  const handleDelete = async (id) => {
+    if (window.confirm("Apakah Anda yakin ingin menghapus lesson ini?")) {
+      try {
+        await api.delete(`/courses/${id}`);
+        setCourses(courses.filter((course) => course.id !== id));
+        toast.success("Lesson berhasil dihapus.");
+      } catch (err) {
+        console.error("Gagal menghapus lesson:", err);
+        toast.error("Gagal menghapus lesson.");
+      }
+    }
+  };
+
   const lessonCourses = useMemo(() => {
     // A course is considered a "lesson" if it does not have a specific time limit (waktu).
     return courses.filter(course => !course.waktu || course.waktu === 0);
@@ -123,7 +136,7 @@ function LessonsPage() {
                   ) : (
                     <div className="flex justify-between items-center gap-2">
                       <button onClick={() => handleManageClick(course.id)} className="flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"> <FiSettings size={14} /> Kelola </button>
-                      <button onClick={() => { /* Logika hapus lesson course */ }} className="flex items-center gap-1.5 text-sm font-medium text-red-500 hover:text-red-700 transition-colors"> <FiTrash2 size={14} /> Hapus </button>
+                      <button onClick={() => handleDelete(course.id)} className="flex items-center gap-1.5 text-sm font-medium text-red-500 hover:text-red-700 transition-colors"> <FiTrash2 size={14} /> Hapus </button>
                     </div>
                   )}
                 </div>

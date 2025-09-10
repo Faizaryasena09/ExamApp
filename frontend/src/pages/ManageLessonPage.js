@@ -49,8 +49,11 @@ const ManageLessonPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [lessonToDelete, setLessonToDelete] = useState(null);
   const [activeTab, setActiveTab] = useState('content');
-
+  
   const [form, setForm] = useState({
+    nama: "",
+    deskripsi: "",
+    kelas: [],
     tanggalMulai: "",
     waktuMulai: "",
     enableTanggalSelesai: false,
@@ -58,11 +61,13 @@ const ManageLessonPage = () => {
     waktuSelesai: "",
     waktuMode: "30",
     waktuCustom: "",
-    deskripsi: "",
-    maxPengaksesan: 1,
-    tanpaBatasPengaksesan: false,
-    analisisPenyelesaian: false,
+    maxPercobaan: 1,
+    tanpaBatasPercobaan: false,
+    analisisJawaban: false,
   });
+  const [availableClasses, setAvailableClasses] = useState([]);
+
+  
 
   const editorConfig = useMemo(() => ({
     readonly: false,
@@ -70,11 +75,44 @@ const ManageLessonPage = () => {
     height: 400,
   }), []);
 
+  useEffect(() => {
+    const fetchClasses = async () => {
+      try {
+        const res = await api.get('/kelas');
+        setAvailableClasses(res.data);
+      } catch (error) {
+        console.error("Gagal mengambil data kelas", error);
+        toast.error("Gagal memuat data kelas.");
+      }
+    };
+    fetchClasses();
+  }, []);
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const courseRes = await api.get(`/courses/${courseId}`);
-      setCourse(courseRes.data);
+      const c = courseRes.data;
+      setCourse(c);
+      setForm({
+        nama: c.nama || "",
+        deskripsi: c.deskripsi || "",
+        kelas: Array.isArray(c.kelas) ? c.kelas : [c.kelas],
+        tanggalMulai: c.tanggal_mulai?.split("T")[0] || "",
+        waktuMulai: c.tanggal_mulai?.split("T")[1]?.slice(0, 5) || "",
+        enableTanggalSelesai: !!c.tanggal_selesai,
+        tanggalSelesai: c.tanggal_selesai?.split("T")[0] || "",
+        waktuSelesai: c.tanggal_selesai?.split("T")[1]?.slice(0, 5) || "",
+        waktuMode: [30, 45, 60, 120].includes(c.waktu)
+          ? String(c.waktu)
+          : c.waktu === null
+          ? "unlimited"
+          : "custom",
+        waktuCustom: ![30, 45, 60, 120].includes(c.waktu) ? c.waktu : "",
+        maxPercobaan: parseInt(c.maxPercobaan) || 1,
+        tanpaBatasPercobaan: c.maxPercobaan === -1,
+        analisisJawaban: Boolean(c.analisisJawaban),
+      });
 
       const lessonsRes = await api.get(`/lessons/course/${courseId}`);
       setLessons(lessonsRes.data.sort((a, b) => a.order - b.order));
@@ -95,42 +133,12 @@ const ManageLessonPage = () => {
     setCurrentLesson(lesson);
     setLessonTitle(lesson.title);
     setEditorContent(lesson.content);
-    setForm({
-        deskripsi: lesson.deskripsi || "",
-        maxPengaksesan: lesson.max_pengaksesan > 0 ? lesson.max_pengaksesan : 1,
-        tanpaBatasPengaksesan: lesson.max_pengaksesan === -1,
-        analisisPenyelesaian: Boolean(lesson.analisis_penyelesaian),
-        tanggalMulai: lesson.tanggal_mulai?.split("T")[0] || "",
-        waktuMulai: lesson.tanggal_mulai?.split("T")[1]?.slice(0, 5) || "",
-        enableTanggalSelesai: !!lesson.tanggal_selesai,
-        tanggalSelesai: lesson.tanggal_selesai?.split("T")[0] || "",
-        waktuSelesai: lesson.tanggal_selesai?.split("T")[1]?.slice(0, 5) || "",
-        waktuMode: [30, 45, 60, 120].includes(lesson.waktu)
-          ? String(lesson.waktu)
-          : lesson.waktu === null
-          ? "unlimited"
-          : "custom",
-        waktuCustom: ![30, 45, 60, 120].includes(lesson.waktu) ? lesson.waktu : "",
-      });
   };
 
   const handleAddNew = () => {
     setCurrentLesson(null);
     setLessonTitle('');
     setEditorContent('');
-    setForm({
-        tanggalMulai: "",
-        waktuMulai: "",
-        enableTanggalSelesai: false,
-        tanggalSelesai: "",
-        waktuSelesai: "",
-        waktuMode: "30",
-        waktuCustom: "",
-        deskripsi: "",
-        maxPengaksesan: 1,
-        tanpaBatasPengaksesan: false,
-        analisisPenyelesaian: false,
-      });
   };
 
   const handleSave = async () => {
@@ -138,25 +146,11 @@ const ManageLessonPage = () => {
       return toast.warn('Judul materi tidak boleh kosong.');
     }
     setIsSaving(true);
-    const waktu =
-      form.waktuMode === "custom"
-        ? parseInt(form.waktuCustom)
-        : form.waktuMode === "unlimited"
-        ? null
-        : parseInt(form.waktuMode);
 
     const payload = { 
         course_id: courseId, 
         title: lessonTitle, 
         content: editorContent,
-        deskripsi: form.deskripsi,
-        max_pengaksesan: form.tanpaBatasPengaksesan ? -1 : parseInt(form.maxPengaksesan),
-        analisis_penyelesaian: form.analisisPenyelesaian,
-        tanggal_mulai: `${form.tanggalMulai}T${form.waktuMulai}`,
-        tanggal_selesai: form.enableTanggalSelesai
-            ? `${form.tanggalSelesai}T${form.waktuSelesai}`
-            : null,
-        waktu,
     };
     try {
       if (currentLesson) {
@@ -213,6 +207,39 @@ const ManageLessonPage = () => {
     }
   }, [courseId, fetchData]);
 
+  const handleSaveSettings = async (e) => {
+    e.preventDefault();
+    const waktu =
+      form.waktuMode === "custom"
+        ? parseInt(form.waktuCustom)
+        : form.waktuMode === "unlimited"
+        ? null
+        : parseInt(form.waktuMode);
+
+    const payload = {
+      ...course,
+      nama: form.nama,
+      deskripsi: form.deskripsi,
+      kelas: form.kelas,
+      tanggal_mulai: `${form.tanggalMulai}T${form.waktuMulai}`,
+      tanggal_selesai: form.enableTanggalSelesai
+        ? `${form.tanggalSelesai}T${form.waktuSelesai}`
+        : null,
+      waktu,
+      maxPercobaan: form.tanpaBatasPercobaan ? -1 : parseInt(form.maxPercobaan),
+      analisisJawaban: form.analisisJawaban,
+    };
+
+    try {
+      const res = await api.put(`/courses/${courseId}`, payload);
+      setCourse(res.data);
+      toast.success("Pengaturan course berhasil diperbarui.");
+    } catch (error) {
+      console.error("Gagal memperbarui course", error);
+      toast.error("Gagal memperbarui pengaturan course.");
+    }
+  };
+
   const handleMove = (index, direction) => {
     const newLessons = [...lessons];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
@@ -230,6 +257,8 @@ const ManageLessonPage = () => {
     }));
   };
 
+  
+
   if (loading) {
     return <ManageLessonSkeleton />;
   }
@@ -241,8 +270,127 @@ const ManageLessonPage = () => {
           <button onClick={() => navigate('/lessons')} className="flex items-center gap-2 text-indigo-600 font-semibold mb-4 hover:underline">
             <FiChevronLeft /> Kembali ke Daftar Lesson
           </button>
-          <h1 className="text-3xl font-bold text-slate-800">Kelola Materi: {course?.nama}</h1>
-          <p className="text-slate-500 mt-1">Tambah, edit, atau urutkan materi/section untuk course ini.</p>
+          <p className="text-slate-500 mt-1">Ubah pengaturan umum untuk lesson ini, lalu kelola setiap materi di bawah.</p>
+
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 mt-8">
+            <h2 className="text-2xl font-bold mb-6 text-slate-800">Pengaturan Lesson</h2>
+            <form onSubmit={handleSaveSettings} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="courseName" className="block text-sm font-medium text-slate-700 mb-1">Nama Lesson</label>
+                  <input type="text" id="courseName" name="nama" value={form.nama} onChange={handleChange} className="w-full border border-slate-300 px-3 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"/>
+                </div>
+                <div>
+                  <label htmlFor="courseClass" className="block text-sm font-medium text-slate-700 mb-1">Kelas</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {availableClasses.map(kelas => (
+                      <label key={kelas.id} className="flex items-center">
+                        <input type="checkbox" checked={form.kelas.includes(kelas.id)} onChange={e => {
+                          const { checked } = e.target;
+                          setForm(prev => {
+                            const newKelas = checked ? [...prev.kelas, kelas.id] : prev.kelas.filter(id => id !== kelas.id);
+                            return { ...prev, kelas: newKelas };
+                          });
+                        }} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
+                        <span className="ml-2 text-sm text-gray-600">{kelas.nama}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label htmlFor="courseDescription" className="block text-sm font-medium text-slate-700 mb-1">Deskripsi</label>
+                <textarea id="courseDescription" name="deskripsi" value={form.deskripsi} onChange={handleChange} rows="3" className="w-full border border-slate-300 px-3 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"/>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Tanggal & Waktu Mulai</label>
+                  <div className="flex gap-2">
+                    <input type="date" name="tanggalMulai" value={form.tanggalMulai} onChange={handleChange} required className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                    <input type="time" name="waktuMulai" value={form.waktuMulai} onChange={handleChange} required className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                  </div>
+                </div>
+                <div>
+                  <label className="flex items-center text-sm font-medium text-gray-600 mb-1">
+                    <input type="checkbox" name="enableTanggalSelesai" checked={form.enableTanggalSelesai} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2" />
+                    Tanggal & Waktu Selesai
+                  </label>
+                  <div className="flex gap-2">
+                    <input type="date" name="tanggalSelesai" value={form.tanggalSelesai} onChange={handleChange} disabled={!form.enableTanggalSelesai} className="w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100 disabled:cursor-not-allowed" />
+                    <input type="time" name="waktuSelesai" value={form.waktuSelesai} onChange={handleChange} disabled={!form.enableTanggalSelesai} className="w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100 disabled:cursor-not-allowed" />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="waktu-pembelajaran" className="block text-sm font-medium text-gray-600 mb-1">Waktu Pembelajaran</label>
+                  <select id="waktu-pembelajaran" name="waktuMode" value={form.waktuMode} onChange={handleChange} className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    <option value="30">30 Menit</option>
+                    <option value="45">45 Menit</option>
+                    <option value="60">60 Menit</option>
+                    <option value="120">120 Menit</option>
+                    <option value="custom">Custom</option>
+                    <option value="unlimited">Tanpa Batas</option>
+                  </select>
+                  {form.waktuMode === "custom" && (
+                    <input type="number" name="waktuCustom" value={form.waktuCustom} placeholder="Masukkan durasi (menit)" onChange={handleChange} className="w-full mt-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t pt-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                  <div>
+                    <label htmlFor="max-percobaan" className="block text-sm font-medium text-gray-700">
+                      Maksimal Percobaan
+                    </label>
+                    <div className="mt-1 flex items-center gap-4">
+                        <input
+                            id="max-percobaan"
+                            type="number"
+                            min="1"
+                            value={form.maxPercobaan}
+                            onChange={(e) => setForm({ ...form, maxPercobaan: parseInt(e.target.value) })}
+                            className="block w-full md:w-1/2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
+                            disabled={form.tanpaBatasPercobaan}
+                        />
+                        <label className="flex items-center">
+                            <input
+                            type="checkbox"
+                            checked={form.tanpaBatasPercobaan}
+                            onChange={(e) => setForm((prev) => ({ ...prev, tanpaBatasPercobaan: e.target.checked }))}
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-800">Tanpa Batas</span>
+                        </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t">
+                  <h3 className="text-base font-medium text-gray-800">Opsi Tambahan</h3>
+                  <div className="space-y-2">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={form.analisisJawaban}
+                        onChange={(e) => setForm((prev) => ({ ...prev, analisisJawaban: e.target.checked }))}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="ml-3 text-sm text-gray-800">Analisis Penyelesaian Lesson</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-4">
+                <button type="submit" className="px-4 py-2 rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition-colors">
+                  Simpan Pengaturan
+                </button>
+              </div>
+            </form>
+          </div>
 
           <div className="flex flex-col md:flex-row gap-8 mt-8">
             <div className="md:w-1/3 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
@@ -271,136 +419,18 @@ const ManageLessonPage = () => {
 
             <div className="md:w-2/3 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
               <h2 className="text-2xl font-bold mb-6 text-slate-800">{currentLesson ? 'Edit Materi' : 'Tambah Materi Baru'}</h2>
-              <div className="border-b border-gray-200 mb-4">
-                <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                  <button
-                    onClick={() => setActiveTab('content')}
-                    className={`${
-                      activeTab === 'content'
-                        ? 'border-indigo-500 text-indigo-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                  >
-                    Konten
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('settings')}
-                    className={`${
-                      activeTab === 'settings'
-                        ? 'border-indigo-500 text-indigo-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                  >
-                    Pengaturan
-                  </button>
-                </nav>
-              </div>
-
-              {activeTab === 'content' && (
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="lessonTitle" className="block text-sm font-medium text-slate-700 mb-1">Judul Materi</label>
-                    <input type="text" id="lessonTitle" value={lessonTitle} onChange={e => setLessonTitle(e.target.value)} className="w-full border border-slate-300 px-3 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm" placeholder="Contoh: Bab 1 - Pengenalan"/>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Konten Materi</label>
-                    <div className="jodit-container border border-slate-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
-                      <JoditEditor value={editorContent} config={editorConfig} onBlur={newContent => setEditorContent(newContent)} />
-                    </div>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="lessonTitle" className="block text-sm font-medium text-slate-700 mb-1">Judul Materi</label>
+                  <input type="text" id="lessonTitle" value={lessonTitle} onChange={e => setLessonTitle(e.target.value)} className="w-full border border-slate-300 px-3 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm" placeholder="Contoh: Bab 1 - Pengenalan"/>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Konten Materi</label>
+                  <div className="jodit-container border border-slate-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
+                    <JoditEditor value={editorContent} config={editorConfig} onBlur={newContent => setEditorContent(newContent)} />
                   </div>
                 </div>
-              )}
-
-              {activeTab === 'settings' && (
-                <form className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">Tanggal & Waktu Mulai</label>
-                      <div className="flex gap-2">
-                        <input type="date" name="tanggalMulai" value={form.tanggalMulai} onChange={handleChange} required className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-                        <input type="time" name="waktuMulai" value={form.waktuMulai} onChange={handleChange} required className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="flex items-center text-sm font-medium text-gray-600 mb-1">
-                        <input type="checkbox" name="enableTanggalSelesai" checked={form.enableTanggalSelesai} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2" />
-                        Tanggal & Waktu Selesai
-                      </label>
-                      <div className="flex gap-2">
-                        <input type="date" name="tanggalSelesai" value={form.tanggalSelesai} onChange={handleChange} disabled={!form.enableTanggalSelesai} className="w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100 disabled:cursor-not-allowed" />
-                        <input type="time" name="waktuSelesai" value={form.waktuSelesai} onChange={handleChange} disabled={!form.enableTanggalSelesai} className="w-full border-gray-300 rounded-md shadow-sm disabled:bg-gray-100 disabled:cursor-not-allowed" />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="waktu-pembelajaran" className="block text-sm font-medium text-gray-600 mb-1">Waktu Pembelajaran</label>
-                      <select id="waktu-pembelajaran" name="waktuMode" value={form.waktuMode} onChange={handleChange} className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                        <option value="30">30 Menit</option>
-                        <option value="45">45 Menit</option>
-                        <option value="60">60 Menit</option>
-                        <option value="120">120 Menit</option>
-                        <option value="custom">Custom</option>
-                        <option value="unlimited">Tanpa Batas</option>
-                      </select>
-                      {form.waktuMode === "custom" && (
-                        <input type="number" name="waktuCustom" value={form.waktuCustom} placeholder="Masukkan durasi (menit)" onChange={handleChange} className="w-full mt-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-                      )}
-                    </div>
-                    <div>
-                      <label htmlFor="deskripsi" className="block text-sm font-medium text-gray-600 mb-1">Deskripsi</label>
-                      <textarea id="deskripsi" name="deskripsi" value={form.deskripsi} onChange={handleChange} rows="3" className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-6 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                      <div>
-                        <label htmlFor="max-pengaksesan" className="block text-sm font-medium text-gray-700">
-                          Maksimal Pengaksesan
-                        </label>
-                        <div className="mt-1 flex items-center gap-4">
-                            <input
-                                id="max-pengaksesan"
-                                type="number"
-                                min="1"
-                                value={form.maxPengaksesan}
-                                onChange={(e) => setForm({ ...form, maxPengaksesan: parseInt(e.target.value) })}
-                                className="block w-full md:w-1/2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
-                                disabled={form.tanpaBatasPengaksesan}
-                            />
-                            <label className="flex items-center">
-                                <input
-                                type="checkbox"
-                                checked={form.tanpaBatasPengaksesan}
-                                onChange={(e) => setForm((prev) => ({ ...prev, tanpaBatasPengaksesan: e.target.checked }))}
-                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                <span className="ml-2 text-sm text-gray-800">Tanpa Batas</span>
-                            </label>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4 pt-4 border-t">
-                      <h3 className="text-base font-medium text-gray-800">Opsi Tambahan</h3>
-                      <div className="space-y-2">
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={form.analisisPenyelesaian}
-                            onChange={(e) => setForm((prev) => ({ ...prev, analisisPenyelesaian: e.target.checked }))}
-                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="ml-3 text-sm text-gray-800">Analisis Penyelesaian Lesson</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </form>
-              )}
-
+              </div>
               <div className="flex justify-end mt-6">
                 <button onClick={handleSave} disabled={isSaving} className="px-6 py-2.5 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all shadow-lg shadow-indigo-200 flex items-center gap-2 disabled:bg-indigo-300 disabled:cursor-not-allowed">
                   {isSaving ? <FiLoader className="animate-spin"/> : <FiSave />}
@@ -411,6 +441,8 @@ const ManageLessonPage = () => {
           </div>
         </div>
       </div>
+
+      
 
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
