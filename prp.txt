@@ -1,20 +1,4 @@
-❌ resetDatabase: Error: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '\`answertrail_timer\`' at line 1
-    at PromisePool.query (D:\Hasil Coding\ExamApp\backend\node_modules\mysql2\lib\promise\pool.js:36:22)
-    at exports.resetDatabase (D:\Hasil Coding\ExamApp\backend\controllers\webMngController.js:104:16)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
-  code: 'ER_PARSE_ERROR',
-  errno: 1064,
-  sql: 'TRUNCATE TABLE \\`answertrail_timer\\`',
-  sqlState: '42000',
-  sqlMessage: "You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '\\`answertrail_timer\\`' at line 1"
-}
-❌ resetDatabase: Error: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '\`answertrail_timer\`' at line 1
-    at PromisePool.query (D:\Hasil Coding\ExamApp\backend\node_modules\mysql2\lib\promise\pool.js:36:22)
-    at exports.resetDatabase (D:\Hasil Coding\ExamApp\backend\controllers\webMngController.js:104:16)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
-  code: 'ER_PARSE_ERROR',
-  errno: 1064,
-  sql: 'TRUNCATE TABLE \\`answertrail_timer\\`',
-  sqlState: '42000',
-  sqlMessage: "You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '\\`answertrail_timer\\`' at line 1"
-}
+react-dom-client.development.js:24867 Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
+:5000/api/lessons:1  Failed to load resource: the server responded with a status of 403 (Forbidden)
+ManageLessonPage.js:172 Gagal menyimpan materi AxiosError
+handleSave @ ManageLessonPage.js:172

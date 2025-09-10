@@ -198,31 +198,34 @@ ${DB_NAME}
       )
     `);
 
-    // MODIFIED: `content` column is removed for new installations.
     await pool.query(`
       CREATE TABLE IF NOT EXISTS lessons (
         id INT AUTO_INCREMENT PRIMARY KEY,
         course_id INT NOT NULL,
         title VARCHAR(255) NOT NULL,
-        section_order INT DEFAULT 0,
-        display_mode VARCHAR(20) DEFAULT 'accordion' NOT NULL,
+        content TEXT,
+        deskripsi TEXT,
+        max_pengaksesan INT DEFAULT 1,
+        analisis_penyelesaian BOOLEAN DEFAULT FALSE,
+        tanggal_mulai VARCHAR(100),
+        tanggal_selesai VARCHAR(100),
+        waktu INT,
+        orrder INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
       )
     `);
 
-    // NEW: Create the lesson_pages table
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS lesson_pages (
+      CREATE TABLE IF NOT EXISTS lesson_completion (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
         lesson_id INT NOT NULL,
-        title VARCHAR(255) NOT NULL,
-        content TEXT,
-        page_order INT DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
+        completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
+        UNIQUE KEY (user_id, lesson_id)
       )
     `);
 

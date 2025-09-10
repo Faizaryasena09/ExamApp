@@ -1,17 +1,18 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const lessonController = require('../controllers/lessonController');
-const authMiddleware = require('../middlewares/authMiddleware');
-const onlyRole = require('../middlewares/onlyRole');
+const lessonController = require("../controllers/lessonController");
+const authMiddleware = require("../middlewares/authMiddleware");
+const onlyRole = require("../middlewares/onlyRole");
 
-// Semua pengguna yang terautentikasi (siswa, guru, admin) bisa melihat lesson
-router.get('/course/:courseId', authMiddleware, lessonController.getLessonsByCourse);
-router.get('/:lessonId', authMiddleware, lessonController.getLesson);
-router.post('/', authMiddleware, onlyRole(["admin", "guru"]), lessonController.createLesson);
-router.put('/:lessonId', authMiddleware, onlyRole(["admin", "guru"]), lessonController.updateLesson);
-router.delete('/:lessonId', authMiddleware, onlyRole(["admin", "guru"]), lessonController.deleteLesson);
+router.use(authMiddleware);
 
-// Rute baru untuk reordering
-router.post('/reorder', authMiddleware, onlyRole(["admin", "guru"]), lessonController.reorderLessons);
+router.post("/", onlyRole(["admin", "guru"]), lessonController.createLesson);
+router.get("/course/:courseId", lessonController.getLessonsByCourse);
+router.get("/:lessonId", lessonController.getLesson);
+router.put("/:lessonId", onlyRole(["admin", "guru"]), lessonController.updateLesson);
+router.delete("/:lessonId", onlyRole(["admin", "guru"]), lessonController.deleteLesson);
+router.post("/reorder", onlyRole(["admin", "guru"]), lessonController.reorderLessons);
+router.post("/:lessonId/complete", onlyRole("siswa"), lessonController.markLessonAsCompleted);
+router.get("/course/:courseId/completion", onlyRole("siswa"), lessonController.getCompletionStatusForCourse);
 
 module.exports = router;
