@@ -6,7 +6,7 @@ import { toast } from "../utils/toast";
 
 import {
   FiPlus, FiSearch, FiBook, FiSettings,
-  FiTrash2, FiChevronRight, FiAlertCircle, FiLoader
+  FiTrash2, FiChevronRight, FiAlertCircle, FiLoader, FiClock
 } from "react-icons/fi";
 
 function LessonsPage() {
@@ -129,6 +129,17 @@ function LessonsPage() {
                     </p>
                   )}
                   <div className="mt-4 flex-grow"> <p className="text-sm text-slate-600 line-clamp-2">{course.deskripsi}</p> </div>
+                  <div className="flex items-center text-xs text-slate-500 mt-4">
+                    <FiBook className="mr-1.5" />
+                    <span>{course.lesson_count} Materi</span>
+                    {course.waktu > 0 && (
+                      <>
+                        <span className="mx-2">•</span>
+                        <FiClock className="mr-1.5" />
+                        <span>{course.waktu} Menit</span>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div className="p-4 bg-slate-50/70 border-t border-slate-200 mt-auto">
                   {role === "siswa" ? (

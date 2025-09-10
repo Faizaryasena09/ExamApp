@@ -171,7 +171,8 @@ function shuffleArray(array) {
       let query = `
         SELECT 
           c.*, 
-          s.name AS subfolder 
+          s.name AS subfolder, 
+          (SELECT COUNT(*) FROM lessons l WHERE l.course_id = c.id) AS lesson_count
         FROM courses c
         LEFT JOIN subfolders s ON c.subfolder_id = s.id
       `;
