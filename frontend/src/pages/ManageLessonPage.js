@@ -285,10 +285,10 @@ const ManageLessonPage = () => {
                   <div className="grid grid-cols-2 gap-2">
                     {availableClasses.map(kelas => (
                       <label key={kelas.id} className="flex items-center">
-                        <input type="checkbox" checked={form.kelas.includes(kelas.id)} onChange={e => {
+                        <input type="checkbox" checked={form.kelas.includes(kelas.nama)} onChange={e => {
                           const { checked } = e.target;
                           setForm(prev => {
-                            const newKelas = checked ? [...prev.kelas, kelas.id] : prev.kelas.filter(id => id !== kelas.id);
+                            const newKelas = checked ? [...prev.kelas, kelas.nama] : prev.kelas.filter(nama => nama !== kelas.nama);
                             return { ...prev, kelas: newKelas };
                           });
                         }} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>

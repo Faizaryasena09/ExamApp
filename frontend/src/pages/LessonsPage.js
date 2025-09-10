@@ -61,6 +61,20 @@ function LessonsPage() {
     }
   };
 
+  const getLessonStatus = (course) => {
+    const now = new Date();
+    const mulai = course.tanggal_mulai ? new Date(course.tanggal_mulai) : null;
+    const selesai = course.tanggal_selesai ? new Date(course.tanggal_selesai) : null;
+
+    if (selesai && now > selesai) {
+      return { text: "Selesai", color: "bg-gray-500", disabled: true };
+    }
+    if (mulai && now < mulai) {
+      return { text: "Segera Hadir", color: "bg-yellow-500", disabled: true };
+    }
+    return { text: "Berlangsung", color: "bg-green-600", disabled: false };
+  };
+
   const lessonCourses = useMemo(() => {
     // A course is considered a "lesson" if it does not have a specific time limit (waktu).
     return courses.filter(course => !course.waktu || course.waktu === 0);
@@ -118,9 +132,16 @@ function LessonsPage() {
           </div>
         ) : (
           <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 p-4 sm:p-6">
-            {filteredCourses.map((course) => (
+            {filteredCourses.map((course) => {
+              const status = getLessonStatus(course);
+              return (
               <div key={course.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-                <div className="h-32 bg-indigo-50 flex items-center justify-center"> <FiBook className="text-4xl text-indigo-300" /> </div>
+                <div className="h-32 bg-indigo-50 flex items-center justify-center relative">
+                  <FiBook className="text-4xl text-indigo-300" />
+                  <span className={`absolute top-2 right-2 text-xs font-semibold text-white px-2 py-1 rounded-full ${status.color}`}>
+                    {status.text}
+                  </span>
+                </div>
                 <div className="p-4 flex flex-col flex-grow">
                   <h3 className="text-lg font-bold text-slate-800 mt-1 truncate group-hover:text-indigo-600 transition-colors"> {course.nama} </h3>
                   {course.pengajar && (
@@ -143,7 +164,7 @@ function LessonsPage() {
                 </div>
                 <div className="p-4 bg-slate-50/70 border-t border-slate-200 mt-auto">
                   {role === "siswa" ? (
-                     <button onClick={() => handleViewClick(course.id)} className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all duration-200 bg-green-600 hover:bg-green-700 text-white`} > Lihat Materi <FiChevronRight /> </button>
+                     <button onClick={() => handleViewClick(course.id)} disabled={status.disabled} className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all duration-200 text-white ${status.disabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`} > Lihat Materi <FiChevronRight /> </button>
                   ) : (
                     <div className="flex justify-between items-center gap-2">
                       <button onClick={() => handleManageClick(course.id)} className="flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"> <FiSettings size={14} /> Kelola </button>
@@ -152,7 +173,7 @@ function LessonsPage() {
                   )}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>
