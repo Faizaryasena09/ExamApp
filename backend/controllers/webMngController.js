@@ -99,7 +99,7 @@ exports.updateAppConfig = async (req, res) => {
     const envPath = path.resolve(__dirname, "../.env");
     const db = await dbPromise;
 
-    // Simpan ke DB
+    // 🔹 Simpan ke DB
     const [rows] = await db.query("SELECT * FROM app_config LIMIT 1");
     if (rows.length > 0) {
       await db.query("UPDATE app_config SET web_ip = ?, web_port = ? WHERE id = ?", [
@@ -111,7 +111,7 @@ exports.updateAppConfig = async (req, res) => {
       ]);
     }
 
-    // Simpan ke .env
+    // 🔹 Simpan ke .env
     let envFileContent = fs.readFileSync(envPath, "utf8");
     if (envFileContent.match(/^WEB_IP=.*$/m)) {
       envFileContent = envFileContent.replace(/^WEB_IP=.*$/m, `WEB_IP=${webIp}`);
@@ -125,11 +125,10 @@ exports.updateAppConfig = async (req, res) => {
     }
     fs.writeFileSync(envPath, envFileContent);
 
-    // Restart Apache + PM2 + Docker container
+    // 🔹 Restart Apache + backend (tanpa systemctl & docker-compose)
     const restartCmd = `
-      systemctl restart apache2 && \
-      pm2 reload server && \
-      docker-compose up -d --force-recreate
+      apachectl -k restart && \
+      pm2 restart backend || pm2 start /app/backend/server.js --name backend
     `;
 
     exec(restartCmd, (error, stdout, stderr) => {
@@ -152,7 +151,6 @@ exports.updateAppConfig = async (req, res) => {
     res.status(500).json({ message: "Gagal update config", error: err.message });
   }
 };
-
 
 exports.getSettings = async (req, res) => {
   try {
