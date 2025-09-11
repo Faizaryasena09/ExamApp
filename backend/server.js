@@ -14,6 +14,7 @@ const apacheConfPath = "/etc/apache2/sites-available/000-default.conf";
 const apachePortsPath = "/etc/apache2/ports.conf";
 
 // 🔹 Generate Apache config dari DB
+// 🔹 Generate Apache config dari DB
 async function generateApacheConfigs() {
   try {
     const db = await dbPromise;
@@ -23,26 +24,23 @@ async function generateApacheConfigs() {
 
     const apacheConf = `
 ServerName ${webIp}
-LoadModule proxy_module modules/mod_proxy.so
-LoadModule proxy_http_module modules/mod_proxy_http.so
-LoadModule rewrite_module modules/mod_rewrite.so
-
 <VirtualHost *:${webPort}>
     DocumentRoot "/var/www/html"
     <Directory "/var/www/html">
         Options Indexes FollowSymLinks
         AllowOverride All
         Require all granted
-        LimitRequestBody 104857600
         RewriteEngine On
         RewriteCond %{REQUEST_URI} !^/api
         RewriteCond %{REQUEST_FILENAME} !-f
         RewriteCond %{REQUEST_FILENAME} !-d
         RewriteRule . /index.html [L]
     </Directory>
+
     ProxyPreserveHost On
     ProxyPass /api http://localhost:5000/api
     ProxyPassReverse /api http://localhost:5000/api
+
     ErrorLog \${APACHE_LOG_DIR}/error.log
     CustomLog \${APACHE_LOG_DIR}/access.log combined
 </VirtualHost>
@@ -61,12 +59,19 @@ Listen ${webPort}
     fs.writeFileSync(apacheConfPath, apacheConf);
     fs.writeFileSync(apachePortsPath, portsConf);
 
+    // 🔹 Restart Apache agar config baru terbaca
+    exec("apachectl -k restart", (err) => {
+      if (err) console.error("❌ Gagal restart Apache:", err.message);
+      else console.log(`🔄 Apache restart di port ${webPort}`);
+    });
+
     return { webIp, webPort };
   } catch (err) {
     console.error("❌ generateApacheConfigs:", err);
     return { webIp: "localhost", webPort: 3000 };
   }
 }
+
 
 // 🔹 Setup CORS dinamis dari DB
 async function setupCors() {
