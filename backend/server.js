@@ -14,7 +14,7 @@ const apacheConfPath = "/etc/apache2/sites-available/000-default.conf";
 const apachePortsPath = "/etc/apache2/ports.conf";
 
 // 🔹 Generate Apache config dari DB
-// 🔹 Generate Apache config dari DB (hanya kalau belum sesuai)
+// 🔹 Generate Apache config dari DB (override hanya jika beda)
 async function generateApacheConfigs() {
   try {
     const db = await dbPromise;
@@ -57,34 +57,35 @@ Listen ${webPort}
 </IfModule>
 `;
 
-    // 🔹 Cek dulu apakah sudah ada konfigurasi dengan port yang sama
-    let needUpdate = true;
+    let needUpdate = false;
+
+    // 🔹 Bandingkan config lama dengan target baru
     if (fs.existsSync(apacheConfPath)) {
       const currentConf = fs.readFileSync(apacheConfPath, "utf8");
-      if (currentConf.includes(`*:${webPort}`)) {
-        needUpdate = false;
+      if (!currentConf.includes(`*:${webPort}`) || !currentConf.includes(`ServerName ${webIp}`)) {
+        needUpdate = true;
       }
+    } else {
+      needUpdate = true;
     }
 
     if (needUpdate) {
       fs.writeFileSync(apacheConfPath, apacheConf);
       fs.writeFileSync(apachePortsPath, portsConf);
 
-      // 🔹 Tambahkan ServerName global ke apache2.conf (hindari AH00558)
+      // 🔹 Selalu override ServerName di apache2.conf
       const apacheGlobalConf = "/etc/apache2/apache2.conf";
       let globalConf = fs.readFileSync(apacheGlobalConf, "utf8");
-      if (!globalConf.includes("ServerName")) {
-        globalConf += `\nServerName ${webIp}\n`;
-        fs.writeFileSync(apacheGlobalConf, globalConf);
-      }
+      globalConf = globalConf.replace(/ServerName\s+\S+/g, ""); // hapus kalau ada
+      globalConf += `\nServerName ${webIp}\n`;
+      fs.writeFileSync(apacheGlobalConf, globalConf);
 
-      // 🔹 Restart Apache agar config baru aktif
       exec("apachectl -k restart", (err) => {
         if (err) console.error("❌ Gagal restart Apache:", err.message);
-        else console.log(`🔄 Apache restart di port ${webPort}`);
+        else console.log(`🔄 Apache restart dengan IP ${webIp}, port ${webPort}`);
       });
     } else {
-      console.log(`ℹ️ Apache config sudah sesuai port ${webPort}, skip update.`);
+      console.log(`ℹ️ Apache config sudah sesuai (${webIp}:${webPort}), skip update.`);
     }
 
     return { webIp, webPort };
