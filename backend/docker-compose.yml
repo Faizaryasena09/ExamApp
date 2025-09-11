@@ -4,16 +4,16 @@ services:
     image: rushlesserver:latest
     container_name: rushlesserver
     volumes:
-      # Bind mount .env dari backend agar backend bisa update dan container baru pakai
+      # Bind mount .env dari backend
       - ./backend/.env:/app/backend/.env
 
-      # Uploads tetap di volume agar aman walaupun container di-recreate
+      # Uploads tetap di volume
       - rushlesserver_uploads:/app/backend/public/uploads
 
-      # Data MariaDB disimpan di volume agar aman walaupun container di-recreate
+      # Data MariaDB disimpan di volume
       - rushlesserver_db:/var/lib/mysql
 
-      # Apache config di-host supaya container baru pakai port/IP terbaru
+      # Apache config di-host supaya container baru pakai config terbaru
       - ./apache/000-default.conf:/etc/apache2/sites-available/000-default.conf
       - ./apache/ports.conf:/etc/apache2/ports.conf
 

@@ -265,7 +265,7 @@ function ManageCoursePage() {
   }
 
   function toAbsoluteImageSrc(html) {
-    const rawBaseURL = api.defaults.baseURL || "http://localhost:5000/api";
+    const rawBaseURL = api.defaults.baseURL;
   
     // Pastikan baseURL tidak berakhiran /
     const baseURL = rawBaseURL.replace(/\/$/, "");

@@ -30,7 +30,7 @@ const ScoreCard = ({ score, totalQuestions, studentName }) => {
 };
 
 function toAbsoluteImageSrc(html) {
-  const baseURL = api.defaults.baseURL || "http://localhost:5000/api";
+  const baseURL = api.defaults.baseURL;
 
   return html.replace(/src="\/uploads/g, `src="${baseURL}/uploads`);
 }

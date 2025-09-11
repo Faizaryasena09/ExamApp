@@ -235,7 +235,7 @@ function DoExamPage() {
   }, [showStartModal, soalList.length]);  
 
   useEffect(() => {
-    const sse = new EventSource("http://localhost:5000/api/exam/session/stream");
+    const sse = new EventSource(`${api.defaults.baseURL}/exam/session/stream`);
 
     sse.addEventListener('unlock', (e) => {
       const data = JSON.parse(e.data);
@@ -608,7 +608,7 @@ useEffect(() => {
   };
 
   function toAbsoluteImageSrc(html) {
-    const baseURL = api.defaults.baseURL || "http://localhost:5000/api";
+    const baseURL = api.defaults.baseURL;
   
     return html.replace(/src="\/uploads/g, `src="${baseURL}/uploads`);
   }
