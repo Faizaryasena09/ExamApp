@@ -113,42 +113,73 @@ exports.updateAppConfig = async (req, res) => {
 
     // 🔹 Simpan ke .env
     let envFileContent = fs.readFileSync(envPath, "utf8");
-    if (envFileContent.match(/^WEB_IP=.*$/m)) {
-      envFileContent = envFileContent.replace(/^WEB_IP=.*$/m, `WEB_IP=${webIp}`);
-    } else {
+    envFileContent = envFileContent
+      .replace(/^WEB_IP=.*$/m, `WEB_IP=${webIp}`)
+      .replace(/^WEB_PORT=.*$/m, `WEB_PORT=${webPort}`);
+
+    // Jika tidak ada, tambahkan
+    if (!envFileContent.includes("WEB_IP=")) {
       envFileContent += `\nWEB_IP=${webIp}`;
     }
-    if (envFileContent.match(/^WEB_PORT=.*$/m)) {
-      envFileContent = envFileContent.replace(/^WEB_PORT=.*$/m, `WEB_PORT=${webPort}`);
-    } else {
+    if (!envFileContent.includes("WEB_PORT=")) {
       envFileContent += `\nWEB_PORT=${webPort}`;
     }
+
     fs.writeFileSync(envPath, envFileContent);
 
-    // 🔹 Restart Apache + backend (tanpa systemctl & docker-compose)
-    const restartCmd = `
-      apachectl -k restart && \
-      pm2 restart backend || pm2 start /app/backend/server.js --name backend
-    `;
-
-    exec(restartCmd, (error, stdout, stderr) => {
-      if (error) {
-        console.error("❌ restart error:", error);
-        return res.status(200).json({
-          message: "Config tersimpan, tapi restart otomatis gagal. Restart manual diperlukan.",
-          error: error.message,
-          stderr
+    // 🔹 Restart Apache2 dan PM2 (cocok untuk Docker container)
+    // Pastikan proses apache dan pm2 berjalan di container yang sama
+    const restartApache = () => {
+      return new Promise((resolve, reject) => {
+        exec('apachectl -k graceful', (error, stdout, stderr) => {
+          if (error) {
+            console.error("❌ Apache restart failed:", error);
+            reject({ error, stderr });
+          } else {
+            console.log("✅ Apache restarted successfully");
+            resolve(stdout);
+          }
         });
-      }
-
-      res.json({
-        message: `✅ Config tersimpan & Rushlesserver jalan di ${webIp}:${webPort}`,
-        output: stdout
       });
+    };
+
+    const restartPM2 = () => {
+      return new Promise((resolve, reject) => {
+        exec('pm2 restart backend', (error, stdout, stderr) => {
+          if (error) {
+            console.warn("⚠️ PM2 restart failed, trying to start...");
+            exec('pm2 start /app/backend/server.js --name backend', (error2, stdout2, stderr2) => {
+              if (error2) {
+                console.error("❌ PM2 start failed:", error2);
+                reject({ error: error2, stderr: stderr2 });
+              } else {
+                console.log("✅ PM2 started successfully");
+                resolve(stdout2);
+              }
+            });
+          } else {
+            console.log("✅ PM2 restarted successfully");
+            resolve(stdout);
+          }
+        });
+      });
+    };
+
+    // Jalankan restart secara berurutan
+    await restartApache();
+    await restartPM2();
+
+    res.json({
+      message: `✅ Config tersimpan & Rushlesserver jalan di ${webIp}:${webPort}`,
+      restarted: ["apache2", "pm2-backend"]
     });
+
   } catch (err) {
     console.error("❌ updateAppConfig:", err);
-    res.status(500).json({ message: "Gagal update config", error: err.message });
+    res.status(500).json({ 
+      message: "Gagal update config atau restart service", 
+      error: err.message 
+    });
   }
 };
 
