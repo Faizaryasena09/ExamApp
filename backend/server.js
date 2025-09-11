@@ -14,7 +14,7 @@ const apacheConfPath = "/etc/apache2/sites-available/000-default.conf";
 const apachePortsPath = "/etc/apache2/ports.conf";
 
 // 🔹 Generate Apache config dari DB
-// 🔹 Generate Apache config dari DB
+// 🔹 Generate Apache config dari DB (hanya kalau belum sesuai)
 async function generateApacheConfigs() {
   try {
     const db = await dbPromise;
@@ -24,6 +24,7 @@ async function generateApacheConfigs() {
 
     const apacheConf = `
 ServerName ${webIp}
+
 <VirtualHost *:${webPort}>
     DocumentRoot "/var/www/html"
     <Directory "/var/www/html">
@@ -56,14 +57,35 @@ Listen ${webPort}
 </IfModule>
 `;
 
-    fs.writeFileSync(apacheConfPath, apacheConf);
-    fs.writeFileSync(apachePortsPath, portsConf);
+    // 🔹 Cek dulu apakah sudah ada konfigurasi dengan port yang sama
+    let needUpdate = true;
+    if (fs.existsSync(apacheConfPath)) {
+      const currentConf = fs.readFileSync(apacheConfPath, "utf8");
+      if (currentConf.includes(`*:${webPort}`)) {
+        needUpdate = false;
+      }
+    }
 
-    // 🔹 Restart Apache agar config baru terbaca
-    exec("apachectl -k restart", (err) => {
-      if (err) console.error("❌ Gagal restart Apache:", err.message);
-      else console.log(`🔄 Apache restart di port ${webPort}`);
-    });
+    if (needUpdate) {
+      fs.writeFileSync(apacheConfPath, apacheConf);
+      fs.writeFileSync(apachePortsPath, portsConf);
+
+      // 🔹 Tambahkan ServerName global ke apache2.conf (hindari AH00558)
+      const apacheGlobalConf = "/etc/apache2/apache2.conf";
+      let globalConf = fs.readFileSync(apacheGlobalConf, "utf8");
+      if (!globalConf.includes("ServerName")) {
+        globalConf += `\nServerName ${webIp}\n`;
+        fs.writeFileSync(apacheGlobalConf, globalConf);
+      }
+
+      // 🔹 Restart Apache agar config baru aktif
+      exec("apachectl -k restart", (err) => {
+        if (err) console.error("❌ Gagal restart Apache:", err.message);
+        else console.log(`🔄 Apache restart di port ${webPort}`);
+      });
+    } else {
+      console.log(`ℹ️ Apache config sudah sesuai port ${webPort}, skip update.`);
+    }
 
     return { webIp, webPort };
   } catch (err) {
@@ -71,7 +93,6 @@ Listen ${webPort}
     return { webIp: "localhost", webPort: 3000 };
   }
 }
-
 
 // 🔹 Setup CORS dinamis dari DB
 async function setupCors() {
