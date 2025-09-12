@@ -73,6 +73,7 @@ async function setupCors() {
   const webMngRoutes = require("./routes/webMngRoutes");
   const ocrRoutes = require("./routes/ocrRoutes");
   const lessonRoutes = require("./routes/lessonRoutes");
+  const updateRoutes = require("./routes/updateRoutes"); // Impor rute pembaruan
 
   app.use("/api/exam", examRoutes);
   app.use("/api/studentworklog", studentworklog);
@@ -92,6 +93,7 @@ async function setupCors() {
   app.use("/api", uploadRoutes);
   app.use("/api", ocrRoutes);
   app.use("/api/lessons", lessonRoutes);
+  app.use("/api/update", updateRoutes); // Daftarkan rute pembaruan
 
   // === SERVICES ===
   const sessionController = require("./controllers/sessionController");
