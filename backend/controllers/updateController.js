@@ -8,11 +8,9 @@ const GITHUB_REPO = "Faizaryasena09/ExamApp";
 const GITHUB_URL_WITH_PAT = `https://oauth2:${GITHUB_PAT}@github.com/${GITHUB_REPO}.git`;
 const REPO_BRANCH = "update";
 
-// Path ini mengasumsikan lokasi di dalam kontainer Docker
 const LOCAL_COMMIT_HASH_PATH = "/app/backend/commit_hash.txt";
 
 exports.checkUpdate = async (req, res) => {
-  // 1. Dapatkan hash commit dari remote repo (branch 'update')
   const getRemoteCommit = () => {
     return new Promise((resolve, reject) => {
       exec(`git ls-remote ${GITHUB_URL_WITH_PAT} ${REPO_BRANCH}`, (error, stdout, stderr) => {
