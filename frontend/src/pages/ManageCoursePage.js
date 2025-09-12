@@ -40,6 +40,7 @@ function ManageCoursePage() {
     minWaktuSubmitValue: "",
     logPengerjaan: false,
     analisisJawaban: false,
+    gunakan_pengaman: false,
   });
 
   const [soalList, setSoalList] = useState([]);
@@ -86,7 +87,8 @@ function ManageCoursePage() {
         minWaktuSubmit: Boolean(c.minWaktuSubmit && c.minWaktuSubmit > 0),
         minWaktuSubmitValue: c.minWaktuSubmit ? String(c.minWaktuSubmit) : "",
         logPengerjaan: Boolean(c.logPengerjaan),
-        analisisJawaban: Boolean(c.analisisJawaban),      
+        analisisJawaban: Boolean(c.analisisJawaban),
+        gunakan_pengaman: Boolean(c.gunakan_pengaman),
       });
     } catch (err) {
       console.error("❌ Gagal ambil course:", err);
@@ -140,6 +142,7 @@ function ManageCoursePage() {
       minWaktuSubmit: form.minWaktuSubmit ? parseInt(form.minWaktuSubmitValue) : 0,
       logPengerjaan: form.logPengerjaan,
       analisisJawaban: form.analisisJawaban,
+      gunakan_pengaman: form.gunakan_pengaman,
     };
   
     try {
@@ -665,6 +668,16 @@ function ManageCoursePage() {
                       className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <span className="ml-3 text-sm text-gray-800">Aktifkan Log Pengerjaan Siswa</span>
+                  </label>
+
+                  <label className="flex items-center pt-2">
+                    <input
+                      type="checkbox"
+                      checked={form.gunakan_pengaman}
+                      onChange={(e) => setForm((prev) => ({ ...prev, gunakan_pengaman: e.target.checked }))}
+                      className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                    />
+                    <span className="ml-3 text-sm text-red-800 font-semibold">Gunakan Aplikasi Pengaman</span>
                   </label>
               </div>
             </div>
