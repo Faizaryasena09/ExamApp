@@ -4,7 +4,6 @@ exports.logJawaban = async (req, res) => {
   const db = await dbPromise;
   const { user_id, course_id, soal_id, jawaban, waktu } = req.body;
 
-  // Perbolehkan soal_id null untuk aktivitas non-jawaban
   if (!user_id || !course_id || jawaban == null || waktu == null) {
     return res.status(400).json({ error: "Data tidak lengkap" });
   }
