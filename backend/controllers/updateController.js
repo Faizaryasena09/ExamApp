@@ -69,7 +69,7 @@ exports.installUpdate = async (req, res) => {
     message: "Proses pembaruan dimulai. Ini akan memakan waktu beberapa menit. Aplikasi akan restart setelah selesai.",
   });
 
-  const scriptPath = path.resolve(__dirname, "update.sh");
+  const scriptPath = path.resolve(__dirname, "../update.sh");
 
   const child = exec(`bash ${scriptPath}`, (error, stdout, stderr) => {
     if (error) {
