@@ -44,6 +44,27 @@ function DoExamPage() {
   const [courseTitle, setCourseTitle] = useState("");
   const [pgQuestions, setPgQuestions] = useState([]);
   const [essayQuestions, setEssayQuestions] = useState([]);
+
+  useEffect(() => {
+    const checkSecureBrowser = async () => {
+      try {
+        const courseRes = await api.get(`/courses/${id}`);
+        if (courseRes.data.gunakan_pengaman) {
+          // Cek jika tidak sedang dalam mode WebView2 (aplikasi pengaman)
+          if (!window.chrome || !window.chrome.webview) {
+            setBlocked(true); // Blokir halaman
+            // Tampilkan pesan error spesifik
+            document.body.innerHTML = `<div style="font-family: sans-serif; text-align: center; padding: 40px;"><h1>Akses Ditolak</h1><p>Ujian ini wajib diakses menggunakan Aplikasi Ujian Aman.</p></div>`;
+            return; // Hentikan eksekusi lebih lanjut
+          }
+        }
+      } catch (err) {
+        console.error("Gagal memeriksa konfigurasi pengaman:", err);
+      }
+    };
+
+    checkSecureBrowser();
+  }, [id]);
   
   const currentSoal = soalList[currentIndex];
   

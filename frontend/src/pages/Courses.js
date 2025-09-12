@@ -174,26 +174,28 @@ function CoursesPage() {
       const { data: status } = await api.get(`/courses/${courseId}/status?user=${userId}`);
       if (status.sudahMaksimal) return toast.error("❌ Kesempatan Anda sudah habis.");
 
-      const isWindows = /Windows/i.test(navigator.userAgent);
-
-      if (status.useToken) {
+      // Jika butuh token, tampilkan modal
+      if (course.useToken) {
         setSelectedCourseId(courseId);
         setTokenInput("");
         setShowTokenModal(true);
-      } else {
-        await api.post("/exam/status", {
-          user_id: userId,
-          course_id: courseId,
-          status: `Mengerjakan - ${course.nama || course.title}`,
-        });
-
-        if (isWindows) {
-          launchRushlessSafer(courseId);
-        } else {
-          toast.warn("Aplikasi ujian aman hanya tersedia untuk Windows. Anda akan diarahkan ke browser biasa.");
-          navigate(`/courses/${courseId}/do`);
-        }
+        return; // Hentikan eksekusi lebih lanjut
       }
+
+      // Jika tidak butuh token, langsung proses
+      await api.post("/exam/status", {
+        user_id: userId,
+        course_id: courseId,
+        status: `Mengerjakan - ${course.nama || course.title}`,
+      });
+
+      // Cek apakah harus pakai pengaman
+      if (course.gunakan_pengaman) {
+        launchRushlessSafer(courseId);
+      } else {
+        navigate(`/courses/${courseId}/do`);
+      }
+
     } catch (err) {
       console.error("❌ Gagal cek waktu/status:", err);
       toast.error("Gagal memeriksa status ujian.");
