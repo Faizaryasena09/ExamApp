@@ -21,7 +21,7 @@ function shuffleArray(array) {
       nama, pengajarId, kelas, tanggalMulai, tanggalSelesai,
       waktu, deskripsi, maxPercobaan, tampilkanHasil,
       useToken, tokenValue, acakSoal, acakJawaban, minWaktuSubmit,
-      logPengerjaan, analisisJawaban
+      logPengerjaan, analisisJawaban, gunakan_pengaman
     } = req.body;
   
     const { name, role } = req.cookies;
@@ -34,8 +34,8 @@ function shuffleArray(array) {
         (nama, pengajar_id, pengajar, kelas, tanggal_mulai, tanggal_selesai, waktu, deskripsi,
           maxPercobaan, tampilkanHasil, useToken, tokenValue, tokenCreatedAt, 
           acakSoal, acakJawaban, minWaktuSubmit,
-          logPengerjaan, analisisJawaban)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          logPengerjaan, analisisJawaban, gunakan_pengaman)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           nama,
           pengajarId,
@@ -54,7 +54,8 @@ function shuffleArray(array) {
           !!acakJawaban,
           parseInt(minWaktuSubmit) || 0,
           !!logPengerjaan,
-          !!analisisJawaban
+          !!analisisJawaban,
+          !!gunakan_pengaman
         ]
       );
       res.status(201).json({ message: "Course berhasil dibuat!" });
@@ -70,7 +71,7 @@ function shuffleArray(array) {
       nama, kelas, tanggal_mulai, tanggal_selesai, waktu, deskripsi,
       maxPercobaan, tampilkanHasil, useToken, tokenValue,
       acakSoal, acakJawaban, minWaktuSubmit,
-      logPengerjaan, analisisJawaban
+      logPengerjaan, analisisJawaban, gunakan_pengaman
     } = req.body;
   
     try {
@@ -92,7 +93,8 @@ function shuffleArray(array) {
           acakJawaban = ?,
           minWaktuSubmit = ?,
           logPengerjaan = ?,           -- ✅
-          analisisJawaban = ?          -- ✅
+          analisisJawaban = ?,          -- ✅
+          gunakan_pengaman = ?
         WHERE id = ?`,
         [
           nama,
@@ -111,6 +113,7 @@ function shuffleArray(array) {
           parseInt(minWaktuSubmit) || 0,
           !!logPengerjaan,
           !!analisisJawaban,
+          !!gunakan_pengaman,
           courseId
         ]
       );

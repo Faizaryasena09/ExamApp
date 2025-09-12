@@ -7,6 +7,7 @@ const GITHUB_PAT = process.env.GITHUB_PAT || null;
 const GITHUB_REPO = "Faizaryasena09/ExamApp";
 const REPO_BRANCH = "update";
 
+<<<<<<< HEAD
 // Tentukan URL: kalau ada PAT pakai private URL, kalau nggak ada pakai publik
 const GITHUB_URL = GITHUB_PAT
   ? `https://oauth2:${GITHUB_PAT}@github.com/${GITHUB_REPO}.git`
@@ -17,6 +18,11 @@ const LOCAL_COMMIT_HASH_PATH = "/app/backend/commit_hash.txt";
 
 exports.checkUpdate = async (req, res) => {
   // Ambil hash commit remote
+=======
+const LOCAL_COMMIT_HASH_PATH = "/app/backend/commit_hash.txt";
+
+exports.checkUpdate = async (req, res) => {
+>>>>>>> b073347a7952c304367a6f9c18d2316eebd4e59f
   const getRemoteCommit = () => {
     return new Promise((resolve, reject) => {
       exec(`git ls-remote ${GITHUB_URL} ${REPO_BRANCH}`, (error, stdout, stderr) => {
