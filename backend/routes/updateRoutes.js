@@ -14,4 +14,7 @@ router.get("/check", updateController.checkUpdate);
 // Rute untuk menginstal pembaruan
 router.post("/install", updateController.installUpdate);
 
+// Rute untuk streaming log pembaruan
+router.get("/stream", updateController.streamUpdateLogs);
+
 module.exports = router;

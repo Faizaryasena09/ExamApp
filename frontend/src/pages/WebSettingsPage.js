@@ -1,21 +1,10 @@
 import api from "../api";
 import { toast } from "../utils/toast";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 const TrashIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    className="h-4 w-4"
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-    />
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
   </svg>
 );
 
@@ -31,62 +20,53 @@ const WebSettingsPage = () => {
   const [updateStatus, setUpdateStatus] = useState(null);
   const [isChecking, setIsChecking] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [updateLogs, setUpdateLogs] = useState([]);
+  const sseRef = useRef(null);
+  const logsEndRef = useRef(null);
 
   useEffect(() => {
     fetchWebSettings();
     fetchTables();
     fetchCorsConfig();
+
+    // Cleanup SSE connection on component unmount
+    return () => {
+      if (sseRef.current) {
+        sseRef.current.close();
+      }
+    };
   }, []);
 
-  const fetchCorsConfig = () => {
-    api.get("/cors-config").then((res) => {
-      setCorsOrigins(res.data.corsOrigins || []);
-    });
-  };
+  // Auto-scroll logs
+  useEffect(() => {
+    if (logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [updateLogs]);
 
-  const fetchWebSettings = () => {
-    api.get("/web-settings").then((res) => {
-      setJudul(res.data.judul || "");
-      setLogoFromServer(res.data.logo);
-    });
-  };
-
-  const fetchTables = () => {
-    api.get("/db/tables").then((res) => setTables(res.data.tables));
-  };
+  const fetchCorsConfig = () => api.get("/cors-config").then((res) => setCorsOrigins(res.data.corsOrigins || []));
+  const fetchWebSettings = () => api.get("/web-settings").then((res) => { setJudul(res.data.judul || ""); setLogoFromServer(res.data.logo); });
+  const fetchTables = () => api.get("/db/tables").then((res) => setTables(res.data.tables));
 
   const handleSaveSettings = async () => {
     const formData = new FormData();
     formData.append("judul", judul);
-    if (logoFile) {
-      formData.append("logo", logoFile);
-    }
-
+    if (logoFile) formData.append("logo", logoFile);
     try {
       await api.put("/web-settings", formData);
       toast.success("Pengaturan website berhasil disimpan.");
       setLogoFile(null);
       fetchWebSettings();
-    } catch (err) {
-      toast.error("Gagal menyimpan pengaturan website");
-    }
+    } catch (err) { toast.error("Gagal menyimpan pengaturan website"); }
   };
 
   const saveOrigins = async (originsToSave) => {
     try {
       await api.post("/cors-config", { corsOrigins: originsToSave });
-      toast.success(
-        "Pengaturan CORS disimpan. Server sedang direstart, mohon tunggu..."
-      );
-      
-      setTimeout(() => {
-        toast.info("Mengambil konfigurasi CORS terbaru...");
-        fetchCorsConfig();
-      }, 3000);
-
-    } catch (err) {
-      toast.error("Gagal menyimpan pengaturan CORS");
-    }
+      toast.success("Pengaturan CORS disimpan. Server sedang direstart, mohon tunggu...");
+      setTimeout(() => { toast.info("Mengambil konfigurasi CORS terbaru..."); fetchCorsConfig(); }, 3000);
+    } catch (err) { toast.error("Gagal menyimpan pengaturan CORS"); }
   };
 
   const handleAddOrigin = () => {
@@ -104,65 +84,63 @@ const WebSettingsPage = () => {
     saveOrigins(newOriginsList);
   };
 
-  const handleDeleteTable = (table) => {
-    if (!window.confirm(`Anda yakin ingin menghapus tabel ${table}?`)) return;
-    api.delete(`/db/${table}`).then(() => {
-      toast.success(`Tabel ${table} berhasil dihapus`);
-      fetchTables();
-    });
-  };
+  const handleDeleteTable = (table) => { if (!window.confirm(`Anda yakin ingin menghapus tabel ${table}?`)) return; api.delete(`/db/${table}`).then(() => { toast.success(`Tabel ${table} berhasil dihapus`); fetchTables(); }); };
+  const handleResetDB = () => { if (!window.confirm("PERHATIAN: Anda yakin ingin mereset seluruh database?")) return; api.post("/db/reset").then(() => { toast.success("Database berhasil direset!"); fetchTables(); }); };
+  const handleRestart = () => { if (!window.confirm("Anda yakin ingin merestart server?")) return; api.post("/restart-server").then(() => toast.success("Server sedang direstart...")); };
 
-  const handleResetDB = () => {
-    if (!window.confirm("PERHATIAN: Anda yakin ingin mereset seluruh database?")) return;
-    api.post("/db/reset").then(() => {
-      toast.success("Database berhasil direset!");
-      fetchTables();
-    });
-  };
-
-  const handleRestart = () => {
-    if (!window.confirm("Anda yakin ingin merestart server?")) return;
-    api.post("/restart-server").then(() => toast.success("Server sedang direstart..."));
-  };
-
-  // Fungsi untuk fitur update
   const handleCheckUpdate = async () => {
     setIsChecking(true);
     setUpdateStatus(null);
     try {
       const res = await api.get("/update/check");
       setUpdateStatus(res.data);
-      if (res.data.updateAvailable) {
-        toast.success("Pembaruan tersedia!");
-      } else {
-        toast.info("Aplikasi Anda sudah menggunakan versi terbaru.");
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Gagal memeriksa pembaruan.");
-    } finally {
-      setIsChecking(false);
-    }
+      if (res.data.updateAvailable) toast.success("Pembaruan tersedia!");
+      else toast.info("Aplikasi Anda sudah menggunakan versi terbaru.");
+    } catch (err) { toast.error(err.response?.data?.message || "Gagal memeriksa pembaruan."); }
+    finally { setIsChecking(false); }
   };
 
   const handleInstallUpdate = async () => {
     if (!window.confirm("Anda yakin ingin menginstal pembaruan? Proses ini akan menimpa file aplikasi dan me-restart server.")) return;
+    
+    setUpdateLogs([]);
+    setShowUpdateModal(true);
     setIsUpdating(true);
+
+    const sse = new EventSource(`${api.defaults.baseURL}/update/stream`);
+    sseRef.current = sse;
+
+    sse.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.log === "__END__") {
+        setUpdateLogs(prev => [...prev, "[INFO] Selesai. Silakan tutup modal ini."]);
+        setIsUpdating(false);
+        sse.close();
+        sseRef.current = null;
+      } else {
+        setUpdateLogs(prev => [...prev, data.log]);
+      }
+    };
+
+    sse.onerror = (err) => {
+      console.error("SSE Error:", err);
+      setUpdateLogs(prev => [...prev, "[ERROR] Koneksi ke server log terputus. Proses mungkin masih berjalan di background."]);
+      setIsUpdating(false);
+      sse.close();
+      sseRef.current = null;
+    };
+
     try {
-      const res = await api.post("/update/install");
-      toast.info(res.data.message);
+      await api.post("/update/install");
     } catch (err) {
       toast.error(err.response?.data?.message || "Gagal memulai proses pembaruan.");
       setIsUpdating(false);
+      setShowUpdateModal(false);
+      if (sseRef.current) sseRef.current.close();
     }
   };
 
-  const toAbsoluteImageSrc = (path) => {
-    if (!path) return "";
-    const baseURL = api.defaults.baseURL;
-    if (path.startsWith("http")) return path;
-    return `${baseURL}${path.startsWith("/") ? "" : "/"}${path}`;
-  };
-
+  const toAbsoluteImageSrc = (path) => { if (!path) return ""; const baseURL = api.defaults.baseURL; if (path.startsWith("http")) return path; return `${baseURL}${path.startsWith("/") ? "" : "/"}${path}`; };
   const logoPreviewSrc = logoFile ? URL.createObjectURL(logoFile) : toAbsoluteImageSrc(logoFromServer);
 
   return (
@@ -246,7 +224,6 @@ const WebSettingsPage = () => {
               <div className="mt-4 text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
                 <p>Versi Lokal: <span className="font-mono">{updateStatus.localCommit.substring(0, 12)}</span></p>
                 <p>Versi Terbaru: <span className="font-mono">{updateStatus.remoteCommit.substring(0, 12)}</span></p>
-                {isUpdating && <p className="mt-2 text-blue-600 font-semibold">Proses instalasi sedang berjalan. Halaman mungkin tidak responsif dan perlu di-refresh setelah beberapa menit.</p>}
               </div>
             )}
           </div>
@@ -279,6 +256,34 @@ const WebSettingsPage = () => {
         </div>
 
       </div>
+
+      {/* Update Log Modal */}
+      {showUpdateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm">
+          <div className="bg-gray-800 text-white rounded-lg shadow-xl w-full max-w-4xl h-4/5 flex flex-col p-6 m-4">
+            <div className="flex justify-between items-center mb-4 border-b border-gray-600 pb-3">
+              <h2 className="text-xl font-bold">Log Instalasi Pembaruan</h2>
+              {!isUpdating && (
+                <button onClick={() => { setShowUpdateModal(false); window.location.reload(); }} className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 font-semibold">Tutup & Refresh Halaman</button>
+              )}
+            </div>
+            <div className="flex-grow bg-black p-4 rounded-md overflow-y-auto font-mono text-sm whitespace-pre-wrap">
+              {updateLogs.map((log, index) => (
+                <p key={index} className={`${log.startsWith("[ERROR]") || log.startsWith("[FAILED]") ? 'text-red-400' : log.startsWith("[SUCCESS]") ? 'text-green-400' : 'text-gray-300'}`}>
+                  <span className="text-gray-500 mr-2">{`[${new Date().toLocaleTimeString()}]`}</span>{log}
+                </p>
+              ))}
+              <div ref={logsEndRef} />
+            </div>
+            {isUpdating && (
+              <div className="flex items-center gap-3 mt-4 text-yellow-400">
+                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <span>Proses sedang berjalan, jangan tutup jendela ini...</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
