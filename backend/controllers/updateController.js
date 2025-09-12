@@ -139,12 +139,12 @@ echo "[UPDATE] Direktori sementara dibersihkan."
 echo "[UPDATE] Me-restart Apache..."
 apachectl -k graceful || service apache2 restart
 
+echo "[UPDATE] Proses pembaruan selesai!"
+
 # 9. Restart service
 echo "[UPDATE] Me-restart PM2..."
 pm2 restart all
 
-
-echo "[UPDATE] Proses pembaruan selesai!"
 `;
 
   const child = exec(updateScript, (error, stdout, stderr) => {
