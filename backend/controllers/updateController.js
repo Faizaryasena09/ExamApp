@@ -3,14 +3,9 @@ const fs = require("fs");
 const path = require("path");
 
 // Repo konfigurasi
-const GITHUB_PAT = process.env.GITHUB_PAT || null;
 const GITHUB_REPO = "Faizaryasena09/ExamApp";
 const REPO_BRANCH = "update";
-
-// Tentukan URL: kalau ada PAT pakai private URL, kalau nggak ada pakai publik
-const GITHUB_URL = GITHUB_PAT
-  ? `https://oauth2:${GITHUB_PAT}@github.com/${GITHUB_REPO}.git`
-  : `https://github.com/${GITHUB_REPO}.git`;
+const GITHUB_URL = `https://github.com/${GITHUB_REPO}.git`;
 
 // Lokasi file commit hash di server/container
 const LOCAL_COMMIT_HASH_PATH = "/app/backend/commit_hash.txt";
@@ -21,7 +16,7 @@ exports.checkUpdate = async (req, res) => {
     return new Promise((resolve, reject) => {
       exec(`git ls-remote ${GITHUB_URL} ${REPO_BRANCH}`, (error, stdout, stderr) => {
         if (error) {
-          console.error(`Error fetching remote commit: ${stderr}`);
+          console.error(`[CHECK-UPDATE-ERR] ${stderr}`);
           return reject(new Error("Gagal mengambil info pembaruan dari GitHub."));
         }
         const remoteHash = stdout.split("\t")[0];
@@ -127,7 +122,7 @@ echo "[UPDATE] Hash commit baru disimpan."
 rm -rf $UPDATE_DIR
 echo "[UPDATE] Direktori sementara dibersihkan."
 
-# 9. Restart service (paling akhir biar update aman)
+# 9. Restart service
 echo "[UPDATE] Me-restart PM2..."
 pm2 restart all
 
