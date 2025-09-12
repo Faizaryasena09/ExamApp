@@ -42,7 +42,7 @@ router.delete("/db/:tableName", onlyRole("admin"), webMngController.deleteTable)
 router.post("/db/reset", onlyRole("admin"), webMngController.resetDatabase);
 router.post("/restart-server", onlyRole("admin"), webMngController.restartServer);
 
-router.get("/app-config", onlyRole("admin"), webMngController.getAppConfig);
-router.post("/app-config", onlyRole("admin"), webMngController.updateAppConfig);
+router.get("/cors-config", onlyRole("admin"), webMngController.getCorsConfig);
+router.post("/cors-config", onlyRole("admin"), webMngController.updateCorsConfig);
 
 module.exports = router;

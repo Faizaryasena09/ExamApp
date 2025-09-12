@@ -24,19 +24,18 @@ const WebSettingsPage = () => {
   const [logoFile, setLogoFile] = useState(null);
   const [logoFromServer, setLogoFromServer] = useState("");
   const [tables, setTables] = useState([]);
-  const [webIp, setWebIp] = useState("");
-  const [webPort, setWebPort] = useState("");
+  const [corsOrigins, setCorsOrigins] = useState([]);
+  const [newOrigin, setNewOrigin] = useState("");
 
   useEffect(() => {
     fetchWebSettings();
     fetchTables();
-    fetchAppConfig();
+    fetchCorsConfig();
   }, []);
 
-  const fetchAppConfig = () => {
-    api.get("/app-config").then((res) => {
-      setWebIp(res.data.webIp || "");
-      setWebPort(res.data.webPort || "");
+  const fetchCorsConfig = () => {
+    api.get("/cors-config").then((res) => {
+      setCorsOrigins(res.data.corsOrigins || []);
     });
   };
 
@@ -68,16 +67,41 @@ const WebSettingsPage = () => {
     }
   };
 
-  const handleSaveNetwork = async () => {
+  const saveOrigins = async (originsToSave) => {
     try {
-      await api.post("/app-config", { webIp, webPort });
+      await api.post("/cors-config", { corsOrigins: originsToSave });
       toast.success(
-        "Pengaturan jaringan berhasil disimpan. Server akan direstart secara otomatis."
+        "Pengaturan CORS disimpan. Server sedang direstart, mohon tunggu..."
       );
-      fetchAppConfig();
+      
+      // Tambahkan jeda untuk memberi waktu server restart sebelum fetch ulang
+      setTimeout(() => {
+        toast.info("Mengambil konfigurasi CORS terbaru...");
+        fetchCorsConfig();
+      }, 3000); // Jeda 3 detik
+
     } catch (err) {
-      toast.error("Gagal menyimpan pengaturan jaringan");
+      toast.error("Gagal menyimpan pengaturan CORS");
     }
+  };
+
+  const handleAddOrigin = () => {
+    if (newOrigin && !corsOrigins.includes(newOrigin)) {
+      const newOriginsList = [...corsOrigins, newOrigin.trim()];
+      // Optimistic update untuk UI responsif
+      setCorsOrigins(newOriginsList);
+      setNewOrigin("");
+      // Simpan ke backend
+      saveOrigins(newOriginsList);
+    }
+  };
+
+  const handleDeleteOrigin = (originToDelete) => {
+    const newOriginsList = corsOrigins.filter(origin => origin !== originToDelete);
+    // Optimistic update
+    setCorsOrigins(newOriginsList);
+    // Simpan ke backend
+    saveOrigins(newOriginsList);
   };
 
   const handleDeleteTable = (table) => {
@@ -217,48 +241,52 @@ const WebSettingsPage = () => {
           </div>
         </div>
 
-        {/* PENGATURAN JARINGAN */}
+        {/* PENGATURAN CORS */}
         <div className="bg-white p-6 shadow-md rounded-lg border border-gray-200">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">
-            Pengaturan Jaringan
+            Pengaturan CORS
           </h2>
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label
-                  htmlFor="webIp"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  IP Web
-                </label>
-                <input
-                  id="webIp"
-                  type="text"
-                  className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
-                  value={webIp}
-                  onChange={(e) => setWebIp(e.target.value)}
-                />
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Daftar Origin yang Diizinkan
+              </label>
+              <div className="space-y-2">
+                {corsOrigins.map((origin, index) => (
+                  <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded-md">
+                    <span className="text-sm text-gray-800">{origin}</span>
+                    <button onClick={() => handleDeleteOrigin(origin)} className="text-red-500 hover:text-red-700">
+                      <TrashIcon />
+                    </button>
+                  </div>
+                ))}
               </div>
-              <div>
-                <label
-                  htmlFor="webPort"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Port Web
-                </label>
+            </div>
+            <div>
+              <label htmlFor="newOrigin" className="block text-sm font-medium text-gray-700 mb-1">
+                Tambah Origin Baru
+              </label>
+              <div className="flex gap-2">
                 <input
-                  id="webPort"
+                  id="newOrigin"
                   type="text"
                   className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
-                  value={webPort}
-                  onChange={(e) => setWebPort(e.target.value)}
+                  value={newOrigin}
+                  onChange={(e) => setNewOrigin(e.target.value)}
+                  placeholder="http://localhost:3001"
                 />
+                <button
+                  onClick={handleAddOrigin}
+                  className="bg-blue-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-600"
+                >
+                  Tambah
+                </button>
               </div>
             </div>
           </div>
           <div className="mt-8 text-right">
             <button
-              onClick={handleSaveNetwork}
+              onClick={() => saveOrigins(corsOrigins)}
               className="bg-green-600 text-white px-5 py-2.5 rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out"
             >
               Simpan & Restart Server

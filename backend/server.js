@@ -10,104 +10,36 @@ const dbPromise = require("./models/database"); // koneksi DB
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-const apacheConfPath = "/etc/apache2/sites-available/000-default.conf";
-const apachePortsPath = "/etc/apache2/ports.conf";
+const corsOriginsPath = path.join(__dirname, "cors_origins.json");
 
-// 🔹 Generate Apache config dari DB
-// 🔹 Generate Apache config dari DB (override hanya jika beda)
-async function generateApacheConfigs() {
-  try {
-    const db = await dbPromise;
-    const [rows] = await db.query("SELECT web_ip, web_port FROM app_config LIMIT 1");
-    const webIp = rows.length > 0 ? rows[0].web_ip : "localhost";
-    const webPort = rows.length > 0 ? rows[0].web_port : 3000;
-
-    const apacheConf = `
-ServerName ${webIp}
-
-<VirtualHost *:${webPort}>
-    DocumentRoot "/var/www/html"
-    <Directory "/var/www/html">
-        Options Indexes FollowSymLinks
-        AllowOverride All
-        Require all granted
-        RewriteEngine On
-        RewriteCond %{REQUEST_URI} !^/api
-        RewriteCond %{REQUEST_FILENAME} !-f
-        RewriteCond %{REQUEST_FILENAME} !-d
-        RewriteRule . /index.html [L]
-    </Directory>
-
-    ProxyPreserveHost On
-    ProxyPass /api http://localhost:5000/api
-    ProxyPassReverse /api http://localhost:5000/api
-
-    ErrorLog \${APACHE_LOG_DIR}/error.log
-    CustomLog \${APACHE_LOG_DIR}/access.log combined
-</VirtualHost>
-`;
-
-    const portsConf = `
-Listen ${webPort}
-<IfModule ssl_module>
-    Listen 443
-</IfModule>
-<IfModule mod_gnutls.c>
-    Listen 443
-</IfModule>
-`;
-
-    let needUpdate = false;
-
-    // 🔹 Bandingkan config lama dengan target baru
-    if (fs.existsSync(apacheConfPath)) {
-      const currentConf = fs.readFileSync(apacheConfPath, "utf8");
-      if (!currentConf.includes(`*:${webPort}`) || !currentConf.includes(`ServerName ${webIp}`)) {
-        needUpdate = true;
-      }
-    } else {
-      needUpdate = true;
-    }
-
-    if (needUpdate) {
-      fs.writeFileSync(apacheConfPath, apacheConf);
-      fs.writeFileSync(apachePortsPath, portsConf);
-
-      // 🔹 Selalu override ServerName di apache2.conf
-      const apacheGlobalConf = "/etc/apache2/apache2.conf";
-      let globalConf = fs.readFileSync(apacheGlobalConf, "utf8");
-      globalConf = globalConf.replace(/ServerName\s+\S+/g, ""); // hapus kalau ada
-      globalConf += `\nServerName ${webIp}\n`;
-      fs.writeFileSync(apacheGlobalConf, globalConf);
-
-      exec("apachectl -k restart", (err) => {
-        if (err) console.error("❌ Gagal restart Apache:", err.message);
-        else console.log(`🔄 Apache restart dengan IP ${webIp}, port ${webPort}`);
-      });
-    } else {
-      console.log(`ℹ️ Apache config sudah sesuai (${webIp}:${webPort}), skip update.`);
-    }
-
-    return { webIp, webPort };
-  } catch (err) {
-    console.error("❌ generateApacheConfigs:", err);
-    return { webIp: "localhost", webPort: 3000 };
-  }
-}
-
-// 🔹 Setup CORS dinamis dari DB
+// 🔹 Setup CORS dinamis dari file JSON
 async function setupCors() {
-  const { webIp, webPort } = await generateApacheConfigs();
-  const allowedOrigins = [
-    `http://${webIp}:${webPort}`,
-    "http://192.168.0.8:89",
-    "http://10.221.102.192:89"
-  ];
+  let allowedOrigins = [];
+  try {
+    if (fs.existsSync(corsOriginsPath)) {
+      const originsJson = fs.readFileSync(corsOriginsPath, "utf8");
+      allowedOrigins = JSON.parse(originsJson);
+    } else {
+      // Fallback jika file tidak ada
+      allowedOrigins = ["http://localhost:3000"];
+      fs.writeFileSync(corsOriginsPath, JSON.stringify(allowedOrigins, null, 2));
+    }
+  } catch (error) {
+    console.error("❌ Gagal membaca atau membuat file CORS origins:", error);
+    allowedOrigins = ["http://localhost:3000"];
+  }
+
+  console.log("ℹ️ Origin CORS yang diizinkan:", allowedOrigins);
 
   app.use(cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) callback(null, true);
-      else callback(new Error("Origin tidak diizinkan: " + origin));
+      // Izinkan request tanpa origin (misal: dari Postman, curl)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`🚫 Origin ditolak: ${origin}`);
+        callback(new Error("Origin tidak diizinkan oleh CORS"));
+      }
     },
     credentials: true
   }));

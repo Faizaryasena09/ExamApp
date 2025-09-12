@@ -3,9 +3,7 @@ const path = require("path");
 const { exec } = require("child_process");
 const dbPromise = require("../models/database");
 
-const apacheConfPath = "/etc/apache2/sites-available/000-default.conf";
-const apachePortsPath = "/etc/apache2/ports.conf";
-const envPath = path.resolve(__dirname, "../.env")
+const corsOriginsPath = path.join(__dirname, "../cors_origins.json");
 
 const ensureUploadDir = () => {
   const dir = path.join(__dirname, "../public/uploads");
@@ -14,141 +12,40 @@ const ensureUploadDir = () => {
   }
 };
 
-// 🔹 Generator file Apache
-function generateApacheConf(webIp, webPort) {
-  return `
-ServerName ${webIp}
-
-LoadModule proxy_module modules/mod_proxy.so
-LoadModule proxy_http_module modules/mod_proxy_http.so
-LoadModule rewrite_module modules/mod_rewrite.so
-
-<VirtualHost *:${webPort}>
-    DocumentRoot "/var/www/html"
-
-    <Directory "/var/www/html">
-        Options Indexes FollowSymLinks
-        AllowOverride All
-        Require all granted
-        LimitRequestBody 104857600
-        RewriteEngine On
-        RewriteCond %{REQUEST_URI} !^/api
-        RewriteCond %{REQUEST_FILENAME} !-f
-        RewriteCond %{REQUEST_FILENAME} !-d
-        RewriteRule . /index.html [L]
-    </Directory>
-
-    ProxyPreserveHost On
-    ProxyPass /api http://localhost:5000/api
-    ProxyPassReverse /api http://localhost:5000/api
-
-    ErrorLog \${APACHE_LOG_DIR}/error.log
-    CustomLog \${APACHE_LOG_DIR}/access.log combined
-</VirtualHost>
-  `;
-}
-
-// Fungsi generate ports.conf
-function generatePortsConf(webPort) {
-  return `
-Listen ${webPort}
-<IfModule ssl_module>
-    Listen 443
-</IfModule>
-<IfModule mod_gnutls.c>
-    Listen 443
-</IfModule>
-  `;
-}
-
-// 🔹 Update Dockerfile EXPOSE
-function updateDockerExpose(webPort) {
-  if (!fs.existsSync(dockerfilePath)) return;
-
-  let dockerfileContent = fs.readFileSync(dockerfilePath, "utf8");
-
-  if (dockerfileContent.match(/^EXPOSE\s+\d+/m)) {
-    dockerfileContent = dockerfileContent.replace(/^EXPOSE\s+\d+/m, `EXPOSE ${webPort}`);
-  } else {
-    dockerfileContent += `\nEXPOSE ${webPort}\n`;
-  }
-
-  fs.writeFileSync(dockerfilePath, dockerfileContent);
-}
-
-exports.getAppConfig = (req, res) => {
+exports.getCorsConfig = (req, res) => {
   try {
-    const envPath = path.resolve(__dirname, "../.env");
-    const envFileContent = fs.readFileSync(envPath, { encoding: "utf8" });
-    const webIp = envFileContent.match(/^WEB_IP=(.*)$/m);
-    const webPort = envFileContent.match(/^WEB_PORT=(.*)$/m);
-
-    res.json({
-      webIp: webIp ? webIp[1] : "localhost",
-      webPort: webPort ? webPort[1] : "3000",
-    });
+    if (fs.existsSync(corsOriginsPath)) {
+      const originsJson = fs.readFileSync(corsOriginsPath, "utf8");
+      const origins = JSON.parse(originsJson);
+      res.json({ corsOrigins: origins });
+    } else {
+      res.json({ corsOrigins: ["http://localhost:3000"] });
+    }
   } catch (err) {
-    console.error("❌ getAppConfig:", err);
-    res.status(500).json({ message: "Gagal mengambil konfigurasi aplikasi", error: err.message });
+    console.error("❌ getCorsConfig:", err);
+    res.status(500).json({ message: "Gagal mengambil konfigurasi CORS", error: err.message });
   }
 };
 
-exports.updateAppConfig = async (req, res) => {
+exports.updateCorsConfig = async (req, res) => {
   try {
-    const { webIp, webPort } = req.body;
-    const envPath = path.resolve(__dirname, "../.env");
-    const db = await dbPromise;
+    const { corsOrigins } = req.body;
 
-    // 🔹 Simpan ke DB
-    const [rows] = await db.query("SELECT * FROM app_config LIMIT 1");
-    if (rows.length > 0) {
-      await db.query("UPDATE app_config SET web_ip = ?, web_port = ? WHERE id = ?", [
-        webIp, webPort, rows[0].id
-      ]);
-    } else {
-      await db.query("INSERT INTO app_config (web_ip, web_port) VALUES (?, ?)", [
-        webIp, webPort
-      ]);
+    if (!Array.isArray(corsOrigins)) {
+        return res.status(400).json({ message: "Format data tidak valid, harus berupa array." });
     }
 
-    // 🔹 Simpan ke .env
-    let envFileContent = fs.readFileSync(envPath, "utf8");
-    envFileContent = envFileContent
-      .replace(/^WEB_IP=.*$/m, `WEB_IP=${webIp}`)
-      .replace(/^WEB_PORT=.*$/m, `WEB_PORT=${webPort}`);
+    // Simpan ke file JSON
+    fs.writeFileSync(corsOriginsPath, JSON.stringify(corsOrigins, null, 2));
 
-    // Jika tidak ada, tambahkan
-    if (!envFileContent.includes("WEB_IP=")) {
-      envFileContent += `\nWEB_IP=${webIp}`;
-    }
-    if (!envFileContent.includes("WEB_PORT=")) {
-      envFileContent += `\nWEB_PORT=${webPort}`;
-    }
-
-    fs.writeFileSync(envPath, envFileContent);
-
-    // 🔹 Restart Apache2 dan PM2 (cocok untuk Docker container)
-    // Pastikan proses apache dan pm2 berjalan di container yang sama
-    const restartApache = () => {
-      return new Promise((resolve, reject) => {
-        exec('apachectl -k graceful', (error, stdout, stderr) => {
-          if (error) {
-            console.error("❌ Apache restart failed:", error);
-            reject({ error, stderr });
-          } else {
-            console.log("✅ Apache restarted successfully");
-            resolve(stdout);
-          }
-        });
-      });
-    };
-
+    // Restart PM2 untuk menerapkan perubahan CORS
     const restartPM2 = () => {
       return new Promise((resolve, reject) => {
-        exec('pm2 restart backend', (error, stdout, stderr) => {
+        exec('pm2 restart all', (error, stdout, stderr) => {
           if (error) {
-            console.warn("⚠️ PM2 restart failed, trying to start...");
-            exec('pm2 start /app/backend/server.js --name backend', (error2, stdout2, stderr2) => {
+            console.warn("⚠️ PM2 restart failed, trying to start...", stderr);
+            // Jika restart gagal (misal: proses belum ada), coba start
+            exec('pm2 restart all', (error2, stdout2, stderr2) => {
               if (error2) {
                 console.error("❌ PM2 start failed:", error2);
                 reject({ error: error2, stderr: stderr2 });
@@ -165,19 +62,17 @@ exports.updateAppConfig = async (req, res) => {
       });
     };
 
-    // Jalankan restart secara berurutan
-    await restartApache();
     await restartPM2();
 
     res.json({
-      message: `✅ Config tersimpan & Rushlesserver jalan di ${webIp}:${webPort}`,
-      restarted: ["apache2", "pm2-backend"]
+      message: `✅ Konfigurasi CORS berhasil disimpan dan server direstart.`,
+      restarted: ["pm2-backend"]
     });
 
   } catch (err) {
-    console.error("❌ updateAppConfig:", err);
+    console.error("❌ updateCorsConfig:", err);
     res.status(500).json({ 
-      message: "Gagal update config atau restart service", 
+      message: "Gagal update konfigurasi CORS atau restart service", 
       error: err.message 
     });
   }
