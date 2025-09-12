@@ -35,18 +35,15 @@ exports.checkUpdate = async (req, res) => {
 
     let localCommit = null;
 
-    // 2. Cek apakah file commit_hash.txt ada
     if (fs.existsSync(LOCAL_COMMIT_HASH_PATH)) {
       localCommit = fs.readFileSync(LOCAL_COMMIT_HASH_PATH, "utf8").trim();
     } else {
-      // 🔹 Kalau direktori /app/backend belum ada → buat dulu
       const dirPath = path.dirname(LOCAL_COMMIT_HASH_PATH);
       if (!fs.existsSync(dirPath)) {
         fs.mkdirSync(dirPath, { recursive: true });
         console.log(`[CHECK-UPDATE] Direktori ${dirPath} dibuat.`);
       }
 
-      // 🔹 Buat file commit_hash.txt baru
       fs.writeFileSync(LOCAL_COMMIT_HASH_PATH, remoteCommit, "utf8");
       console.log(`[CHECK-UPDATE] File ${LOCAL_COMMIT_HASH_PATH} dibuat dengan commit ${remoteCommit}`);
       return res.json({
@@ -57,7 +54,6 @@ exports.checkUpdate = async (req, res) => {
       });
     }
 
-    // 3. Bandingkan dengan versi remote
     res.json({
       updateAvailable: remoteCommit !== localCommit,
       localCommit,
