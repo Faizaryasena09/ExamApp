@@ -2,8 +2,14 @@ const jwt = require('jsonwebtoken');
 const db = require('../models/database'); // Impor koneksi database
 
 const verifyToken = (req, res, next) => {
+    let token;
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (authHeader) {
+        token = authHeader.split(' ')[1];
+    } else if (req.query.token) {
+        token = req.query.token;
+    }
 
     if (!token) {
         return res.status(401).json({ message: 'Token tidak ditemukan. Akses ditolak.' });

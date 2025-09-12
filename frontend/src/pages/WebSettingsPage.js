@@ -107,7 +107,13 @@ const WebSettingsPage = () => {
     setShowUpdateModal(true);
     setIsUpdating(true);
 
-    const sse = new EventSource(`${api.defaults.baseURL}/update/stream`);
+    const token = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("token="))
+      ?.split("=")[1];
+
+    const sseUrl = `${api.defaults.baseURL}/update/stream${token ? `?token=${token}` : ''}`;
+    const sse = new EventSource(sseUrl);
     sseRef.current = sse;
 
     sse.onmessage = (event) => {

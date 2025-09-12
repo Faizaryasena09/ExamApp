@@ -4,8 +4,8 @@ const updateController = require("../controllers/updateController");
 const authMiddleware = require("../middlewares/authMiddleware");
 const onlyRole = require("../middlewares/onlyRole");
 
-// Rute untuk streaming log pembaruan (diletakkan sebelum otentikasi)
-router.get("/stream", updateController.streamUpdateLogs);
+// Rute untuk streaming log pembaruan
+router.get("/stream", authMiddleware, updateController.streamUpdateLogs);
 
 // Semua rute di bawah ini memerlukan otentikasi dan peran admin
 router.use(authMiddleware);
