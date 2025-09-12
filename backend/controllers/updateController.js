@@ -91,6 +91,16 @@ exports.checkUpdate = async (req, res) => {
 };
 
 exports.installUpdate = async (req, res) => {
+  // Cek jika OS adalah Windows, karena skrip tidak kompatibel
+  if (process.platform === "win32") {
+    const errorMessage = "[ERROR] Proses update tidak dapat dijalankan di lingkungan Windows. Fitur ini hanya untuk lingkungan Docker (Linux).";
+    console.error(errorMessage);
+    // Kirim pesan error ke modal log dan hentikan
+    sendLogToClients(errorMessage);
+    sendLogToClients("__END__");
+    return res.status(400).json({ message: errorMessage });
+  }
+
   if (!GITHUB_PAT) {
     return res.status(500).json({ message: "GITHUB_PAT tidak diatur. Proses update tidak bisa dimulai." });
   }
