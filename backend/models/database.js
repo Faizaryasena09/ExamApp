@@ -238,6 +238,17 @@ ${DB_NAME}
       )
     `);
 
+    // Migrasi untuk menambahkan kolom `gunakan_pengaman`
+    try {
+      const [fields] = await pool.query("SHOW COLUMNS FROM courses LIKE 'gunakan_pengaman'");
+      if (fields.length === 0) {
+        await pool.query("ALTER TABLE courses ADD COLUMN gunakan_pengaman BOOLEAN NOT NULL DEFAULT FALSE");
+        console.log("✅ Kolom 'gunakan_pengaman' berhasil ditambahkan ke tabel 'courses'.");
+      }
+    } catch (migrationError) {
+      console.error("❌ Gagal menjalankan migrasi 'gunakan_pengaman':", migrationError.message);
+    }
+
      await pool.query(`
   CREATE TABLE IF NOT EXISTS app_config (
     id INT AUTO_INCREMENT PRIMARY KEY,
