@@ -122,14 +122,15 @@ echo "[UPDATE] Hash commit baru disimpan."
 rm -rf $UPDATE_DIR
 echo "[UPDATE] Direktori sementara dibersihkan."
 
-# 9. Restart service
-echo "[UPDATE] Me-restart PM2..."
-pm2 restart all
-
 echo "[UPDATE] Me-restart Apache..."
 apachectl -k graceful || service apache2 restart
 
 echo "[UPDATE] Proses pembaruan selesai!"
+
+# 9. Restart service
+echo "[UPDATE] Me-restart PM2..."
+pm2 restart all
+
 `;
 
   const child = exec(updateScript, (error, stdout, stderr) => {
