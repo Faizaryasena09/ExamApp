@@ -91,13 +91,7 @@ exports.checkUpdate = async (req, res) => {
 };
 
 exports.installUpdate = async (req, res) => {
-  
-
-  if (!GITHUB_PAT) {
-    return res.status(500).json({ message: "GITHUB_PAT tidak diatur. Proses update tidak bisa dimulai." });
-  }
-
-  // Segera kirim respons 202 Accepted ke client
+  // langsung balas ke client agar proses update bisa jalan di background
   res.status(202).json({ message: "Proses pembaruan dimulai..." });
 
   const updateScript = `
@@ -107,44 +101,53 @@ exports.installUpdate = async (req, res) => {
     rm -rf $UPDATE_DIR
     mkdir -p $UPDATE_DIR
     echo "[UPDATE] Direktori sementara dibuat di $UPDATE_DIR"
-    git clone --branch ${REPO_BRANCH} --single-branch ${GITHUB_URL_WITH_PAT} $UPDATE_DIR
+
+    git clone --branch ${REPO_BRANCH} --single-branch ${GITHUB_URL} $UPDATE_DIR
     if [ $? -ne 0 ]; then echo "[UPDATE-ERROR] Gagal melakukan git clone."; exit 1; fi
     echo "[UPDATE] Repositori berhasil di-clone."
+
     cd $UPDATE_DIR
     NEW_COMMIT_HASH=$(git rev-parse HEAD)
     cd - 
+
     echo "[UPDATE] Menginstal dependensi backend..."
-    cd $UPDATE_DIR/backend && npm install
+    cd $UPDATE_DIR/backend && npm install --legacy-peer-deps
     if [ $? -ne 0 ]; then echo "[UPDATE-ERROR] Gagal npm install di backend."; exit 1; fi
     echo "[UPDATE] Dependensi backend OK."
+
     echo "[UPDATE] Menginstal dependensi frontend..."
-    cd $UPDATE_DIR/frontend && npm install
+    cd $UPDATE_DIR/frontend && npm install --legacy-peer-deps
     if [ $? -ne 0 ]; then echo "[UPDATE-ERROR] Gagal npm install di frontend."; exit 1; fi
     echo "[UPDATE] Dependensi frontend OK."
+
     echo "[UPDATE] Mem-build aplikasi frontend..."
     npm run build
     if [ $? -ne 0 ]; then echo "[UPDATE-ERROR] Gagal mem-build frontend."; exit 1; fi
     echo "[UPDATE] Frontend berhasil di-build."
+
     echo "[UPDATE] Menyalin file backend baru..."
     rsync -a --delete $UPDATE_DIR/backend/ /app/backend/
     echo "[UPDATE] Menyalin file frontend baru..."
     rsync -a --delete $UPDATE_DIR/frontend/build/ /var/www/html/
+
     echo $NEW_COMMIT_HASH > ${LOCAL_COMMIT_HASH_PATH}
     echo "[UPDATE] Hash commit baru disimpan."
+
     echo "[UPDATE] Me-restart PM2..."
     pm2 restart all
+
     echo "[UPDATE] Me-restart Apache..."
     apachectl -k graceful || service apache2 restart
+
     rm -rf $UPDATE_DIR
     echo "[UPDATE] Proses pembaruan selesai!"
   `;
 
-  // Jalankan skrip dan stream outputnya
   const child = exec(updateScript);
 
-  // Kirim setiap baris dari stdout ke client SSE
-  child.stdout.on('data', (data) => {
-    data.toString().split('\n').forEach(line => {
+  // log stdout
+  child.stdout.on("data", (data) => {
+    data.toString().split("\n").forEach((line) => {
       if (line) {
         console.log(`[UPDATE-LOG] ${line}`);
         sendLogToClients(line);
@@ -152,9 +155,9 @@ exports.installUpdate = async (req, res) => {
     });
   });
 
-  // Kirim setiap baris dari stderr ke client SSE
-  child.stderr.on('data', (data) => {
-    data.toString().split('\n').forEach(line => {
+  // log stderr (error saja)
+  child.stderr.on("data", (data) => {
+    data.toString().split("\n").forEach((line) => {
       if (line) {
         console.error(`[UPDATE-LOG-ERR] ${line}`);
         sendLogToClients(`[ERROR] ${line}`);
@@ -162,11 +165,13 @@ exports.installUpdate = async (req, res) => {
     });
   });
 
-  // Kirim pesan akhir saat skrip selesai
-  child.on('close', (code) => {
-    const finalMessage = code === 0 ? "[SUCCESS] Proses pembaruan selesai! Anda mungkin perlu me-refresh halaman ini secara manual." : "[FAILED] Proses pembaruan gagal.";
+  child.on("close", (code) => {
+    const finalMessage =
+      code === 0
+        ? "[SUCCESS] Proses pembaruan selesai! Anda mungkin perlu me-refresh halaman ini secara manual."
+        : "[FAILED] Proses pembaruan gagal.";
     console.log(finalMessage);
     sendLogToClients(finalMessage);
-    sendLogToClients("__END__"); // Sinyal akhir stream
+    sendLogToClients("__END__");
   });
 };
