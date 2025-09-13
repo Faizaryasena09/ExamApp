@@ -6,19 +6,12 @@ const GITHUB_PAT = process.env.GITHUB_PAT;
 const GITHUB_REPO = "Faizaryasena09/ExamApp";
 const GITHUB_URL_WITH_PAT = `https://oauth2:${GITHUB_PAT}@github.com/${GITHUB_REPO}.git`;
 const REPO_BRANCH = "update";
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
 const GITHUB_URL = `https://github.com/${GITHUB_REPO}.git`;
-=======
 
-<<<<<<< HEAD
 // Tentukan URL: kalau ada PAT pakai private URL, kalau nggak ada pakai publik
 const GITHUB_URL = GITHUB_PAT
   ? `https://oauth2:${GITHUB_PAT}@github.com/${GITHUB_REPO}.git`
   : `https://github.com/${GITHUB_REPO}.git`;
->>>>>>> 8a14808ef797b22e72d6292fce43b20b0b68f548
->>>>>>> 8186995532442c22a811b7baa66e941905eddcac
 
 // Path ini mengasumsikan lokasi di dalam kontainer Docker
 const LOCAL_COMMIT_HASH_PATH = "/app/backend/commit_hash.txt";
