@@ -1,3 +1,0 @@
-GET http://localhost:5000/api/update/stream?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsIm5hbWUiOiJBZG1pbmlzdHJhdG9yIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzU3NjYyNTAyLCJleHAiOjE3NTc2NjM0MDJ9.1EhjG7h0c032PnFJnytkc7ItpTz4iVOZizmEqaD3Ay0 401 (Unauthorized)Understand this error
-WebSettingsPage.js:132 SSE Error: Event {isTrusted: true, type: 'error', target: EventSource, currentTarget: EventSource, eventPhase: 2, …}
-sse.onerror @ WebSettingsPage.js:132Understand this error
