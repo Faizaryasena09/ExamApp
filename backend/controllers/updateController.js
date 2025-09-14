@@ -102,7 +102,7 @@ exports.installUpdate = async (req, res) => {
     mkdir -p $UPDATE_DIR
     echo "[UPDATE] Direktori sementara dibuat di $UPDATE_DIR"
 
-    git clone --branch ${REPO_BRANCH} --single-branch ${GITHUB_URL} $UPDATE_DIR
+    git clone --branch ${REPO_BRANCH} --single-branch https://github.com/${GITHUB_REPO}.git $UPDATE_DIR
     if [ $? -ne 0 ]; then echo "[UPDATE-ERROR] Gagal melakukan git clone."; exit 1; fi
     echo "[UPDATE] Repositori berhasil di-clone."
 
