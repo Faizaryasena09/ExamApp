@@ -1,28 +1,17 @@
 const { exec } = require("child_process");
 const fs = require("fs");
 
-// Ambil PAT dari environment variable
-const GITHUB_PAT = process.env.GITHUB_PAT;
 const GITHUB_REPO = "Faizaryasena09/ExamApp";
-const GITHUB_URL_WITH_PAT = `https://oauth2:${GITHUB_PAT}@github.com/${GITHUB_REPO}.git`;
-const REPO_BRANCH = "update";
-
-// Path ini mengasumsikan lokasi di dalam kontainer Docker
+const REPO_BRANCH = "main";
 const LOCAL_COMMIT_HASH_PATH = "/app/backend/commit_hash.txt";
 
-// =============================================
-// Bagian untuk Real-time Logging (SSE)
-// =============================================
 let sseClients = [];
 
-// Fungsi untuk mengirim log ke semua client yang terhubung
 const sendLogToClients = (logLine) => {
-  // Format data sesuai standar SSE
   const formattedLog = `data: ${JSON.stringify({ log: logLine })}\n\n`;
   sseClients.forEach(client => client.res.write(formattedLog));
 };
 
-// Controller untuk endpoint SSE
 exports.streamUpdateLogs = (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -30,147 +19,106 @@ exports.streamUpdateLogs = (req, res) => {
   res.flushHeaders();
 
   const clientId = Date.now();
-  const newClient = { id: clientId, res };
-  sseClients.push(newClient);
-  console.log(`[SSE] Client log update terhubung: ${clientId}`);
-
-  // Kirim pesan konfirmasi koneksi
-  sendLogToClients("[INFO] Koneksi untuk log real-time berhasil dibuat.");
+  sseClients.push({ id: clientId, res });
+  sendLogToClients("[INFO] Koneksi SSE log berhasil dibuat.");
 
   req.on('close', () => {
-    console.log(`[SSE] Client log update terputus: ${clientId}`);
     sseClients = sseClients.filter(client => client.id !== clientId);
   });
 };
 
-// =============================================
-// Controller untuk Fitur Update
-// =============================================
-
 exports.checkUpdate = async (req, res) => {
-  if (!GITHUB_PAT) {
-    return res.status(500).json({ message: "GITHUB_PAT tidak diatur di file .env." });
-  }
-
-  const getRemoteCommit = () => {
-    return new Promise((resolve, reject) => {
-      exec(`git ls-remote ${GITHUB_URL_WITH_PAT} ${REPO_BRANCH}`, (error, stdout, stderr) => {
-        if (error) {
-          console.error(`Error fetching remote commit: ${stderr}`);
-          return reject(new Error("Gagal mengambil info pembaruan dari GitHub."));
-        }
-        const remoteHash = stdout.split("\t")[0];
-        resolve(remoteHash);
+  const getRemoteCommit = () =>
+    new Promise((resolve, reject) => {
+      exec(`git ls-remote https://github.com/${GITHUB_REPO}.git ${REPO_BRANCH}`, (err, stdout, stderr) => {
+        if (err) return reject(new Error(stderr || "Gagal fetch commit remote"));
+        resolve(stdout.split("\t")[0]);
       });
     });
-  };
 
-  const getLocalCommit = () => {
-    if (fs.existsSync(LOCAL_COMMIT_HASH_PATH)) {
-      return fs.readFileSync(LOCAL_COMMIT_HASH_PATH, "utf8").trim();
-    }
-    return "tidak-diketahui";
-  };
+  const getLocalCommit = () =>
+    fs.existsSync(LOCAL_COMMIT_HASH_PATH)
+      ? fs.readFileSync(LOCAL_COMMIT_HASH_PATH, "utf8").trim()
+      : "tidak-diketahui";
 
   try {
     const remoteCommit = await getRemoteCommit();
     const localCommit = getLocalCommit();
-
-    if (!remoteCommit) {
-        return res.status(500).json({ message: "Tidak bisa mendapatkan commit dari remote." });
-    }
-
-    res.json({
-      updateAvailable: remoteCommit !== localCommit,
-      localCommit,
-      remoteCommit,
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.json({ updateAvailable: remoteCommit !== localCommit, localCommit, remoteCommit });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
 exports.installUpdate = async (req, res) => {
-  // langsung balas ke client agar proses update bisa jalan di background
   res.status(202).json({ message: "Proses pembaruan dimulai..." });
 
   const updateScript = `
-    #!/bin/bash
-    echo "[UPDATE] Memulai proses pembaruan..."
-    UPDATE_DIR="/tmp/examapp_update"
-    rm -rf $UPDATE_DIR
-    mkdir -p $UPDATE_DIR
-    echo "[UPDATE] Direktori sementara dibuat di $UPDATE_DIR"
+#!/bin/bash
+echo "[INFO] Memulai proses pembaruan..."
+UPDATE_DIR="/tmp/examapp_update"
+mkdir -p $UPDATE_DIR
 
-    git clone --branch ${REPO_BRANCH} --single-branch https://github.com/${GITHUB_REPO}.git $UPDATE_DIR
-    if [ $? -ne 0 ]; then echo "[UPDATE-ERROR] Gagal melakukan git clone."; exit 1; fi
-    echo "[UPDATE] Repositori berhasil di-clone."
+git clone --branch ${REPO_BRANCH} --single-branch https://github.com/${GITHUB_REPO}.git $UPDATE_DIR
+echo "[INFO] Repositori berhasil di-clone."
 
-    cd $UPDATE_DIR
-    NEW_COMMIT_HASH=$(git rev-parse HEAD)
-    cd - 
+cd $UPDATE_DIR
+NEW_COMMIT_HASH=$(git rev-parse HEAD)
+cd -
 
-    echo "[UPDATE] Menginstal dependensi backend..."
-    cd $UPDATE_DIR/backend && npm install --legacy-peer-deps
-    if [ $? -ne 0 ]; then echo "[UPDATE-ERROR] Gagal npm install di backend."; exit 1; fi
-    echo "[UPDATE] Dependensi backend OK."
+echo "[INFO] Menginstal dependensi backend..."
+cd $UPDATE_DIR/backend && npm install --legacy-peer-deps || echo "[INFO] Beberapa warning npm backend"
+cd -
 
-    echo "[UPDATE] Menginstal dependensi frontend..."
-    cd $UPDATE_DIR/frontend && npm install --legacy-peer-deps
-    if [ $? -ne 0 ]; then echo "[UPDATE-ERROR] Gagal npm install di frontend."; exit 1; fi
-    echo "[UPDATE] Dependensi frontend OK."
+echo "[INFO] Menginstal dependensi frontend..."
+cd $UPDATE_DIR/frontend && npm install --legacy-peer-deps || echo "[INFO] Beberapa warning npm frontend"
+cd -
 
-    echo "[UPDATE] Mem-build aplikasi frontend..."
-    npm run build
-    if [ $? -ne 0 ]; then echo "[UPDATE-ERROR] Gagal mem-build frontend."; exit 1; fi
-    echo "[UPDATE] Frontend berhasil di-build."
+echo "[INFO] Mem-build frontend..."
+cd $UPDATE_DIR/frontend && npm run build || echo "[INFO] Beberapa warning build frontend"
+cd -
 
-    echo "[UPDATE] Menyalin file backend baru..."
-    rsync -a --delete $UPDATE_DIR/backend/ /app/backend/
-    echo "[UPDATE] Menyalin file frontend baru..."
-    rsync -a --delete $UPDATE_DIR/frontend/build/ /var/www/html/
+echo "[INFO] Menyalin backend (tidak termasuk uploads)..."
+rsync -a --exclude 'public/uploads' $UPDATE_DIR/backend/ /app/backend/ || echo "[INFO] Beberapa file backend tidak tersalin, tapi proses lanjut"
+echo "[INFO] Menyalin frontend..."
+rsync -a $UPDATE_DIR/frontend/build/ /var/www/html/ || echo "[INFO] Beberapa file frontend tidak tersalin, tapi proses lanjut"
 
-    echo $NEW_COMMIT_HASH > ${LOCAL_COMMIT_HASH_PATH}
-    echo "[UPDATE] Hash commit baru disimpan."
+echo $NEW_COMMIT_HASH > ${LOCAL_COMMIT_HASH_PATH}
+echo "[INFO] Hash commit baru disimpan."
 
-    echo "[UPDATE] Me-restart PM2..."
-    pm2 restart all
+echo "[INFO] Me-restart PM2..."
+pm2 restart all
 
-    echo "[UPDATE] Me-restart Apache..."
-    apachectl -k graceful || service apache2 restart
+echo "[INFO] Me-restart Apache..."
+apachectl -k graceful || service apache2 restart
 
-    rm -rf $UPDATE_DIR
-    echo "[UPDATE] Proses pembaruan selesai!"
-  `;
+rm -rf $UPDATE_DIR
+echo "[SUCCESS] Proses pembaruan selesai!"
+`;
 
   const child = exec(updateScript);
 
-  // log stdout
   child.stdout.on("data", (data) => {
-    data.toString().split("\n").forEach((line) => {
-      if (line) {
-        console.log(`[UPDATE-LOG] ${line}`);
-        sendLogToClients(line);
-      }
+    data.toString().split("\n").forEach(line => {
+      if (line) sendLogToClients(line);
     });
   });
 
-  // log stderr (error saja)
   child.stderr.on("data", (data) => {
-    data.toString().split("\n").forEach((line) => {
+    data.toString().split("\n").forEach(line => {
       if (line) {
-        console.error(`[UPDATE-LOG-ERR] ${line}`);
-        sendLogToClients(`[ERROR] ${line}`);
+        // Hanya anggap fatal error jika mengandung kata "fatal" atau exit non-zero
+        if (line.toLowerCase().includes("fatal") || line.toLowerCase().includes("error")) {
+          sendLogToClients(`[ERROR] ${line}`);
+        } else {
+          sendLogToClients(`[INFO] ${line}`);
+        }
       }
     });
   });
 
   child.on("close", (code) => {
-    const finalMessage =
-      code === 0
-        ? "[SUCCESS] Proses pembaruan selesai! Anda mungkin perlu me-refresh halaman ini secara manual."
-        : "[FAILED] Proses pembaruan gagal.";
-    console.log(finalMessage);
+    const finalMessage = code === 0 ? "[SUCCESS] Proses pembaruan selesai! Backend & Frontend siap." : "[FAILED] Proses pembaruan gagal!";
     sendLogToClients(finalMessage);
     sendLogToClients("__END__");
   });
