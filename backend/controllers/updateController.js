@@ -107,7 +107,6 @@ echo "[SUCCESS] Proses pembaruan selesai!"
   child.stderr.on("data", (data) => {
     data.toString().split("\n").forEach(line => {
       if (line) {
-        // Hanya anggap fatal error jika mengandung kata "fatal" atau exit non-zero
         if (line.toLowerCase().includes("fatal") || line.toLowerCase().includes("error")) {
           sendLogToClients(`[ERROR] ${line}`);
         } else {
