@@ -97,6 +97,23 @@ ${DB_NAME}
           ON UPDATE CASCADE
       )
     `);
+
+    // Migration for adding use_secure_app to courses
+    const [courseColumns] = await pool.query(`
+      SELECT * 
+      FROM information_schema.COLUMNS 
+      WHERE TABLE_SCHEMA = ? 
+      AND TABLE_NAME = 'courses' 
+      AND COLUMN_NAME = 'use_secure_app'
+    `, [DB_NAME]);
+
+    if (courseColumns.length === 0) {
+      await pool.query(`
+        ALTER TABLE courses
+        ADD COLUMN use_secure_app BOOLEAN DEFAULT FALSE
+      `);
+      console.log("✅ Migrasi berhasil: Kolom 'use_secure_app' ditambahkan ke tabel 'courses'.");
+    }
     
     await pool.query(`
       CREATE TABLE IF NOT EXISTS student_work_log (

@@ -70,7 +70,7 @@ function shuffleArray(array) {
       nama, kelas, tanggal_mulai, tanggal_selesai, waktu, deskripsi,
       maxPercobaan, tampilkanHasil, useToken, tokenValue,
       acakSoal, acakJawaban, minWaktuSubmit,
-      logPengerjaan, analisisJawaban
+      logPengerjaan, analisisJawaban, use_secure_app
     } = req.body;
   
     try {
@@ -92,7 +92,8 @@ function shuffleArray(array) {
           acakJawaban = ?,
           minWaktuSubmit = ?,
           logPengerjaan = ?,           -- ✅
-          analisisJawaban = ?          -- ✅
+          analisisJawaban = ?,          -- ✅
+          use_secure_app = ?
         WHERE id = ?`,
         [
           nama,
@@ -111,6 +112,7 @@ function shuffleArray(array) {
           parseInt(minWaktuSubmit) || 0,
           !!logPengerjaan,
           !!analisisJawaban,
+          !!use_secure_app,
           courseId
         ]
       );

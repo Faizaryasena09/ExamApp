@@ -40,6 +40,7 @@ function ManageCoursePage() {
     minWaktuSubmitValue: "",
     logPengerjaan: false,
     analisisJawaban: false,
+    use_secure_app: false,
   });
 
   const [soalList, setSoalList] = useState([]);
@@ -86,7 +87,8 @@ function ManageCoursePage() {
         minWaktuSubmit: Boolean(c.minWaktuSubmit && c.minWaktuSubmit > 0),
         minWaktuSubmitValue: c.minWaktuSubmit ? String(c.minWaktuSubmit) : "",
         logPengerjaan: Boolean(c.logPengerjaan),
-        analisisJawaban: Boolean(c.analisisJawaban),      
+        analisisJawaban: Boolean(c.analisisJawaban),
+        use_secure_app: Boolean(c.use_secure_app),
       });
     } catch (err) {
       console.error("❌ Gagal ambil course:", err);
@@ -140,6 +142,7 @@ function ManageCoursePage() {
       minWaktuSubmit: form.minWaktuSubmit ? parseInt(form.minWaktuSubmitValue) : 0,
       logPengerjaan: form.logPengerjaan,
       analisisJawaban: form.analisisJawaban,
+      use_secure_app: form.use_secure_app,
     };
   
     try {
@@ -582,6 +585,17 @@ function ManageCoursePage() {
               <div className="space-y-4 pt-4 border-t">
                 <h3 className="text-base font-medium text-gray-800">Opsi Tambahan</h3>
                 
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    name="use_secure_app"
+                    checked={form.use_secure_app}
+                    onChange={handleChange}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="ml-3 text-sm text-gray-800">Gunakan Aplikasi Pengaman (Wajib)</span>
+                </label>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <label className="flex items-center">
                     <input

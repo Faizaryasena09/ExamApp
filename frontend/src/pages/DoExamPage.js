@@ -44,6 +44,35 @@ function DoExamPage() {
   const [courseTitle, setCourseTitle] = useState("");
   const [pgQuestions, setPgQuestions] = useState([]);
   const [essayQuestions, setEssayQuestions] = useState([]);
+  const [isLoadingAccess, setIsLoadingAccess] = useState(true);
+  const [isAccessAllowed, setIsAccessAllowed] = useState(false);
+
+  useEffect(() => {
+    const verifyAccess = async () => {
+      try {
+        const courseRes = await api.get(`/courses/${id}`);
+        const needsSecureApp = courseRes.data.use_secure_app;
+
+        if (needsSecureApp) {
+          const isSecure = navigator.userAgent.includes('ExamBrowser/');
+          if (isSecure) {
+            setIsAccessAllowed(true);
+          } else {
+            setIsAccessAllowed(false);
+          }
+        } else {
+          setIsAccessAllowed(true);
+        }
+      } catch (error) {
+        console.error("Gagal memverifikasi akses course:", error);
+        setIsAccessAllowed(false);
+      } finally {
+        setIsLoadingAccess(false);
+      }
+    };
+
+    verifyAccess();
+  }, [id]);
   
   const currentSoal = soalList[currentIndex];
   
@@ -52,8 +81,6 @@ function DoExamPage() {
     ? JSON.parse(currentSoal.opsi) 
     : currentSoal.opsi || []
   ) : [];
-  
-  
 
   useEffect(() => {
     const checkTokenRequirement = async () => {
@@ -244,10 +271,8 @@ function DoExamPage() {
       if (data.user_id && data.user_id.toString() === currentUserId) {
         console.log("SSE 'unlock' received for current user. Closing app.");
         if (window.chrome && window.chrome.webview) {
-          // Kirim pesan unlock dalam format JSON yang benar
           window.chrome.webview.postMessage({ type: 'unlock' });
         }
-        // Handle React Native WebView jika ada
         if (window.ReactNativeWebView) {
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'unlock' }));
         }
@@ -257,7 +282,7 @@ function DoExamPage() {
     return () => {
       sse.close();
     };
-  }, []); // Run only once
+  }, []);
 
   useEffect(() => {
     if (showStartModal) return;
@@ -276,8 +301,8 @@ function DoExamPage() {
       }
     };
 
-    updateUserSessionStatus(); // Initial update
-    const intervalId = setInterval(updateUserSessionStatus, 15000); // every 15 seconds
+    updateUserSessionStatus();
+    const intervalId = setInterval(updateUserSessionStatus, 15000);
 
     return () => {
       clearInterval(intervalId);
@@ -562,9 +587,6 @@ useEffect(() => {
   attemptNow
 ]);
 
-  
-    
-  
   const submitJawabanUjian = async () => {
     try {
       const user_id = Cookies.get("user_id");
@@ -666,7 +688,6 @@ useEffect(() => {
     const attemptId = await submitJawabanUjian();
   
     if (attemptId != null) {
-      // Hapus timer lokal dan backend
       localStorage.removeItem(`timer-${userId}-${courseId}`);
       try {
         await api.delete("/answertrail/timer-delete", { params: { user_id: userId, course_id: courseId } });
@@ -674,7 +695,6 @@ useEffect(() => {
         console.warn("❌ Gagal hapus timer di backend:", err.message);
       }
   
-      // Update status ujian di backend
       try {
         await api.post("/exam/status", { user_id: userId, course_id: courseId, status: "Tidak Sedang mengerjakan" });
       } catch (err) {
@@ -701,7 +721,6 @@ useEffect(() => {
             window.chrome.webview.postMessage({ type: 'unlock' });
           }
         } else {
-          // Fallback untuk browser biasa
           navigate(hasilPath || '/', { replace: true });
         }
 
@@ -812,6 +831,35 @@ useEffect(() => {
     return waktuSisa <= minWaktuSubmit * 60;
   };   
 
+  if (isLoadingAccess) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-50 text-gray-600">
+        <ImSpinner2 className="animate-spin text-2xl mr-3" />
+        Memverifikasi akses ujian...
+      </div>
+    );
+  }
+
+  if (!isAccessAllowed) {
+    return (
+      <div className="min-h-screen flex flex-col justify-center items-center bg-gray-100">
+        <div className="bg-white p-8 rounded-lg shadow-md text-center">
+          <FiAlertTriangle className="text-red-500 mx-auto text-5xl mb-4" />
+          <h1 className="text-2xl font-bold text-red-700 mb-2">Akses Ditolak</h1>
+          <p className="text-gray-600 max-w-sm">
+            Ujian ini diwajibkan untuk dibuka menggunakan aplikasi pengaman khusus. Silakan buka aplikasi tersebut dan coba lagi.
+          </p>
+          <button
+            onClick={() => navigate("/courses")}
+            className="mt-6 px-5 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700"
+          >
+            Kembali ke Daftar Ujian
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (blocked) {
     return (
       <div className="min-h-screen flex flex-col justify-center items-center">
@@ -879,17 +927,14 @@ useEffect(() => {
                     return;
                   }
 
-                  // ✅ Update status user ke backend
                   await api.post("/exam/status", {
                     user_id,
                     course_id: courseId,
                     status: `Mengerjakan - ${courseTitle}`,
                   });
 
-                  // ✅ Redirect ke halaman ujian biasa
                   navigate(`/courses/${courseId}/do`);
 
-                  // ✅ Tutup modal jika ada
                   setShowStartModal(false);
                 } catch (err) {
                   console.error("❌ Gagal memulai ujian:", err);
@@ -1141,7 +1186,7 @@ useEffect(() => {
         </div>
       )}
     </div>
-  );  
+  );
 }
 
 export default DoExamPage;

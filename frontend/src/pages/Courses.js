@@ -174,8 +174,6 @@ function CoursesPage() {
       const { data: status } = await api.get(`/courses/${courseId}/status?user=${userId}`);
       if (status.sudahMaksimal) return toast.error("❌ Kesempatan Anda sudah habis.");
 
-      const isWindows = /Windows/i.test(navigator.userAgent);
-
       if (status.useToken) {
         setSelectedCourseId(courseId);
         setTokenInput("");
@@ -187,10 +185,14 @@ function CoursesPage() {
           status: `Mengerjakan - ${course.nama || course.title}`,
         });
 
-        if (isWindows) {
-          launchRushlessSafer(courseId);
+        if (course.use_secure_app) {
+          const isWindows = /Windows/i.test(navigator.userAgent);
+          if (isWindows) {
+            launchRushlessSafer(courseId);
+          } else {
+            toast.error("Ujian ini wajib menggunakan aplikasi pengaman Windows.");
+          }
         } else {
-          toast.warn("Aplikasi ujian aman hanya tersedia untuk Windows. Anda akan diarahkan ke browser biasa.");
           navigate(`/courses/${courseId}/do`);
         }
       }
@@ -218,19 +220,23 @@ function CoursesPage() {
   
         toast.success("✅ Token valid! Memulai ujian...");
         setShowTokenModal(false);
-  
-        const isWindows = /Windows/i.test(navigator.userAgent);
-  
+
+        const { data: course } = await api.get(`/courses/${selectedCourseId}`);
+
         await api.post("/exam/status", {
           user_id: userId,
           course_id: selectedCourseId,
-          status: `Mengerjakan - ${res.data.title || res.data.nama || "Ujian"}`,
+          status: `Mengerjakan - ${course.nama || course.title}`,
         });
-  
-        if (isWindows) {
-          launchRushlessSafer(selectedCourseId);
+
+        if (course.use_secure_app) {
+          const isWindows = /Windows/i.test(navigator.userAgent);
+          if (isWindows) {
+            launchRushlessSafer(selectedCourseId);
+          } else {
+            toast.error("Ujian ini wajib menggunakan aplikasi pengaman Windows.");
+          }
         } else {
-          toast.warn("Aplikasi ujian aman hanya tersedia untuk Windows. Anda akan diarahkan ke browser biasa.");
           navigate(`/courses/${selectedCourseId}/do`);
         }
       } else {
@@ -327,7 +333,6 @@ function CoursesPage() {
   };
 
   const filteredCourses = courses.filter((course) => {
-    // An exam course must have a time limit (waktu). Lesson courses do not.
     const isExamCourse = course.waktu && course.waktu > 0;
 
     const matchKelas =
