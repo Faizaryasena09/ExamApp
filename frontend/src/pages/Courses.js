@@ -156,7 +156,10 @@ function CoursesPage() {
     const encodedUrl = encodeURIComponent(targetUrl);
     const encodedCookies = encodeURIComponent(allCookies);
 
-    const protocolUrl = `rushless-safer:?url=${encodedUrl}&cookies=${encodedCookies}`;
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const protocolUrl = isAndroid
+      ? `rushless-safer://exam?url=${encodedUrl}&cookies=${encodedCookies}`
+      : `rushless-safer:?url=${encodedUrl}&cookies=${encodedCookies}`;
 
     toast.success("🔒 Meluncurkan Aplikasi Ujian Aman...");
     window.location.href = protocolUrl;
@@ -187,10 +190,11 @@ function CoursesPage() {
 
         if (course.use_secure_app) {
           const isWindows = /Windows/i.test(navigator.userAgent);
-          if (isWindows) {
+          const isAndroid = /Android/i.test(navigator.userAgent);
+          if (isWindows || isAndroid) {
             launchRushlessSafer(courseId);
           } else {
-            toast.error("Ujian ini wajib menggunakan aplikasi pengaman Windows.");
+            toast.error("Ujian ini wajib menggunakan aplikasi pengaman Windows atau Android.");
           }
         } else {
           navigate(`/courses/${courseId}/do`);

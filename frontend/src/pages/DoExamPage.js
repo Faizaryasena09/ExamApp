@@ -272,9 +272,8 @@ function DoExamPage() {
         console.log("SSE 'unlock' received for current user. Closing app.");
         if (window.chrome && window.chrome.webview) {
           window.chrome.webview.postMessage({ type: 'unlock' });
-        }
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'unlock' }));
+        } else if (window.Android) {
+          window.Android.postMessage(JSON.stringify({ type: 'unlock' }));
         }
       }
     });

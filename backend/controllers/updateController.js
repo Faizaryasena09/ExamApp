@@ -86,11 +86,11 @@ rsync -a $UPDATE_DIR/frontend/build/ /var/www/html/ || echo "[INFO] Beberapa fil
 echo $NEW_COMMIT_HASH > ${LOCAL_COMMIT_HASH_PATH}
 echo "[INFO] Hash commit baru disimpan."
 
-echo "[INFO] Me-restart PM2..."
-pm2 restart all
-
 echo "[INFO] Me-restart Apache..."
 apachectl -k graceful || service apache2 restart
+
+echo "[INFO] Me-restart PM2..."
+pm2 restart all
 
 rm -rf $UPDATE_DIR
 echo "[SUCCESS] Proses pembaruan selesai!"
