@@ -60,8 +60,15 @@ exports.installUpdate = async (req, res) => {
 #!/bin/bash
 echo "[INFO] Memulai proses pembaruan..."
 UPDATE_DIR="/tmp/examapp_update"
+
+# Hapus folder update lama agar tidak konflik
+if [ -d "$UPDATE_DIR" ]; then
+  echo "[INFO] Menghapus folder update lama..."
+  rm -rf "$UPDATE_DIR"
+fi
 mkdir -p $UPDATE_DIR
 
+echo "[INFO] Clone repo terbaru..."
 git clone --branch ${REPO_BRANCH} --single-branch https://github.com/${GITHUB_REPO}.git $UPDATE_DIR
 echo "[INFO] Repositori berhasil di-clone."
 
@@ -100,11 +107,14 @@ echo "[INFO] Hash commit baru disimpan."
 echo "[INFO] Me-restart Apache..."
 apachectl -k graceful || service apache2 restart
 
-echo "[INFO] Me-restart PM2..."
-pm2 restart all
-
 rm -rf $UPDATE_DIR
-echo "[SUCCESS] Proses pembaruan selesai!"
+
+# Sukses ditampilkan sebelum restart PM2
+echo "[SUCCESS] Proses pembaruan selesai! Menunggu restart PM2..."
+
+# Restart PM2 setelah log sukses
+sleep 5
+pm2 restart all
 `;
 
   const child = exec(updateScript);
@@ -130,7 +140,7 @@ echo "[SUCCESS] Proses pembaruan selesai!"
   child.on("close", (code) => {
     const finalMessage =
       code === 0
-        ? "[SUCCESS] Proses pembaruan selesai! Backend & Frontend siap."
+        ? "[INFO] Restart PM2 sudah dijalankan setelah update sukses."
         : "[FAILED] Proses pembaruan gagal!";
     sendLogToClients(finalMessage);
     sendLogToClients("__END__");
