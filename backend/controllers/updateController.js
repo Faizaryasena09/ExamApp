@@ -13,16 +13,16 @@ const sendLogToClients = (logLine) => {
 };
 
 exports.streamUpdateLogs = (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
 
   const clientId = Date.now();
   sseClients.push({ id: clientId, res });
   sendLogToClients("[INFO] Koneksi SSE log berhasil dibuat.");
 
-  req.on('close', () => {
+  req.on("close", () => {
     sseClients = sseClients.filter(client => client.id !== clientId);
   });
 };
@@ -30,10 +30,13 @@ exports.streamUpdateLogs = (req, res) => {
 exports.checkUpdate = async (req, res) => {
   const getRemoteCommit = () =>
     new Promise((resolve, reject) => {
-      exec(`git ls-remote https://github.com/${GITHUB_REPO}.git ${REPO_BRANCH}`, (err, stdout, stderr) => {
-        if (err) return reject(new Error(stderr || "Gagal fetch commit remote"));
-        resolve(stdout.split("\t")[0]);
-      });
+      exec(
+        `git ls-remote https://github.com/${GITHUB_REPO}.git ${REPO_BRANCH}`,
+        (err, stdout, stderr) => {
+          if (err) return reject(new Error(stderr || "Gagal fetch commit remote"));
+          resolve(stdout.split("\t")[0]);
+        }
+      );
     });
 
   const getLocalCommit = () =>
@@ -78,9 +81,17 @@ echo "[INFO] Mem-build frontend..."
 cd $UPDATE_DIR/frontend && npm run build || echo "[INFO] Beberapa warning build frontend"
 cd -
 
-echo "[INFO] Menyalin backend (tidak termasuk uploads)..."
+echo "[INFO] Menghapus backend lama kecuali uploads..."
+rm -rf /app/backend/* /app/backend/.[!.]* /app/backend/..?* || true
+mkdir -p /app/backend/public/uploads
+
+echo "[INFO] Menyalin backend baru..."
 rsync -a --exclude 'public/uploads' $UPDATE_DIR/backend/ /app/backend/ || echo "[INFO] Beberapa file backend tidak tersalin, tapi proses lanjut"
-echo "[INFO] Menyalin frontend..."
+
+echo "[INFO] Menghapus frontend lama..."
+rm -rf /var/www/html/* /var/www/html/.[!.]* /var/www/html/..?* || true
+
+echo "[INFO] Menyalin frontend baru..."
 rsync -a $UPDATE_DIR/frontend/build/ /var/www/html/ || echo "[INFO] Beberapa file frontend tidak tersalin, tapi proses lanjut"
 
 echo $NEW_COMMIT_HASH > ${LOCAL_COMMIT_HASH_PATH}
@@ -117,7 +128,10 @@ echo "[SUCCESS] Proses pembaruan selesai!"
   });
 
   child.on("close", (code) => {
-    const finalMessage = code === 0 ? "[SUCCESS] Proses pembaruan selesai! Backend & Frontend siap." : "[FAILED] Proses pembaruan gagal!";
+    const finalMessage =
+      code === 0
+        ? "[SUCCESS] Proses pembaruan selesai! Backend & Frontend siap."
+        : "[FAILED] Proses pembaruan gagal!";
     sendLogToClients(finalMessage);
     sendLogToClients("__END__");
   });
