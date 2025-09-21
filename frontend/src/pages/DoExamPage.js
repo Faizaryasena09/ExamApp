@@ -763,8 +763,9 @@ const handleSelesaiUjian = async () => {
         console.log(`[Bridge] Redirecting to ${hasilFullUrl}`);
         sendToBridge({ type: 'redirect', url: hasilFullUrl });
       } else {
-        console.log("[Bridge] Unlocking without redirect.");
-        sendToBridge({ type: 'unlock' });
+        const homeUrl = window.location.origin + '/';
+        console.log("[Bridge] No results page, redirecting to Home: " + homeUrl);
+        sendToBridge({ type: 'redirect', url: homeUrl });
       }
 
       // Browser fallback
@@ -773,8 +774,9 @@ const handleSelesaiUjian = async () => {
       }
 
     } catch (err) {
-      console.error("❌ Gagal cek hasil, unlocking as fallback:", err.message);
-      sendToBridge({ type: 'unlock' });
+      console.error("❌ Gagal cek hasil, redirecting to home as fallback:", err.message);
+      const homeUrl = window.location.origin + '/';
+      sendToBridge({ type: 'redirect', url: homeUrl });
       if (!window.Android && !(window.chrome && window.chrome.webview)) {
         navigate(`/`, { replace: true });
       }
@@ -782,8 +784,9 @@ const handleSelesaiUjian = async () => {
 
   } catch (err) {
     console.error("❌ Error in handleSelesaiUjian:", err.message);
-    sendToBridge({ type: 'unlock' });
-    alert("Terjadi kesalahan. Aplikasi akan ditutup.");
+    const homeUrl = window.location.origin + '/';
+    sendToBridge({ type: 'redirect', url: homeUrl });
+    alert("Terjadi kesalahan. Aplikasi akan diarahkan ke homepage.");
   } finally {
     setLoadingSubmit(false);
   }
@@ -1209,9 +1212,13 @@ const handleSelesaiUjian = async () => {
               </button>
   
               <button
-                onClick={() => {
+                onClick={async () => {
                   setLoadingSubmit(true);
-                  handleSelesaiUjian(); // Dijalankan tanpa 'await' agar UI tidak stuck saat app ditutup
+                  try {
+                    await handleSelesaiUjian();
+                  } finally {
+                    setLoadingSubmit(false);
+                  }
                 }}
                 disabled={loadingSubmit}
                 className={`px-6 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 ${
