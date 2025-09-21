@@ -1209,13 +1209,9 @@ const handleSelesaiUjian = async () => {
               </button>
   
               <button
-                onClick={async () => {
+                onClick={() => {
                   setLoadingSubmit(true);
-                  try {
-                    await handleSelesaiUjian();
-                  } finally {
-                    setLoadingSubmit(false);
-                  }
+                  handleSelesaiUjian(); // Dijalankan tanpa 'await' agar UI tidak stuck saat app ditutup
                 }}
                 disabled={loadingSubmit}
                 className={`px-6 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 ${
