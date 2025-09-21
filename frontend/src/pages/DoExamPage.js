@@ -1211,8 +1211,11 @@ const handleSelesaiUjian = async () => {
               <button
                 onClick={async () => {
                   setLoadingSubmit(true);
-                  await handleSelesaiUjian();
-                  setLoadingSubmit(false);
+                  try {
+                    await handleSelesaiUjian();
+                  } finally {
+                    setLoadingSubmit(false);
+                  }
                 }}
                 disabled={loadingSubmit}
                 className={`px-6 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 ${
