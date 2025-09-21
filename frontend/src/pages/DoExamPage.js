@@ -681,65 +681,108 @@ useEffect(() => {
     fetchCourseConfig();
   }, [id]);  
 
-  const handleSelesaiUjian = async () => {
-    setLoadingSubmit(true);
-  
+  const sendToBridge = (message) => {
+  const maxRetries = 12; // Maks 12x coba (6 detik total)
+  let attempts = 0;
+
+  const trySend = () => {
+    // Untuk Android
+    if (window.Android && typeof window.Android.postMessage === 'function') {
+      console.log(`[Bridge] ✅ Android bridge ready. Sending:`, message);
+      window.Android.postMessage(JSON.stringify(message));
+      return true;
+    }
+
+    // Untuk WebView2 / Windows
+    if (window.chrome && window.chrome.webview && typeof window.chrome.webview.postMessage === 'function') {
+      console.log(`[Bridge] ✅ WebView2 bridge ready. Sending:`, message);
+      window.chrome.webview.postMessage(message);
+      return true;
+    }
+
+    // Jika belum siap, coba lagi
+    if (attempts < maxRetries) {
+      attempts++;
+      console.warn(`[Bridge] ⏳ Bridge not ready, retry ${attempts}/${maxRetries}...`);
+      setTimeout(trySend, 500);
+    } else {
+      console.error(`[Bridge] ❌ Failed to send after ${maxRetries} attempts.`);
+      // Tampilkan notifikasi ke user sebagai fallback
+      alert("Aplikasi tidak bisa menutup diri otomatis. Silakan tekan tombol Unlock manual di pojok kanan atas.");
+    }
+  };
+
+  trySend();
+};
+
+const handleSelesaiUjian = async () => {
+  setLoadingSubmit(true);
+
+  try {
     const attemptId = await submitJawabanUjian();
-  
+
     if (attemptId != null) {
       localStorage.removeItem(`timer-${userId}-${courseId}`);
+      
       try {
         await api.delete("/answertrail/timer-delete", { params: { user_id: userId, course_id: courseId } });
       } catch (err) {
         console.warn("❌ Gagal hapus timer di backend:", err.message);
       }
-  
+
       try {
         await api.post("/exam/status", { user_id: userId, course_id: courseId, status: "Tidak Sedang mengerjakan" });
       } catch (err) {
         console.error("❌ Gagal update status:", err.message);
       }
-  
+
       try {
         const res = await api.get(`/jawaban/show-result`, { params: { course_id: courseId } });
         const { tampilkan_hasil, analisis_jawaban } = res.data;
-  
+
         const hasilPath = analisis_jawaban
           ? `/courses/${courseId}/${userId}/${attemptId}/hasil`
           : tampilkan_hasil
           ? `/courses/${courseId}/${userId}/${attemptId}/summary`
           : null;
 
-        if (window.chrome && window.chrome.webview) {
-          if (hasilPath) {
-            const hasilFullUrl = window.location.origin + hasilPath;
-            console.log(`Redirecting to ${hasilFullUrl} and closing.`);
-            window.chrome.webview.postMessage({ type: 'redirect', url: hasilFullUrl });
-          } else {
-            console.log("Unlocking without redirect.");
-            window.chrome.webview.postMessage({ type: 'unlock' });
-          }
+        if (hasilPath) {
+          const hasilFullUrl = window.location.origin + hasilPath;
+          console.log(`[Bridge] Redirecting to ${hasilFullUrl}`);
+          sendToBridge({ type: 'redirect', url: hasilFullUrl });
         } else {
+          console.log("[Bridge] Unlocking without redirect.");
+          sendToBridge({ type: 'unlock' });
+        }
+
+        // Untuk browser biasa (non-app)
+        if (!window.Android && !(window.chrome && window.chrome.webview)) {
           navigate(hasilPath || '/', { replace: true });
         }
 
       } catch (err) {
         console.error("❌ Gagal cek hasil, unlocking as fallback:", err.message);
-        if (window.chrome && window.chrome.webview) {
-          window.chrome.webview.postMessage({ type: 'unlock' });
+        sendToBridge({ type: 'unlock' });
+
+        // Fallback untuk browser biasa
+        if (!window.Android && !(window.chrome && window.chrome.webview)) {
+          navigate(`/`, { replace: true });
         }
-        navigate(`/`, { replace: true });
       }
-  
+
     } else {
       alert("❌ Gagal menyimpan jawaban. Aplikasi akan ditutup.");
-      if (window.chrome && window.chrome.webview) {
-        window.chrome.webview.postMessage({ type: 'unlock' });
-      }
+      sendToBridge({ type: 'unlock' });
     }
-  
+
+  } catch (err) {
+    console.error("❌ Error in handleSelesaiUjian:", err.message);
+    sendToBridge({ type: 'unlock' });
+    alert("Terjadi kesalahan. Aplikasi akan ditutup.");
+  } finally {
     setLoadingSubmit(false);
-  };  
+  }
+};
 
   const formatWaktu = (detik) => {
     if (typeof detik !== 'number' || isNaN(detik) || detik < 0) detik = 0;
